@@ -1,0 +1,6 @@
+* text=auto
+*.png binary
+*.bin binary
+*.ico binary
+*.sh text eol=lf
+*.py text eol=lf

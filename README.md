@@ -4,6 +4,13 @@
 > código, las herramientas y la documentación se desarrollan de forma asistida por IA, con revisión y verificación humanas
 > (por ejemplo, comparando cuadro a cuadro contra MAME).
 
+> **English summary:** SF2Recomp statically recompiles the Motorola 68000 program of *Street Fighter II: The World Warrior*
+> (Capcom CPS1, World 910522) into portable C, in the spirit of N64Recomp. It runs natively on macOS, Linux, Windows and the
+> browser (WebAssembly), and is frame-exact against MAME 0.289 on fourteen full playthroughs. **No ROMs or Capcom assets are
+> included**: you supply your own `sf2.zip` (MAME `sf2` set), and the recompiler generates the C code at build time on your
+> machine. Build instructions are below (in Spanish); `make ROMDIR=/path/to/sf2.zip` is the short version. This project is
+> developed with AI assistance (Claude). MIT licensed, excluding anything derived from the ROMs.
+
 Recompilación estática del programa 68000 de *Street Fighter II: The World Warrior* (Capcom CPS1, World 910522) a C
 portable, al estilo de N64Recomp. El jugador aporta sus propias ROMs: el repositorio solo contiene herramientas,
 recompilador, núcleo, aplicación y documentación (`docs/DECISIONES.md`, D5).
@@ -156,6 +163,14 @@ web: hito 5 (`docs/bitacora/2026-10-19-hito5-rendimiento.md`), no se ha vuelto a
 ## Documentación
 
 `docs/PLAN.md` (hitos), `docs/DECISIONES.md` (D1-D52), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
+
+## Contribuir
+
+- Antes de enviar cambios, corre `make test` (necesita tus ROMs en `ROMDIR`).
+- **Nunca subas ROMs, ni código generado a partir de ellas, ni capturas del juego** (`sf2/`, `generated/`, `*.bin`, `*.zip` y
+  `docs/capturas-*/` están en `.gitignore` por esto; ver `docs/DECISIONES.md`, D5).
+- Los mods deben poder apagarse y dejar el juego idéntico a MAME.
+- Cada paso importante se anota en `docs/bitacora/`.
 
 ## Licencia
 
