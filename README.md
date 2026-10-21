@@ -24,6 +24,7 @@ en los comandos de sonido y en las capturas comparadas, gracias al reloj exacto 
 sin un solo salto a código no recompilado. Sin avisos de ASan/UBSan, sin fugas ni crecimiento de memoria en una hora de juego y
 con estados que reproducen la partida exacta. Hoja de ruta y estado del proyecto en `docs/PLAN.md`; cada paso tiene su entrada
 en `docs/bitacora/`.
+Después del hito 6 se añadieron los mods (pantalla ancha, ultraancho, HFR, entrenamiento): ver «Mods y mejoras» y `docs/MODS.md`.
 
 ## Qué necesitas
 
@@ -131,10 +132,12 @@ secuencia), `python3 tools/playgen.py --verify tools/sequences/*.txt` (CRC de lo
 (`cmake -S . -B build-asan -DSF2_SANITIZE=address,undefined`). Las secuencias nuevas se generan con `tools/playgen.py`
 (`tools/sequences/README.md`).
 
-## Entrenamiento
+## Mods y mejoras
 
-`build/sf2 --training` enciende un modo de entrenamiento (sin límite de tiempo, barras que se recuperan, J2 como dummy con guion, visor de entradas y
-cajas de golpe; teclas `7`/`8`/`9`, o la página *Entrenamiento* del menú **M**). Apagado, el juego sigue siendo idéntico a MAME. Detalles en `docs/ENTRENAMIENTO.md`.
+Además de correr el juego tal cual, el port trae mods que se activan desde el menú **M**, con teclas, con opciones de línea de comandos o en `sf2recomp.ini`. **Apagados, el juego es idéntico a MAME.**
+Solo presentación: **pantalla ancha** real (512 px = 16:9 sin estirar, hasta 800), **HUD en los bordes** y **HFR** (120/144/240 Hz por interpolación, sin acelerar el juego). Cambian el juego: **lógica ancha**, **stage completo** para monitores ultraanchos
+(`mods/ultrawide-3440.ini`), las **herramientas de desarrollo de Capcom** (`--dev-tool`) y el **modo entrenamiento** (`--training`: sin límite de tiempo, barras que se recuperan, J2 como dummy con guion, visor de entradas y cajas de golpe; teclas `7`/`8`/`9`).
+Catálogo y cómo activar cada uno en `docs/MODS.md`; el menú en `docs/MENU.md`; detalle en `docs/WIDESCREEN.md`, `docs/ULTRAWIDE.md`, `docs/HFR.md` y `docs/ENTRENAMIENTO.md`.
 
 ## Estructura
 
@@ -144,15 +147,16 @@ sf2/, sf2.zip              ROMs del usuario (no se versionan)
 tools/                     intercalado de ROMs, análisis, MAME local, scripts Lua y comparadores, guiones de instalación y de Docker,
                            jugador automático (playgen.py), cobertura (coverage.py) y las secuencias (tools/sequences/)
 recompiler/                generador de C (68000 → C) y su sub-proyecto nativo para compilaciones cruzadas
-runtime/                   el núcleo, sin llamadas al sistema: CPU, memoria, máquina, vídeo, sonido, ROMs, estados (sf2.h)
+runtime/                   el núcleo, sin llamadas al sistema: CPU, memoria, máquina, vídeo, sonido, ROMs, estados, mod de entrenamiento (sf2.h)
 platform/                  archivos, ROMs desde zip o carpeta, PNG, WAV y configuración (sin SDL)
-app/                       el juego: SDL3 (ventana, teclado, mandos, audio) y la página web (app/web)
+app/                       el juego: SDL3 (ventana, teclado, mandos, audio, menú y visores) y la página web (app/web)
 harness/                   arneses de validación con Musashi (sf2_lockstep, sf2_blind)
 tests/                     pruebas de ctest
 third_party/               Musashi (MIT, solo validación) y ymfm (BSD-3, YM2151)
 docker/                    imágenes de Linux y de Wine para las pruebas (sin código ni ROMs)
 external/                  herramientas locales: MAME, CMake, Emscripten, llvm-mingw (no se versiona)
-docs/                      plan, decisiones, referencias, revisiones y bitácora
+docs/                      plan, decisiones, mods, menú, referencias, revisiones y bitácora
+mods/                      perfiles .ini para monitores ultraanchos (--config mods/ultrawide-3440.ini)
 build/, build-web/, build-win/   árboles de compilación (no se versionan)
 ```
 
@@ -169,7 +173,7 @@ web: hito 5 (`docs/bitacora/2026-10-19-hito5-rendimiento.md`), no se ha vuelto a
 
 ## Documentación
 
-`docs/PLAN.md` (hitos), `docs/DECISIONES.md` (D1-D52), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
+`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D60), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
 
 ## Contribuir
 

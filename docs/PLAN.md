@@ -1,6 +1,6 @@
 # Plan: de la ROM de SF2 (CPS1) a código portable
 
-Última actualización: 2026-10-20 (cierre del hito 6: cobertura y robustez; comprobado también en Linux, Windows y wasm)
+Última actualización: 2026-10-21 (hito 6 cerrado el 2026-10-20; después, los mods: ver «Después del hito 6: mods y mejoras»)
 
 ## Objetivo
 
@@ -260,8 +260,23 @@ resto (entrada `2026-10-20-hito6-plataformas`).
   `.deb`); GCC ≥ 15 y MSVC (sin `musttail`).
 - La capa de estrellas y el volteo de pantalla (D24); DIVU/DIVS con la temporización exacta (el juego no ejecuta su único DIVU).
 - Rendimiento opcional: sonido (ymfm, Z80 interpretado), la llamada a `rt_hook` por instrucción, recompilar el Z80.
-- Extensiones del plan original: netplay con rollback (los estados exactos y deterministas ya lo permitirían), mods;
-  limpieza del código generado para leerlo como fuente.
+- Extensiones del plan original: netplay con rollback (los estados exactos y deterministas ya lo permitirían);
+  limpieza del código generado para leerlo como fuente. Los mods ya están hechos (sección siguiente).
+
+## Después del hito 6: mods y mejoras (2026-10-20 y 21)
+
+Sobre el núcleo validado se añadieron interruptores que, apagados, dejan el juego idéntico a MAME (`make compare-video` 17/17, CRC de las 14 secuencias, `make test`). Catálogo en `docs/MODS.md`.
+
+| Mod | Decisiones | Documento | Bitácora |
+|---|---|---|---|
+| Pantalla ancha, relleno de extremos, HUD en los bordes, pantallas fijas, lógica ancha | D53-D58 | `WIDESCREEN.md` | `mod-widescreen-*` |
+| Stage completo (ultraancho) | D59 | `ULTRAWIDE.md` | `ultrawide-*` |
+| HFR (interpolación de render) | — | `HFR.md` | `mod-hfr-fase-0/1/2` |
+| Herramientas de desarrollo de Capcom | — | `HERRAMIENTAS_DEV.md` | — |
+| Menú del juego | — | `MENU.md` | — |
+| Modo entrenamiento, visores y cajas de golpe | D60 | `ENTRENAMIENTO.md`, `HITBOXES.md` | `2026-10-21-mod-entrenamiento` |
+
+Pendiente: ver los límites de cada mod en `docs/MODS.md` y la lista de ideas con su estado en `docs/MEJORAS.md`.
 
 ## Riesgos y mitigaciones
 

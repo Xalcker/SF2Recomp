@@ -1,6 +1,18 @@
 # Ideas de mejora y mods para el port
 
-Fecha: 2026-10-20. Estado: propuestas, nada implementado todavía.
+Fecha: 2026-10-20 (propuesta original); estado actualizado el 2026-10-21. Lo ya hecho está descrito en `MODS.md`; este documento conserva las ideas y su razonamiento.
+
+| Idea | Estado |
+|---|---|
+| 0. Base de mods y overlay | **Hecho de forma distinta:** cada mod es un interruptor del núcleo (`sf2.h`) con teclas, `.ini` y menú; los visores se dibujan en el anfitrión (`app/main.c`). No existe el `mods.toml` ni `runtime/mods/`; el gancho por cuadro está en `runtime/training.c` |
+| 1. Modo entrenamiento | **Parcial** (`ENTRENAMIENTO.md`): sin tiempo, barras que se recuperan, dummy con guion y modos fijos, versus automático. Faltan reinicio de posiciones, grabar y reproducir entradas y medidor de daño y combo |
+| 2. Visor de entradas | **Hecho** (historial en notación numérica absoluta, palanca y botones). Faltan los contadores de ventanas de movimiento especial y las opciones de posición y opacidad |
+| 3. Menú integrado | **Parcial** (`MENU.md`): mods, vídeo, sonido, controles, entrenamiento y guardado. Los dipswitches se cambian en el `.ini` (`[dip]`); sin perfiles ni acceso al menú de servicio |
+| 4. Más FPS | **Hecho** como interpolación de render (`HFR.md`); sin modo VRR ni run-ahead; Web pendiente |
+| 5. Hitboxes, frame data y repeticiones | **Parcial:** visor de cajas (`HITBOXES.md`). Faltan frame data, repeticiones deterministas y rebobinado (los estados guardados ya existen) |
+| Ideas menores | **Hecha** la pantalla ancha con relleno (`WIDESCREEN.md`). Pendientes: filtros CRT, selección de jefes, estadísticas, modo torneo, vibración |
+
+El texto de abajo es el de la propuesta original.
 
 Estas ideas aprovechan que el juego ya corre como C nativo sobre una capa CPS1
 propia: tenemos acceso directo a la RAM del juego, a las entradas y al

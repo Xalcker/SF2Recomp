@@ -650,3 +650,14 @@ No hay estado guardado propio: se puede alternar en caliente. Límites: no se ha
 los objetos de escenario que el juego solo coloca cerca de la cámara original se ven donde el juego los pone; los bonus conservan sus puntos
 de aparición.
 
+## D60 (2026-10-21): Mod de entrenamiento como gancho de VBlank en el núcleo, con los visores en el anfitrión
+
+El modo entrenamiento (`docs/ENTRENAMIENTO.md`) necesita tocar la RAM y las entradas del juego y dibujar datos propios. Decisiones: (1) el gancho está en el núcleo
+(`runtime/training.c`, llamado desde `on_vblank` de `sf2.c`, que ahora se instala siempre) y actúa justo antes de entregar la IRQ2, el punto donde el juego lee las entradas;
+así es determinista y portable (Web incluida) y no depende del anfitrión. (2) Las entradas del anfitrión se guardan tal cual (`host_in`) y el mod calcula las que ve el
+juego: con `lock_p2` descarta las de J2 y mete las del dummy; el versus automático suma monedas y START1+START2 en el título. (3) El núcleo no dibuja: entrega el historial de entradas
+y la lista de cajas (`sf2_training_history`, `sf2_training_boxes`) y `app/main.c` los pinta con la resolución de la ventana, sin tocar la imagen del juego ni el estado. (4) Interruptor
+doble: `enabled` (cambia el juego) y `track_inputs` (solo registra); con ambos a 0 no se toca nada y la partida es idéntica a MAME, comprobado con el CRC de estado
+(`test_training`) y con `compare-video` 17/17. (5) Direcciones: temporizador `0xFF8ACE` (BCD) y su subcontador `0xFF8ACF` (30 → 1; fijar solo el temporizador deja el marcador en 98),
+vida `jugador+0x30` (máximo 0x90); el formato de las cajas lo documenta `docs/HITBOXES.md`. (6) El dummy `block` se basa en los botones que pulsa J1 y no en que su ataque esté activo. No es
+parte del estado guardado.

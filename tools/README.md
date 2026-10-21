@@ -279,6 +279,10 @@ python3 tools/playgen.py --verify tools/sequences/*.txt                         
 python3 tools/playgen.py --resume salida.txt.partial --char ... --out salida.txt      # sigue una partida interrumpida
 ```
 
+### hitbox_probe.py y sf2py (mods)
+
+`hitbox_probe.py` lee las cajas de golpe y de daño de una secuencia en un cuadro con la especificación de `docs/HITBOXES.md` y las dibuja sobre la captura (`python3 -I tools/hitbox_probe.py --seq tools/sequences/ryu.txt --frame 1708 --out caja.png [--list] [--zoom 2]`). `sf2py` (biblioteca para ctypes) expone además `sf2py_training` y `sf2py_training_history` para probar el mod de entrenamiento (`docs/ENTRENAMIENTO.md`) desde Python.
+
 ### coverage.py
 
 `make coverage` corre todas las secuencias a ciegas en `sf2_blind` **sin red de seguridad de Musashi** y escribe

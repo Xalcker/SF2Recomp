@@ -39,6 +39,7 @@ plataforma está en `sf2_port.h` con un `_Static_assert` por supuesto.
 | `state.c` | `StateStream`: un solo recorrido de campos para guardar y cargar, little-endian |
 | `machine.c` | la máquina (antes en `harness/`): planificador de la IRQ2, ganchos, **`machine_step`** (ejecución por cuadros con cesión por `longjmp`, D39), estado guardable; sin instancia global, el `M68K` es el primer miembro de `Machine` |
 | `dispatch.c` | `rt_lookup`: tabla de despacho dirección → función generada (va en la biblioteca del código generado) |
+| `training.c` | mod de entrenamiento: tiempo, barras, dummy con guion, versus automático, historial de entradas y cajas de golpe (después del hito 6) |
 | `sf2.c` / `sf2.h` | fachada: `sf2_create(RomSet)`, `sf2_set_input`, `sf2_run_frame`, `sf2_frame`, `sf2_audio`, `sf2_state_save/load`, `sf2_reset` |
 
 ### Fachada `sf2.h`
@@ -211,12 +212,12 @@ Renderizador calcado de `cps1_v.cpp` (decisión D21). `Video` guarda la tabla de
   la tabla queda encima de las siguientes (bit 31 implícito de `prio_transpen`).
 - `video_encode_png(v, &buf, &len)` / `png_encode_rgb` (`png.c`): PNG RGB de 8 bits sin dependencias (zlib "stored")
   en memoria; `platform/hostio.c` lo escribe a archivo.
-- Pantalla ancha (D53): `video_set_width(v, w)` / `sf2_set_video_width` fijan el ancho del cuadro entregado (384 a 512, par; 384
-  = apagada y todo idéntico a MAME). `video_scene_wide` decide por la RAM del juego (0xFF8001/05/09 y 0xFF86C6) si la escena
-  se ensancha (combate con oponente: presentación de ronda, pelea, victoria y recuento); las demás se dibujan en 384 y se
-  centran con barras negras, así que el ancho del cuadro no cambia entre escenas. `Video.w` es el ancho entregado y
+- Pantalla ancha (D53, D56, D57): `video_set_width(v, w)` / `sf2_set_video_width` fijan el ancho del cuadro entregado (384 a `SF2_SCREEN_W_MAX` = 800, par; 384
+  = apagada y todo idéntico a MAME). `video_scene_wide` decide por la RAM del juego (0xFF8001/05/09) si la escena
+  se ensancha (combate, bonus y demostración: presentación de ronda, pelea, victoria y recuento); las demás se dibujan en 384 y se
+  centran con barras del color del fondo, así que el ancho del cuadro no cambia entre escenas. `Video.w` es el ancho entregado y
   `rw`/`rx0` la geometría del último cuadro; los sprites que cruzan la X 512 reaparecen por la izquierda. El ancho no es parte del
-  estado guardado. Plan y límites (fondos en los extremos de cámara) en `docs/WIDESCREEN.md`.
+  estado guardado. Cómo está hecha y sus límites en `docs/WIDESCREEN.md`.
 - Lógica ancha (D58): `sf2_set_wide_logic` pone `cpu.mod_wide` (píxeles extra por lado) y los parches de `recompiler/mod_patches.txt`
   (aplicados por `gen_c.py`) lo usan en las paredes de los objetos y en la cámara; 0 = juego original, idéntico por CRC de estado.
 - HUD en los bordes (D55): `video_set_hud_edges` / `sf2_set_hud_edges`; con la vista ancha mueve ±64 px las ranuras 0-63 y los
@@ -224,6 +225,9 @@ Renderizador calcado de `cps1_v.cpp` (decisión D21). `Video` guarda la tabla de
 - Relleno de extremos (D54): con la vista ancha, `art_run_find` / `fill_row_cols` buscan en la RAM gráfica el hueco del anillo de
   64 columnas de SCROLL2/3 y lo rellenan, fila a fila, con las columnas de arte reflejadas, solo fuera de la ventana de la
   recreativa (crudas 64-447); `Gfx.blank` marca los tiles transparentes.
+- HFR (`docs/HFR.md`): `Video.prev` / `Video.cur` (`VideoSnap`) guardan dos instantáneas por VBlank y `sf2_render_interp(s, t256)` dibuja entre ambas; ni la partida ni el audio cambian.
+- Stage completo (D59): `sf2_set_stage_full` pone `cpu.mod_fixcam` y `mod_wide`; `Video.xsigned` lee la X de los sprites con signo (`docs/ULTRAWIDE.md`).
+- Mod de entrenamiento (`training.c`, `training_priv.h`, `training.h`, `docs/ENTRENAMIENTO.md`): `on_vblank` de `sf2.c` llama a `training_vblank` justo antes de entregar la IRQ2; retoca el temporizador (`0xFF8ACE/F`), la vida (`jugador+0x30`) y las entradas manuales (`cps.manual_in*`), y calcula el historial de entradas y las cajas (`training_boxes`, `docs/HITBOXES.md`). Fachada: `sf2_training_set/get/history/pad/boxes`. Apagado (`enabled = 0`, `track_inputs = 0`) no toca nada. Fuera del estado guardado.
 - No implementado: capa de estrellas y volteo de pantalla (SF2 no los usa, D24; aviso si se activara).
 - Depuración: `Video.layer_mask` dibuja solo las capas pedidas (bit 0 sprites, bits 1-3 SCROLL1-3); `sf2_blind` lo
   rellena desde `SF2_VIDEO_LAYERS` (el núcleo ya no lee el entorno).

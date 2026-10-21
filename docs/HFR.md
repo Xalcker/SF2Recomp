@@ -1,6 +1,6 @@
 # HFR · más de 60 cuadros por segundo (tercer mod, solo de presentación)
 
-Fecha: 2026-10-20. Estado: **fases 0, 1 y 2 hechas (2026-10-20); falta la prueba de juego y la fase 3.** Regla de siempre: con el mod apagado, juego idéntico a MAME.
+Fecha: 2026-10-20. Estado: **implementado (fases 0 a 2) y probado jugando en un MacBook de 120 Hz** (correcciones en §5); activar con **F1**, `hfr = true`, `--hfr` o el menú **M**. Pendiente: la versión Web y una revisión sostenida a 240 Hz. Resumen de todos los mods en `MODS.md`. Regla de siempre: con el mod apagado, juego idéntico a MAME.
 
 ## 1. Qué se puede y qué no
 
@@ -21,7 +21,7 @@ Fecha: 2026-10-20. Estado: **fases 0, 1 y 2 hechas (2026-10-20); falta la prueba
 
 Conclusión: la identidad de ranura es lo bastante estable para interpolar posición; lo que cambia de forma se queda como está. Con movimientos de 1-4 px por cuadro y píxeles enteros, a 120 Hz la ganancia es sobre todo en cámara y movimientos rápidos; a 240 Hz se ven pasos de medio píxel en lo lento (hay que redondear, nunca difuminar).
 
-## 3. Plan por fases
+## 3. Fases (hechas)
 
 ### Fase 0 · Estado anterior y actual (HECHA)
 `Video` guarda dos instantáneas por VBlank: tabla de objetos, X/Y de las tres capas, desplazamiento de filas (`rowscroll`) y paleta. La RAM de tiles se usa siempre la actual.

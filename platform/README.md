@@ -16,13 +16,18 @@ los arneses de validación, las herramientas y las pruebas. Es C estándar con s
 Formato del archivo (se crea con los valores por omisión la primera vez, ver `docs/bitacora/2026-10-19-hito5-configuracion-y-estados.md`):
 
 ```ini
-[video]   scale = 3   aspect = pixel | 4:3   fullscreen   integer_scale   smooth   vsync   widescreen   wide_width = 512   hud = center | edges   wide_logic
+[video]   scale = 3   aspect = pixel | 4:3   fullscreen   integer_scale   smooth   vsync   hfr
+          widescreen   wide_width = 512   hud = center | edges   wide_logic   stage_full        (mods: docs/MODS.md)
 [audio]   enabled   volume = 0..100   rate = 48000
 [dip]     difficulty = 0..7 (3 = normal)   coin_a / coin_b = 4c1c ... 1c6c   free_play   two_coins_to_start
           demo_sounds   allow_continue   freeze   test_mode
+[training] enabled   infinite_time   refill = off | delay | always   refill_delay = 60   lock_p2   auto_vs
+          dummy = stand | crouch | jump | block | block_crouch | walk_forward | walk_back | script   script = "d:30 df:3 f+lp:2 n:30"
+          show_inputs   show_hitboxes                                                   (docs/ENTRENAMIENTO.md)
 [paths]   rom = /ruta/sf2.zip   state_dir = ...
 [keys]    p1_up = Up ...  (hasta cuatro nombres de tecla de SDL por acción, separados por comas)
 [pad]     p1_lp = x ...   (botones de mando de SDL; lefttrigger / righttrigger valen como botones)
 [hotkeys] save_state = F5   load_state = F7   slot_prev = F6   slot_next = F8   pause = P   fast_forward = Tab
-          fullscreen = F11   screenshot = F12   reset = F10   quit = Escape
+          fullscreen = F11   screenshot = F12   reset = F10   quit = Escape   menu = M   widescreen = F9   wide_logic = F3
+          stage_full = F4   hfr = F1   training = 7   show_inputs = 8   show_hitboxes = 9
 ```
