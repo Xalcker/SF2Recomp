@@ -1,0 +1,18 @@
+# ROMs y cualquier derivado del programa original (ver docs/DECISIONES.md, D5)
+sf2/
+*.bin
+*.rom
+generated/
+# sistema y build
+.DS_Store
+build/
+build-*/
+*.zip
+*.7z
+roms/
+# MAME compilado localmente y otras dependencias externas
+external/
+# capturas de pantalla del juego (gráficos de Capcom)
+docs/capturas-*/
+__pycache__/
+*.pyc

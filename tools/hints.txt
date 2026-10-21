@@ -1,0 +1,18 @@
+# tools/hints.txt - correcciones manuales del análisis estático (D12).  Las relee tools/analyze.py (y gen_c.py).
+#   entry ADDR        punto de entrada de función que el análisis no ve (puntero a código en RAM, por ejemplo)
+#   label ADDR        etiqueta despachable dentro de una función
+#   table_end BASE FIN  la tabla de salto que empieza en BASE termina en FIN (primera dirección fuera de ella)
+#
+# Hito 6 (bitácora 2026-10-19-hito6-correcciones.md): tablas de saltos .w sobreextendidas, encontradas al recorrer
+# el juego entero y con el listado de conflictos de tools/coverage.py.  Cada una tiene una "entrada" que cae a mitad
+# de una instrucción ya decodificada o en un código de operación inválido; el código vecino es correcto.
+table_end 01d486 01d48a     # 2 entradas; las siguientes apuntarían a 0x1D716 (0x7F38, opcode inválido)
+table_end 01d50c 01d510     # 2 entradas; las siguientes apuntarían a 0x1D79C (0x7F14, opcode inválido)
+table_end 02052e 02053a     # 6 entradas; la 7.ª apuntaría a 0x205CE, a mitad de bcs.w 0x205CC
+table_end 02febe 02fec8     # 5 entradas; la 6.ª apuntaría a 0x33ADC, a mitad de move.w 0x33ADA
+table_end 01d3fa 01d3fe     # 2 entradas; las siguientes apuntarían a 0x1D68A (datos: el código termina en 0x1D68E)
+table_end 0378a4 0378c4     # 16 entradas; la 17.ª apuntaría a 0x3C2D2, en una zona de datos
+table_end 08803e 08804a     # 6 entradas (herramientas de desarrollo); la 7.ª apuntaría a 0x880E6, a mitad de bsr.w 0x880E4
+#
+# Rutinas que leen un texto en línea tras el bsr y vuelven detrás de él (el análisis lee el texto y no lo decodifica).
+inline_text 08a284          # imprime texto en la RAM gráfica (herramientas de desarrollo ocultas, 0x87ABA-0x8A2C8)

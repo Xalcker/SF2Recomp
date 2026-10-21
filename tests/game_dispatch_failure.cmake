@@ -1,0 +1,35 @@
+# Hito 6: un salto a una direccion sin codigo recompilado no es un fallo silencioso.  El juego (sin ventana) se detiene,
+# lo dice por stderr, deja errores.log en la carpeta del perfil con el destino, el origen y el remedio, y el ultimo
+# estado bueno, que se carga con --load-state y sigue jugando.
+#   cmake -DGAME=... -DROMSRC=... -DOUT=... -P game_dispatch_failure.cmake
+file(REMOVE_RECURSE "${OUT}")
+file(MAKE_DIRECTORY "${OUT}")
+set(ENV{SDL_VIDEODRIVER} dummy)
+set(ENV{SDL_AUDIODRIVER} dummy)
+execute_process(COMMAND "${GAME}" "${ROMSRC}" --quiet --nothrottle --mute --config "${OUT}/sf2.ini" --frames 2000
+                --debug-jump 1300:000102 RESULT_VARIABLE rc ERROR_VARIABLE err OUTPUT_QUIET)
+if(rc EQUAL 0)
+  message(FATAL_ERROR "el juego termino bien tras saltar a una direccion sin codigo")
+endif()
+if(NOT err MATCHES "salto a 000102")
+  message(FATAL_ERROR "stderr no dice a donde salto: ${err}")
+endif()
+file(GLOB logs "${OUT}/errores.log")
+if(NOT logs)
+  message(FATAL_ERROR "no hay errores.log en ${OUT}")
+endif()
+file(READ "${OUT}/errores.log" log)
+if(NOT log MATCHES "destino 000102" OR NOT log MATCHES "entry 000102")
+  message(FATAL_ERROR "errores.log incompleto: ${log}")
+endif()
+file(GLOB_RECURSE states "${OUT}/*fallo_cuadro*.sta")
+list(LENGTH states nstates)
+if(NOT nstates EQUAL 1)
+  message(FATAL_ERROR "se esperaba un estado de rescate (${states})")
+endif()
+execute_process(COMMAND "${GAME}" "${ROMSRC}" --quiet --nothrottle --mute --config "${OUT}/sf2.ini" --frames 1500
+                --load-state "${states}" RESULT_VARIABLE rc ERROR_VARIABLE err2 OUTPUT_QUIET)
+if(NOT rc EQUAL 0)
+  message(FATAL_ERROR "el estado de rescate no sirve para seguir (${rc}): ${err2}")
+endif()
+message(STATUS "game_dispatch_failure: fallo registrado en errores.log y estado de rescate ${states} utilizable")

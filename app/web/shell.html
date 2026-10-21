@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SF2Recomp</title>
+<style>
+  :root { color-scheme: dark; --bg:#14161a; --panel:#1d2026; --line:#2e333b; --text:#e6e8eb; --dim:#9aa3ad; --accent:#ffb000; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 2px; } .sub { color:var(--dim); margin:0 0 14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin:12px 0; }
+  #drop { border:2px dashed var(--line); border-radius:10px; padding:28px 16px; text-align:center; }
+  #drop.over { border-color: var(--accent); background:#262219; }
+  button, .btn { background:#2a2f37; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
+  button:hover:enabled, .btn:hover { border-color:var(--accent); } button:disabled { opacity:.5; cursor:default; }
+  #game { display:none; } #game.on { display:block; }
+  canvas { display:block; margin:0 auto; width:100% !important; max-width:1152px; height:auto !important; aspect-ratio:384/224; background:#000;
+           image-rendering: pixelated; outline: none; border-radius:6px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  #status { color:var(--dim); } #fatal { white-space:pre-wrap; color:#ff8a80; display:none; font-family: ui-monospace, Menlo, monospace; font-size:13px; }
+  table { border-collapse:collapse; } td,th { padding:3px 14px 3px 0; text-align:left; font-weight:normal; } th { color:var(--dim); }
+  kbd { background:#2a2f37; border:1px solid var(--line); border-radius:4px; padding:0 6px; font:12px ui-monospace, Menlo, monospace; }
+  textarea { width:100%; height:260px; background:#101216; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; font:12px/1.4 ui-monospace, Menlo, monospace; }
+  .note { color:var(--dim); font-size:13px; } summary { cursor:pointer; }
+</style>
+</head>
+<body>
+<main>
+  <h1>SF2Recomp <span class="note">Street Fighter II: The World Warrior (CPS1) recompilado a C y WebAssembly</span></h1>
+  <p class="sub">Un solo código fuente en macOS, Linux, Windows y el navegador. Necesitas tu propia copia de las ROMs.</p>
+
+  <section class="card" id="picker">
+    <div id="drop">
+      <p><strong>Elige tu <code>sf2.zip</code></strong> (el del set <em>sf2</em> de MAME, World 910522) o arrástralo aquí.</p>
+      <p><label class="btn">Elegir archivo… <input id="file" type="file" accept=".zip,application/zip" hidden disabled></label></p>
+      <p class="note">El archivo se lee en tu navegador y no se envía a ningún servidor. Esta página no incluye ROMs.
+        Este <em>build</em> se generó a partir de tus ROMs (el programa del 68000 va traducido dentro del .wasm): es para tu uso personal, no lo publiques.</p>
+    </div>
+    <p id="status">Cargando el emulador…</p>
+    <p id="fatal"></p>
+    <div class="row" id="retry" style="display:none"><button id="reload">Elegir otro archivo</button></div>
+  </section>
+
+  <section id="game">
+    <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+    <div class="row">
+      <button id="fs">Pantalla completa</button>
+      <span class="note">Haz clic en la imagen para dar el foco al teclado. Los estados y la configuración se guardan en este navegador (IndexedDB).</span>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Controles</summary>
+    <table>
+      <tr><th>Jugador 1</th><td>flechas · <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd> puñetazos · <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> patadas · <kbd>5</kbd> moneda · <kbd>1</kbd> start</td></tr>
+      <tr><th>Jugador 2</th><td><kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> · <kbd>R</kbd><kbd>T</kbd><kbd>Y</kbd> puñetazos · <kbd>F</kbd><kbd>G</kbd><kbd>H</kbd> patadas · <kbd>6</kbd> moneda · <kbd>2</kbd> start</td></tr>
+      <tr><th>Mando</th><td>cruceta o stick · <kbd>X</kbd> <kbd>Y</kbd> <kbd>R1</kbd> puñetazos · <kbd>A</kbd> <kbd>B</kbd> <kbd>R2</kbd> patadas · Back moneda · Start start (mando 1 = jugador 1, mando 2 = jugador 2)</td></tr>
+      <tr><th>Estados</th><td><kbd>F5</kbd> guardar · <kbd>F7</kbd> cargar · <kbd>F6</kbd>/<kbd>F8</kbd> ranura anterior/siguiente</td></tr>
+      <tr><th>Otros</th><td><kbd>P</kbd> pausa · <kbd>Tab</kbd> avance rápido · <kbd>F10</kbd> reiniciar · <kbd>F12</kbd> captura · <kbd>F11</kbd> pantalla completa</td></tr>
+    </table>
+  </details>
+
+  <details class="card" id="cfgbox">
+    <summary>Configuración (dipswitches, controles, volumen)</summary>
+    <p class="note">Es el mismo <code>sf2recomp.ini</code> que en escritorio. Se crea la primera vez que arrancas el juego; después puedes editarlo aquí y pulsar «Guardar y reiniciar».</p>
+    <textarea id="cfg" spellcheck="false" placeholder="(todavía no existe: arranca el juego una vez)"></textarea>
+    <div class="row"><button id="cfgsave">Guardar y reiniciar</button><button id="cfgreset">Restaurar valores por omisión</button></div>
+  </details>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var running = false, persistOk = false, ready = false, FS = null, IDBFS = null;
+  var CFG = '/persist/sf2recomp.ini';
+  var params = new URLSearchParams(location.search);
+
+  function status(t) { $('status').textContent = t; }
+  function showFatal(msg) {
+    $('fatal').style.display = 'block'; $('fatal').textContent = msg;
+    $('retry').style.display = 'flex'; status('');
+    $('game').classList.remove('on'); $('picker').style.display = 'block'; running = false;
+  }
+  function syncDown(cb) {
+    FS.syncfs(true, function (err) { persistOk = !err; if (err) console.warn('IndexedDB no disponible:', err); cb(); });
+  }
+  function loadCfgText() {
+    try { $('cfg').value = FS.readFile(CFG, { encoding: 'utf8' }); } catch (e) { /* aún no existe */ }
+  }
+
+  window.Module = {
+    canvas: $('canvas'),
+    print: function (t) { console.log(t); },
+    printErr: function (t) { console.warn(t); },
+    sf2Fatal: showFatal,
+    onRuntimeInitialized: function () {
+      FS = Module.FS; IDBFS = Module.IDBFS;
+      try { FS.mkdir('/persist'); } catch (e) {}
+      FS.mount(IDBFS, {}, '/persist');
+      Module.sf2Persist = true;
+      syncDown(function () {
+        loadCfgText();
+        ready = true; $('file').disabled = false;
+        status('Listo. Elige tu sf2.zip.');
+      });
+    },
+  };
+
+  function startGame(bytes, name) {
+    status('Verificando las ROMs…');
+    try { FS.mkdir('/rom'); } catch (e) {}
+    FS.writeFile('/rom/sf2.zip', bytes);
+    $('picker').style.display = 'none'; $('fatal').style.display = 'none';
+    $('game').classList.add('on'); running = true;
+    var args = ['/rom/sf2.zip', '--config', CFG];
+    if (params.get('bench')) {              // medidas de rendimiento: ?bench=3000&mode=core|video|full
+      args.push('--bench', params.get('bench'), '--bench-mode', params.get('mode') || 'full', '--inputs', '/inputs_sf2.txt', '--quiet');
+    }
+    if (params.get('args')) args = args.concat(params.get('args').split(' ').filter(Boolean));
+    setTimeout(function () { try { Module.callMain(args); } catch (e) { if (e !== 'unwind') console.error(e); } $('canvas').focus(); }, 30);
+  }
+
+  function handleFile(f) {
+    if (!f || !ready) return;
+    f.arrayBuffer().then(function (buf) { startGame(new Uint8Array(buf), f.name); },
+                         function (e) { showFatal('No se pudo leer el archivo: ' + e); });
+  }
+  $('file').addEventListener('change', function (e) { handleFile(e.target.files[0]); });
+  var drop = $('drop');
+  ['dragenter', 'dragover'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { handleFile(e.dataTransfer.files[0]); });
+  $('reload').addEventListener('click', function () { location.reload(); });
+  $('fs').addEventListener('click', function () { $('canvas').requestFullscreen && $('canvas').requestFullscreen(); });
+  $('canvas').addEventListener('click', function () { $('canvas').focus(); });
+
+  // las teclas del juego no deben desplazar ni recargar la página
+  var block = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab', 'F5', 'F6', 'F7', 'F8', 'F10', 'F12'];
+  window.addEventListener('keydown', function (e) { if (running && block.indexOf(e.code) >= 0) e.preventDefault(); });
+
+  $('cfgsave').addEventListener('click', function () {
+    if (!ready) return;
+    FS.writeFile(CFG, $('cfg').value);
+    FS.syncfs(false, function () { location.reload(); });
+  });
+  $('cfgreset').addEventListener('click', function () {
+    if (!ready) return;
+    try { FS.unlink(CFG); } catch (e) {}
+    FS.syncfs(false, function () { location.reload(); });
+  });
+})();
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

@@ -1,0 +1,109 @@
+# Menú de pruebas (dipswitch Game Mode = Test): color, dipswitches, E/S (entradas, salidas, sonido), retícula y caracteres
+# Generada con tools/playgen.py (semilla 23, horizonte 36, reintentos 4) sobre el núcleo recompilado.
+# Formato: tools/sequences/README.md.  Cuadro N = N-ésima entrega de la IRQ2.
+#@ frames 9469
+#@ dips ff fc 1f
+#@ state_crc 27cb8a30
+#@ mark 1063 menú de pruebas (modo 02 00)
+#@ mark 1231 1 COLOR
+#@ mark 2136 2 DIP SWITCH
+#@ mark 3022 3 IO TEST
+#@ mark 3271 3.1 INPUT
+#@ mark 4565 3.2 OUTPUT
+#@ mark 5406 3.3 SOUND
+#@ mark 6528 menú (salida de IO TEST, modo 02)
+#@ mark 7064 4 DOT CLOTH
+#@ mark 7883 5 CHARACTER
+#@ mark 9117 menú (salida de CHARACTER, modo 04)
+1064 1067 p1_lp
+1404 1408 p1_mp
+1570 1572 p1_lp
+1735 1739 p1_mp
+1900 1903 p1_down
+1978 1982 p1_lp
+2308 2311 p1_mp
+2460 2463 p1_lp
+2639 2642 p1_mp
+2792 2794 p1_down
+2870 2874 p1_lp
+3098 3101 p1_lp
+3272 3279 p1_right
+3305 3313 p1_left
+3340 3347 p1_up
+3374 3381 p1_down
+3408 3415 p2_right
+3442 3449 p2_left
+3476 3483 p2_down
+3510 3517 p2_up
+3544 3551 p1_lp
+3578 3586 p1_mp
+3612 3619 p1_hp
+3646 3653 p2_lp
+3680 3687 p2_mp
+3714 3721 p2_hp
+3748 3755 p1_lk
+3782 3789 p1_mk
+3816 3824 p1_hk
+3850 3857 p2_lk
+3884 3892 p2_mk
+3918 3926 p2_hk
+3952 3959 start1
+3986 3994 start2
+4020 4028 coin1
+4054 4062 coin2
+4088 4096 service
+4122 4126 p1_lp
+4122 4126 p1_mp
+4354 4357 p1_down
+4420 4423 p1_lp
+4566 4570 p1_lp
+4657 4661 p1_lp
+4729 4734 p1_mp
+4820 4823 p1_mp
+4891 4896 p1_lp
+4891 4896 p1_mp
+5131 5133 p1_down
+5196 5198 p1_down
+5262 5266 p1_lp
+5407 5409 p1_up
+5430 5432 p1_lp
+5525 5528 p1_up
+5549 5551 p1_lp
+5643 5645 p1_up
+5666 5669 p1_lp
+5760 5762 p1_up
+5783 5786 p1_lp
+5878 5881 p1_up
+5902 5905 p1_lp
+5996 5999 p1_up
+6020 6023 p1_lp
+6114 6117 p1_down
+6138 6141 p1_lp
+6232 6236 p1_lp
+6232 6236 p1_mp
+6383 6385 p1_mp
+6529 6532 p1_lp
+6694 6698 p1_mp
+6845 6848 p1_down
+6923 6926 p1_lp
+7199 7202 p1_mp
+7349 7352 p1_lp
+7506 7510 p1_mp
+7659 7661 p1_down
+7737 7740 p1_lp
+7884 7888 p1_right
+7939 7943 p1_right
+7994 7998 p1_down
+8049 8053 p1_left
+8104 8107 p1_up
+8158 8163 p1_lp
+8229 8233 p1_hp
+8282 8285 p1_lk
+8332 8336 p1_mk
+8384 8387 p1_hk
+8435 8439 p1_right
+8488 8491 p1_right
+8541 8543 p1_mp
+8685 8688 p1_mp
+8829 8833 p1_mp
+8975 8977 p1_mp

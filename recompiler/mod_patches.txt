@@ -1,0 +1,57 @@
+# recompiler/mod_patches.txt - parches de los mods de lógica (D58).  Formato, una línea por parche:
+#   DIRECCION | texto_a_sustituir | texto_nuevo
+# gen_c.py busca `texto_a_sustituir` EXACTAMENTE UNA VEZ en el C que emite para la instrucción de esa dirección y lo cambia por
+# `texto_nuevo`.  Todos los parches dependen de c->mod_wide (píxeles extra de pantalla ancha por lado, 0 = juego original) y valen
+# lo mismo que el original cuando es 0: con el mod apagado el código generado se comporta igual que sin este archivo, y se
+# comprueba con los CRC de estado de tools/sequences/ (playgen.py --verify).  Ni los ciclos ni el reloj de MAME cambian.
+#
+# Pantalla ancha lógica: los luchadores se mueven por el ancho de la ventana ancha y la cámara no deja ver más allá del arte.
+#   0x2D98  tope de pared de un objeto (a6) contra la cámara 0xBD8(a5); 0x180 = ancho de pantalla (384), 0x1C2(a6) = margen
+#   0x83650 seguimiento de cámara; 0x9D0/0x9D2(a5) = tope izquierdo/derecho de la cámara del escenario
+0x2da0 | uint32_t s = rd16(c, ea0); | uint32_t s = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+0x2dc8 | uint32_t v = 0x180u; | uint32_t v = 0x180u + (uint32_t)c->mod_wide;
+0x836a6 | uint32_t s = 0x180u; | uint32_t s = 0x180u + 2u * (uint32_t)c->mod_wide;
+0x836e4 | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+0x836ee | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+0x83726 | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) + (uint32_t)c->mod_wide) & 0xffffu;
+0x83730 | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) + (uint32_t)c->mod_wide) & 0xffffu;
+#
+# Stage completo (D59, copia ultrawide): cámara fija en el centro del recorrido y todo el escenario a la vista.  c->mod_fixcam != 0
+# fija la cámara principal en el centro de sus topes (0x9D0/0x9D2); c->mod_wide es los píxeles extra por lado (la vista mide 384 + 2 *
+# mod_wide, hasta 768 = todo el recorrido).  Las ventanas «¿está a la vista?» de los objetos y los sprites se ensanchan igual.
+#   0x8365e  seguimiento de cámara: con la cámara fija se fija 0x6(a6) y se salta al RTS
+0x8365e | { | { if (c->mod_fixcam) { wr16(c, c->a[6] + 6u, (rd16(c, c->a[5] + 2512u) + rd16(c, c->a[5] + 2514u)) >> 1); goto L_0836A4; }
+#   0x2816/0x281a  ventana de actividad de objetos (x - cam + 0x60 <= 0x240)
+0x2816 | uint32_t s = 0x60u; | uint32_t s = 0x60u + (uint32_t)c->mod_wide;
+0x281a | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_wide;
+#   0x28d6/0x28da, 0x290e/0x2912, 0x2944/0x2948  ventanas de visibilidad de objetos (tres tamaños)
+0x28d6 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
+0x28da | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
+0x290e | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
+0x2912 | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_wide;
+0x2944 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
+0x2948 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_wide;
+#   0x47dc/0x47e0, 0x4804/0x4808, 0x482c/0x4830  objetos de escenario a la vista (cámaras de SCROLL1, 2 y 3)
+0x47dc | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
+0x47e0 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
+0x4804 | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_wide;
+0x4808 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_wide;
+0x482c | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_wide;
+0x4830 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_wide;
+#   0x2d46e/0x2d472, 0x33218/0x3321c, 0x33296/0x3329a  proyectiles: dejan de existir al salir de la ventana
+0x2d46e | uint32_t s = 0x100u; | uint32_t s = 0x100u + (uint32_t)c->mod_wide;
+0x2d472 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
+0x33218 | uint32_t s = 0x100u; | uint32_t s = 0x100u + (uint32_t)c->mod_wide;
+0x3321c | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
+0x33296 | uint32_t s = 0x100u; | uint32_t s = 0x100u + (uint32_t)c->mod_wide;
+0x3329a | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
+#   0x7f256 y siete más: el constructor de sprites descarta los fragmentos con X >= 512 o negativa (sin signo); con la vista ancha
+#   se aceptan los de X en [-mod_wide, 512 + mod_wide) y se guardan tal cual (X negativa con signo; el renderizador la entiende)
+0x7f256 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f33a | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f388 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f3e0 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f6c6 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f7a8 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f7f0 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f844 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
