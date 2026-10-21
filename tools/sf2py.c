@@ -83,3 +83,27 @@ SF2PY_API unsigned sf2py_state_crc(Sf2 *s) { return sf2_state_crc(s); }
 SF2PY_API int sf2py_png(Sf2 *s, const char *path) {
     return hostio_write_png(path, sf2_frame(s), SF2_SCREEN_W, SF2_SCREEN_H);
 }
+
+/* mod de entrenamiento (runtime/training.h): devuelve 0 o -1 con el motivo en err */
+SF2PY_API int sf2py_training(Sf2 *s, int enabled, int infinite_time, int refill, int refill_delay, int lock_p2, int auto_vs, int dummy,
+                             const char *script, int track_inputs, char *err, int errn) {
+    Sf2Training t;
+    memset(&t, 0, sizeof t);
+    t.enabled = enabled;
+    t.infinite_time = infinite_time;
+    t.refill = refill;
+    t.refill_delay = refill_delay;
+    t.lock_p2 = lock_p2;
+    t.auto_vs = auto_vs;
+    t.dummy = dummy;
+    t.track_inputs = track_inputs;
+    snprintf(t.script, sizeof t.script, "%s", script ? script : "");
+    return sf2_training_set(s, &t, err, (size_t)errn);
+}
+/* historial: escribe pares (mascara, cuadros) como enteros de 32 bits, mas reciente primero; devuelve cuantos */
+SF2PY_API int sf2py_training_history(Sf2 *s, int player, uint32_t *out, int max) {
+    Sf2InputEvent ev[SF2_TRAIN_HISTORY];
+    int n = sf2_training_history(s, player, ev, max < SF2_TRAIN_HISTORY ? max : SF2_TRAIN_HISTORY);
+    for (int i = 0; i < n; i++) { out[2 * i] = ev[i].mask; out[2 * i + 1] = ev[i].frames; }
+    return n;
+}

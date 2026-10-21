@@ -101,6 +101,8 @@ selector).
 | Jugador 1 | flechas · **Z X C** puñetazos · **A S D** patadas · **5** moneda · **1** start | cruceta o stick · X Y R1 · A B R2 · Back · Start |
 | Jugador 2 | **I J K L** · **R T Y** · **F G H** · **6** · **2** | mando 2, igual |
 | Estados | **F5** guardar, **F7** cargar, **F6/F8** ranura (0-9) | |
+| Menú | **M** (o el botón guía del mando) abre el menú del juego: ajuste rápido (original, 16:9, ultraancho), pantalla ancha y mods, **entrenamiento**, vídeo, sonido y controles; Enter acepta y Esc vuelve (`docs/MENU.md`) | |
+| Entrenamiento | **7** modo entrenamiento · **8** visor de entradas · **9** cajas de golpe (`docs/ENTRENAMIENTO.md`) | |
 | Otros | **P** pausa · **Tab** avance rápido · **F9** pantalla ancha · **F10** reinicio · **F11** o Alt+Intro pantalla completa · **F12** captura · **Esc** salir | |
 
 La configuración (`sf2recomp.ini`, en la carpeta de preferencias; en el navegador, editable en la propia página) se crea la
@@ -128,6 +130,11 @@ cambian la partida y los cuadros. Más del hito 6: `python3 tools/coverage.py --
 secuencia), `python3 tools/playgen.py --verify tools/sequences/*.txt` (CRC de los estados finales) y un árbol con sanitizadores
 (`cmake -S . -B build-asan -DSF2_SANITIZE=address,undefined`). Las secuencias nuevas se generan con `tools/playgen.py`
 (`tools/sequences/README.md`).
+
+## Entrenamiento
+
+`build/sf2 --training` enciende un modo de entrenamiento (sin límite de tiempo, barras que se recuperan, J2 como dummy con guion, visor de entradas y
+cajas de golpe; teclas `7`/`8`/`9`, o la página *Entrenamiento* del menú **M**). Apagado, el juego sigue siendo idéntico a MAME. Detalles en `docs/ENTRENAMIENTO.md`.
 
 ## Estructura
 

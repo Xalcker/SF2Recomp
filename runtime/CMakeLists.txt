@@ -20,7 +20,7 @@ add_dependencies(sf2_recomp sf2_generate)
 # El sonido se compila con la contraccion a FMA por defecto del compilador (como MAME): la mezcla en float tiene
 # que dar los mismos bits que la de MAME en arm64 (D31).  No se tocan -ffp-contract ni -ffast-math.
 add_library(sf2_core STATIC
-  gfx.c video.c sound.c z80.c oki6295.c ym2151.cpp machine.c sf2.c)
+  gfx.c video.c sound.c z80.c oki6295.c ym2151.cpp machine.c training.c sf2.c)
 target_link_libraries(sf2_core PUBLIC sf2_recomp ymfm)
 target_compile_options(sf2_core PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wall -Wno-unused-function>
                                          $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wno-unused-function>)

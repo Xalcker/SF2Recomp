@@ -13,11 +13,13 @@ static const char *const action_names[SF2_ACT_COUNT] = {
 };
 static const char *const hotkey_names[SF2_HK_COUNT] = {
     "save_state", "load_state", "slot_prev", "slot_next", "pause", "fast_forward", "fullscreen", "screenshot", "reset", "quit",
-    "widescreen", "wide_logic", "stage_full", "hfr", "menu",
+    "widescreen", "wide_logic", "stage_full", "hfr", "menu", "training", "show_inputs", "show_hitboxes",
 };
 /* precio por moneda: 4 monedas por crédito ... 1 moneda por 6 créditos; el valor de los dipswitches está en dsw_coin */
 const char *const config_coinage_names[8] = { "4c1c", "3c1c", "2c1c", "1c1c", "1c2c", "1c3c", "1c4c", "1c6c" };
 static const uint8_t dsw_coin[8] = { 0x00, 0x01, 0x02, 0x07, 0x06, 0x05, 0x04, 0x03 };    /* de CPS1_COINAGE_1 de MAME */
+
+const char *const config_dummy_names[SF2_CONFIG_DUMMY_MODES] = { "stand", "crouch", "jump", "block", "block_crouch", "walk_forward", "walk_back", "script" };
 
 const char *config_action_name(int a) { return a >= 0 && a < SF2_ACT_COUNT ? action_names[a] : "?"; }
 const char *config_hotkey_name(int h) { return h >= 0 && h < SF2_HK_COUNT ? hotkey_names[h] : "?"; }
@@ -41,6 +43,12 @@ void config_defaults(Sf2Config *c) {
     c->allow_continue = 1;
     c->freeze = 0;
     c->test_mode = 0;
+    c->tr_infinite_time = 1;
+    c->tr_refill = 1;
+    c->tr_refill_delay = 60;
+    c->tr_lock_p2 = 1;
+    c->tr_auto_vs = 1;
+    snprintf(c->tr_script, sizeof c->tr_script, "d:30 df:3 f+lp:2 n:30");
     static const char *const kb[SF2_ACT_COUNT] = {
         "5", "1", "6", "2", "F2",
         "Up", "Down", "Left", "Right", "Z", "X", "C", "A", "S", "D",
@@ -55,7 +63,7 @@ void config_defaults(Sf2Config *c) {
         bind(c->keys[i], kb[i]);
         bind(c->pads[i], pad[i]);
     }
-    static const char *const hk[SF2_HK_COUNT] = { "F5", "F7", "F6", "F8", "P", "Tab", "F11", "F12", "F10", "Escape", "F9", "F3", "F4", "F1", "M" };
+    static const char *const hk[SF2_HK_COUNT] = { "F5", "F7", "F6", "F8", "P", "Tab", "F11", "F12", "F10", "Escape", "F9", "F3", "F4", "F1", "M", "7", "8", "9" };
     for (int i = 0; i < SF2_HK_COUNT; i++)
         bind(c->hotkeys[i], hk[i]);
 }
@@ -202,6 +210,28 @@ int config_parse(Sf2Config *c, const char *text, char *warnbuf, size_t warn_size
             else if (ieq(key, "freeze")) set_bool(&w, lineno, key, val, &c->freeze);
             else if (ieq(key, "test_mode")) set_bool(&w, lineno, key, val, &c->test_mode);
             else warn(&w, lineno, "clave desconocida en [dip]: %s", key);
+        } else if (ieq(section, "training")) {
+            if (ieq(key, "enabled")) set_bool(&w, lineno, key, val, &c->tr_enabled);
+            else if (ieq(key, "infinite_time")) set_bool(&w, lineno, key, val, &c->tr_infinite_time);
+            else if (ieq(key, "refill")) {
+                if (ieq(val, "off")) c->tr_refill = 0;
+                else if (ieq(val, "delay")) c->tr_refill = 1;
+                else if (ieq(val, "always")) c->tr_refill = 2;
+                else warn(&w, lineno, "refill: off, delay o always");
+            }
+            else if (ieq(key, "refill_delay")) set_int(&w, lineno, key, val, 1, 600, &c->tr_refill_delay);
+            else if (ieq(key, "lock_p2")) set_bool(&w, lineno, key, val, &c->tr_lock_p2);
+            else if (ieq(key, "auto_vs")) set_bool(&w, lineno, key, val, &c->tr_auto_vs);
+            else if (ieq(key, "dummy")) {
+                int found = -1;
+                for (int i = 0; i < SF2_CONFIG_DUMMY_MODES; i++) if (ieq(val, config_dummy_names[i])) found = i;
+                if (found < 0) warn(&w, lineno, "dummy: stand, crouch, jump, block, block_crouch, walk_forward, walk_back o script");
+                else c->tr_dummy = found;
+            }
+            else if (ieq(key, "script")) snprintf(c->tr_script, sizeof c->tr_script, "%s", val);
+            else if (ieq(key, "show_inputs")) set_bool(&w, lineno, key, val, &c->show_inputs);
+            else if (ieq(key, "show_hitboxes")) set_bool(&w, lineno, key, val, &c->show_hitboxes);
+            else warn(&w, lineno, "clave desconocida en [training]: %s", key);
         } else if (ieq(section, "paths")) {
             if (ieq(key, "rom")) snprintf(c->rom_path, sizeof c->rom_path, "%s", val);
             else if (ieq(key, "state_dir")) snprintf(c->state_dir, sizeof c->state_dir, "%s", val);
@@ -217,7 +247,7 @@ int config_parse(Sf2Config *c, const char *text, char *warnbuf, size_t warn_size
             }
             if (!found) warn(&w, lineno, "accion desconocida en [%s]: %s", section, key);
         } else {
-            warn(&w, lineno, "clave fuera de una seccion conocida ([video], [audio], [dip], [paths], [keys], [pad], [hotkeys]): %s", key);
+            warn(&w, lineno, "clave fuera de una seccion conocida ([video], [audio], [dip], [training], [paths], [keys], [pad], [hotkeys]): %s", key);
         }
     }
     return w.count;
@@ -265,6 +295,17 @@ size_t config_format(const Sf2Config *c, char *out, size_t cap) {
             "# test_mode: arranca en el menu de pruebas de la placa\ntest_mode = %s\n\n",
         c->difficulty, config_coinage_names[c->coin_a & 7], config_coinage_names[c->coin_b & 7], yn(c->free_play),
         yn(c->two_coins_to_start), yn(c->demo_sounds), yn(c->allow_continue), yn(c->freeze), yn(c->test_mode));
+    put(&o, "[training]\n# Mod de entrenamiento: CAMBIA EL JUEGO mientras enabled = true (false = juego original).  Tecla: training en [hotkeys].\n"
+            "# Con auto_vs se mete monedas y se empieza una partida versus en el titulo; J1 elige luchador y J2 (el dummy) elige solo.\n"
+            "enabled = %s\ninfinite_time = %s\n"
+            "# refill: off, delay (barra llena tras refill_delay cuadros sin recibir dano) o always (nunca hay KO)\nrefill = %s\nrefill_delay = %d\n"
+            "# lock_p2: J2 no responde al teclado ni al mando; lo maneja el dummy\nlock_p2 = %s\nauto_vs = %s\n"
+            "# dummy: stand crouch jump block (se cubre de pie cuando J1 ataca) block_crouch walk_forward walk_back script\ndummy = %s\n"
+            "# script: pasos \"botones:cuadros\" en bucle, separados por espacios; direcciones relativas al rival (f b u d df db uf ub; l r absolutas)\n"
+            "# y botones lp mp hp lk mk hk; con + se pulsan a la vez; n = nada.  Ejemplo: \"d:30 df:3 f+lp:2 n:30\"\nscript = %s\n"
+            "# visores (teclas show_inputs y show_hitboxes): entradas de J1 y J2, y cajas de golpe y de dano\nshow_inputs = %s\nshow_hitboxes = %s\n\n",
+        yn(c->tr_enabled), yn(c->tr_infinite_time), c->tr_refill == 0 ? "off" : c->tr_refill == 1 ? "delay" : "always", c->tr_refill_delay,
+        yn(c->tr_lock_p2), yn(c->tr_auto_vs), config_dummy_names[c->tr_dummy & 7], c->tr_script, yn(c->show_inputs), yn(c->show_hitboxes));
     put(&o, "[paths]\n# rom: sf2.zip de MAME o carpeta con las ROMs sueltas (vacio = buscar sf2.zip junto al juego)\nrom = %s\n"
             "# state_dir: carpeta de los estados guardados (vacio = la de preferencias)\nstate_dir = %s\n\n", c->rom_path, c->state_dir);
     put(&o, "[keys]\n# nombres de tecla de SDL (Up, Left Shift, Z, F5, Keypad 4...); varias separadas por comas\n");

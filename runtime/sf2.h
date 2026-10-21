@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "romset.h"
+#include "training.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -122,6 +123,20 @@ int sf2_wide_logic_extra(const Sf2 *s);
  * los luchadores recorren todo el escenario, que se ve entero cuando el cuadro mide 768 (el recorrido de las 12 pantallas de lucha).
  * Implica la lógica ancha; cambia la partida (ya no coincide con MAME) y no forma parte del estado guardado. */
 void sf2_set_stage_full(Sf2 *s, int on);
+/* Mod de entrenamiento (training.h, docs/ENTRENAMIENTO.md; apagado = juego original): sin límite de tiempo, barras que se recuperan, J2 como
+ * dummy con guion y versus automático.  `enabled` es el interruptor general; `track_inputs` solo registra las entradas de J1 y J2 y no
+ * cambia la partida.  Sintaxis del guion (modo SF2_DUMMY_SCRIPT, en bucle): pasos separados por espacios o comas, `botones:cuadros`, con
+ * `+` para pulsar varios a la vez: n (nada), f b u d df db uf ub (relativas al rival; l r absolutas), lp mp hp lk mk hk;
+ * por ejemplo "d:30 df:3 f+lp:2 n:40".  Devuelve -1 con el motivo si el guion no vale (y no cambia nada).  CAMBIA LA PARTIDA con
+ * `enabled`; no es parte del estado guardado. */
+int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn);
+void sf2_training_get(const Sf2 *s, Sf2Training *t);
+/* historial de entradas del jugador 0/1 (más reciente primero) para el visor del anfitrión: devuelve cuántos eventos escribió (como mucho `max`) */
+int sf2_training_history(const Sf2 *s, int player, Sf2InputEvent *out, int max);
+/* cajas del cuadro actual (docs/HITBOXES.md), pantalla de 384x224; devuelve cuántas escribió (0 fuera del combate) */
+int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max);
+/* entrada canónica (SF2_PAD_*) que recibe el juego ahora mismo, del jugador 0/1 */
+uint16_t sf2_training_pad(const Sf2 *s, int player);
 /* audio mezclado desde la última llamada a sf2_audio_clear: muestras mono float a SF2_AUDIO_RATE */
 const float *sf2_audio(const Sf2 *s, size_t *count);
 void sf2_audio_clear(Sf2 *s);

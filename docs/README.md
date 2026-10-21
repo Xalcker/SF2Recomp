@@ -5,6 +5,7 @@
 - `REFERENCIAS.md`: enlaces y materiales de referencia.
 - `../README.md`: cómo construir y usar el proyecto en macOS, Linux, Windows y Web.
 - `REVISIONES.md`: revisiones del juego, chip CPS-B de cada una y por qué World 910522.
+- `ENTRENAMIENTO.md`: el mod de entrenamiento (sin tiempo, dummy con guion, visor de entradas, cajas); `HITBOXES.md`: formato de las cajas.
 - `MEJORAS.md`: ideas de mods y mejoras del port (entrenamiento, entradas en pantalla, menú de DIP, más FPS, hitboxes).
 - `WIDESCREEN.md`: plan y estado del mod de pantalla ancha real (512 px, 16:9 sin estirar), con la viabilidad medida.
 - `bitacora/`: una entrada por paso de trabajo, con fecha e hito.

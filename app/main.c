@@ -64,6 +64,8 @@ typedef struct App {
     uint64_t frame_arrive_ns, hfr_draws, hfr_hist[8], present_ns, present_n;
     int hfr_t;
     double measured_hz;                /* cuadros que se presentaron por segundo en la última ventana de 1 s */
+    const char *shot_png;              /* --shot-png RUTA:CUADRO (pruebas): guarda la ventana con los visores a ese cuadro y termina */
+    uint64_t shot_frame;
     const char *menu_png;              /* --menu-png (pruebas): abre el menú tras unos cuadros, lo guarda como PNG y termina */
     int menu_shot_done, menu_shot_page;
     int menu_test, menu_test_step;     /* --menu-test (pruebas): teclea una secuencia en el menú y comprueba el resultado */
@@ -136,6 +138,9 @@ static void usage(const char *argv0) {
         "  --config ARCHIVO   archivo de configuracion (por omision el de preferencias del usuario)\n"
         "  --rom RUTA         sf2.zip o carpeta con las ROMs (tambien como primer argumento)\n"
         "  --scale N          ventana de 384*N x 224*N (0 = ajustar)     --fullscreen\n"
+        "  --training         mod de entrenamiento (docs/ENTRENAMIENTO.md): sin limite de tiempo, barras que se recuperan, J2 como dummy y versus automatico\n"
+        "  --dummy MODO       stand|crouch|jump|block|block_crouch|walk_forward|walk_back|script    --dummy-script \"d:30 df:3 f+lp:2 n:30\"\n"
+        "  --show-inputs      visor de las entradas de J1 y J2    --show-hitboxes   cajas de golpe y de dano\n"
         "  --widescreen       pantalla ancha real (mas escenario a los lados en combate, sin estirar)   --hud-edges\n"
         "  --hfr              cuadros intermedios al refresco del monitor (interpola camara y sprites; no cambia el juego)\n"
         "  --dev-tool 1-2     abre una herramienta de desarrollo oculta de Capcom (1 scroll, 2 OBJ TEST); cambia el juego\n"
@@ -333,6 +338,9 @@ static void hfr_update(App *a, uint64_t now) {
 }
 
 static void menu_draw(App *a);
+static void draw_inputs(App *a, const SDL_FRect *dst);
+static void draw_hitboxes(App *a, const SDL_FRect *dst);
+static int apply_training(App *a);
 
 static void draw(App *a) {
     hfr_update(a, SDL_GetTicksNS());
@@ -359,6 +367,23 @@ static void draw(App *a) {
         SDL_SetRenderDrawColor(a->ren, 255, 255, 255, 255);
         SDL_RenderDebugText(a->ren, 8, 8, a->osd);
         SDL_SetRenderScale(a->ren, 1.0f, 1.0f);
+    }
+    if (a->cfg.show_hitboxes) draw_hitboxes(a, &dst);
+    if (a->cfg.show_inputs) draw_inputs(a, &dst);
+    if (a->shot_png && a->frames_run >= a->shot_frame) {
+        SDL_Surface *surf = SDL_RenderReadPixels(a->ren, NULL);
+        SDL_Surface *conv = surf ? SDL_ConvertSurface(surf, SDL_PIXELFORMAT_XRGB8888) : NULL;
+        if (conv) {
+            hostio_write_png(a->shot_png, (const uint32_t *)conv->pixels, conv->w, conv->h);
+            fprintf(stderr, "captura de la ventana en %s (cuadro %llu)\n", a->shot_png, (unsigned long long)a->frames_run);
+        }
+        SDL_DestroySurface(conv);
+        SDL_DestroySurface(surf);
+        a->shot_png = NULL;
+        SDL_Event q;
+        SDL_zero(q);
+        q.type = SDL_EVENT_QUIT;
+        SDL_PushEvent(&q);
     }
     if (a->menu) menu_draw(a);
     if (a->menu && a->menu_png && !a->menu_shot_done) {
@@ -585,7 +610,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     a->frame_ns = (uint64_t)(1e9 / SF2_FRAME_HZ);
 
     const char *cfg_arg = NULL, *rom_arg = NULL, *inputs = NULL, *load_state_arg = NULL, *png_list = NULL;
-    int opt_scale = -1, opt_fs = 0, opt_wide = 0, opt_hud = 0, opt_logic = 0, opt_stage = 0, opt_hfr = 0, opt_dev = 0, opt_vol = -1, opt_mute = 0, write_cfg = 0;
+    int opt_scale = -1, opt_fs = 0, opt_wide = 0, opt_hud = 0, opt_logic = 0, opt_stage = 0, opt_hfr = 0, opt_training = 0, opt_dummy = -1, opt_show_inputs = 0, opt_show_hitboxes = 0, opt_dev = 0, opt_vol = -1, opt_mute = 0, write_cfg = 0;
+    const char *opt_dscript = NULL;
     a->png_dir = ".";
     for (int i = 1; i < argc; i++) {
         const char *s = argv[i];
@@ -599,6 +625,25 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         else if (!strcmp(s, "--wide-logic")) opt_logic = 1;
         else if (!strcmp(s, "--stage-full")) opt_stage = 1;
         else if (!strcmp(s, "--hfr")) opt_hfr = 1;
+        else if (!strcmp(s, "--training")) opt_training = 1;
+        else if (!strcmp(s, "--dummy") && i + 1 < argc) {
+            const char *v = argv[++i];
+            int found = -1;
+            for (int k = 0; k < SF2_CONFIG_DUMMY_MODES; k++) if (!strcmp(v, config_dummy_names[k])) found = k;
+            if (found < 0) { fprintf(stderr, "--dummy: stand, crouch, jump, block, block_crouch, walk_forward, walk_back o script\n"); return SDL_APP_FAILURE; }
+            opt_dummy = found;
+        }
+        else if (!strcmp(s, "--dummy-script") && i + 1 < argc) { opt_dscript = argv[++i]; opt_dummy = SF2_DUMMY_SCRIPT; }
+        else if (!strcmp(s, "--shot-png") && i + 1 < argc) {
+            const char *v = argv[++i], *c = strrchr(v, ':');
+            if (!c) { fprintf(stderr, "--shot-png: se espera RUTA:CUADRO\n"); return SDL_APP_FAILURE; }
+            static char shot_path[1024];
+            snprintf(shot_path, sizeof shot_path, "%.*s", (int)(c - v), v);
+            a->shot_png = shot_path;
+            a->shot_frame = strtoull(c + 1, NULL, 0);
+        }
+        else if (!strcmp(s, "--show-inputs")) opt_show_inputs = 1;
+        else if (!strcmp(s, "--show-hitboxes")) opt_show_hitboxes = 1;
         else if (!strcmp(s, "--dev-tool") && i + 1 < argc) opt_dev = atoi(argv[++i]);
         else if (!strcmp(s, "--menu-png") && i + 1 < argc) a->menu_png = argv[++i];
         else if (!strcmp(s, "--menu-test")) a->menu_test = 1;
@@ -673,6 +718,11 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     if (opt_logic) a->cfg.wide_logic = 1;
     if (opt_stage) { a->cfg.stage_full = 1; a->cfg.widescreen = 1; }
     if (opt_hfr) a->cfg.hfr = 1;
+    if (opt_training) { a->cfg.tr_enabled = 1; a->cfg.show_inputs = 1; }
+    if (opt_dummy >= 0) a->cfg.tr_dummy = opt_dummy;
+    if (opt_dscript) snprintf(a->cfg.tr_script, sizeof a->cfg.tr_script, "%s", opt_dscript);
+    if (opt_show_inputs) a->cfg.show_inputs = 1;
+    if (opt_show_hitboxes) a->cfg.show_hitboxes = 1;
     a->hfr_t = -1;
     a->capture = -1;
     if (opt_vol >= 0) a->cfg.volume = opt_vol > 100 ? 100 : opt_vol;
@@ -717,6 +767,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     sf2_set_hud_edges(a->sf2, a->cfg.hud_edges);
     sf2_set_wide_logic(a->sf2, a->cfg.wide_logic);
     sf2_set_stage_full(a->sf2, a->cfg.stage_full);
+    apply_training(a);
     if (a->npng)
         sf2_set_sample_hook(a->sf2, on_sample, a);
     if (inputs) {
@@ -831,6 +882,137 @@ static void set_hfr(App *a, int on) {
     osd(a, on ? "HFR: activado" : "HFR: apagado");
 }
 
+
+/* ---- mod de entrenamiento (docs/ENTRENAMIENTO.md) ------------------------------------------------------------------------ */
+static int apply_training(App *a) {
+    Sf2Training t;
+    memset(&t, 0, sizeof t);
+    t.enabled = a->cfg.tr_enabled;
+    t.infinite_time = a->cfg.tr_infinite_time;
+    t.refill = a->cfg.tr_refill;
+    t.refill_delay = a->cfg.tr_refill_delay;
+    t.lock_p2 = a->cfg.tr_lock_p2;
+    t.auto_vs = a->cfg.tr_auto_vs;
+    t.dummy = a->cfg.tr_dummy;
+    snprintf(t.script, sizeof t.script, "%s", a->cfg.tr_script);
+    t.track_inputs = a->cfg.show_inputs;
+    char err[200];
+    if (sf2_training_set(a->sf2, &t, err, sizeof err) != 0) {
+        /* guion no valido: el modo del dummy no puede ser script; se avisa y se queda como estaba */
+        osd(a, "Entrenamiento: %s", err);
+        a->cfg.tr_enabled = 0;
+        t.enabled = 0;
+        sf2_training_set(a->sf2, &t, NULL, 0);
+        return -1;
+    }
+    return 0;
+}
+
+static void set_training(App *a, int on) {
+    a->cfg.tr_enabled = on;
+    if (apply_training(a) != 0)
+        return;
+    osd(a, on ? "Entrenamiento: activado (cambia el juego)" : "Entrenamiento: apagado (juego original)");
+}
+
+static void set_show_inputs(App *a, int on) {
+    a->cfg.show_inputs = on;
+    apply_training(a);
+    osd(a, on ? "Visor de entradas: activado" : "Visor de entradas: apagado");
+}
+
+static void set_show_hitboxes(App *a, int on) {
+    a->cfg.show_hitboxes = on;
+    osd(a, on ? "Cajas de golpe: activadas" : "Cajas de golpe: apagadas");
+}
+
+/* direccion en notacion numerica (teclado numerico: 1-9) a partir de los bits SF2_PAD_* */
+static char pad_digit(uint16_t m) {
+    int dx = ((m & SF2_PAD_RIGHT) ? 1 : 0) - ((m & SF2_PAD_LEFT) ? 1 : 0);
+    int dy = ((m & SF2_PAD_DOWN) ? 1 : 0) - ((m & SF2_PAD_UP) ? 1 : 0);
+    return (char)('5' + dx - 3 * dy);
+}
+
+static void fill_rect(SDL_Renderer *r, float x, float y, float w, float h, Uint8 R, Uint8 G, Uint8 B, Uint8 A) {
+    SDL_FRect rc = { x, y, w, h };
+    SDL_SetRenderDrawColor(r, R, G, B, A);
+    SDL_RenderFillRect(r, &rc);
+}
+
+/* visor de entradas: palanca y seis botones en vivo y el historial de cada jugador (J1 a la izquierda, J2 a la derecha) */
+static void draw_inputs(App *a, const SDL_FRect *dst) {
+    static const struct { uint16_t bit; const char *name; } btn[6] = {
+        { SF2_PAD_LP, "LP" }, { SF2_PAD_MP, "MP" }, { SF2_PAD_HP, "HP" }, { SF2_PAD_LK, "LK" }, { SF2_PAD_MK, "MK" }, { SF2_PAD_HK, "HK" } };
+    const float k = dst->h >= 640 ? 2.0f : 1.0f, u = 6 * k, row = 9 * k;
+    SDL_SetRenderDrawBlendMode(a->ren, SDL_BLENDMODE_BLEND);
+    for (int p = 0; p < 2; p++) {
+        const uint16_t now = sf2_training_pad(a->sf2, p);
+        const float x0 = p ? dst->x + dst->w - 4 - 62 * k : dst->x + 4;
+        const float y0 = dst->y + dst->h - 4 - 3 * u - 2;
+        /* historial, el mas reciente abajo (pegado a la palanca) */
+        Sf2InputEvent ev[10];
+        int n = sf2_training_history(a->sf2, p, ev, 10);
+        fill_rect(a->ren, x0 - 2, y0 - (float)n * row - 4 * k, 62 * k, (float)n * row + 3 * u + 4 * k + 4, 0, 0, 0, 120);
+        SDL_SetRenderScale(a->ren, k, k);
+        char tag[8];
+        snprintf(tag, sizeof tag, "P%d", p + 1);
+        SDL_SetRenderDrawColor(a->ren, 255, 255, 255, 255);
+        SDL_RenderDebugText(a->ren, (x0 + 62 * k - 18 * k) / k, (y0 + u) / k, tag);
+        for (int i = 0; i < n; i++) {
+            char line[40] = "", *w = line;
+            w += snprintf(w, 8, "%c", pad_digit(ev[i].mask));
+            for (int b = 0; b < 6; b++)
+                if (ev[i].mask & btn[b].bit)
+                    w += snprintf(w, 6, "%s%s", w == line + 1 ? " " : "+", btn[b].name);
+            SDL_SetRenderDrawColor(a->ren, i == 0 ? 255 : 200, i == 0 ? 255 : 200, i == 0 ? 120 : 200, 255);
+            SDL_RenderDebugText(a->ren, (x0 + 2) / k, (y0 - (float)(i + 1) * row) / k, line);
+            char fr[8];
+            snprintf(fr, sizeof fr, "%u", (unsigned)ev[i].frames);
+            SDL_RenderDebugText(a->ren, (x0 + 62 * k - 2 - (float)strlen(fr) * 8 * k) / k, (y0 - (float)(i + 1) * row) / k, fr);
+        }
+        SDL_SetRenderScale(a->ren, 1.0f, 1.0f);
+        /* palanca 3x3 */
+        for (int cy = 0; cy < 3; cy++)
+            for (int cx = 0; cx < 3; cx++) {
+                /* una casilla se enciende si coincide exactamente con la direccion pulsada (diagonales incluidas) */
+                const int dx = cx - 1, dy = cy - 1;
+                const int pdx = ((now & SF2_PAD_RIGHT) ? 1 : 0) - ((now & SF2_PAD_LEFT) ? 1 : 0);
+                const int pdy = ((now & SF2_PAD_DOWN) ? 1 : 0) - ((now & SF2_PAD_UP) ? 1 : 0);
+                const int lit = !(cx == 1 && cy == 1) && dx == pdx && dy == pdy;
+                fill_rect(a->ren, x0 + (float)cx * u, y0 + (float)cy * u, u - 1, u - 1, lit ? 255 : 70, lit ? 220 : 70, lit ? 60 : 80, 255);
+            }
+        /* botones: punos arriba, patadas abajo */
+        for (int b = 0; b < 6; b++) {
+            const int lit = (now & btn[b].bit) != 0;
+            fill_rect(a->ren, x0 + 3 * u + 4 + (float)(b % 3) * (u + 2), y0 + (float)(b / 3) * (u + 2), u, u, lit ? (b < 3 ? 255 : 90) : 70, lit ? (b < 3 ? 90 : 200) : 70, lit ? 90 : 80, 255);
+        }
+    }
+}
+
+/* cajas de golpe y de daño (docs/HITBOXES.md): se piden al nucleo en coordenadas de 384x224 y se dibujan con la resolucion de la ventana;
+ * con pantalla ancha el combate se centra, asi que se desplazan medio ancho extra (con stage_full el desplazamiento no es ese: sin resolver) */
+static void draw_hitboxes(App *a, const SDL_FRect *dst) {
+    static const Uint8 col[8][3] = {
+        { 60, 140, 255 }, { 60, 140, 255 }, { 60, 140, 255 }, { 255, 230, 60 },   /* cabeza, cuerpo, pies, punto debil */
+        { 255, 50, 50 }, { 60, 220, 90 },                                         /* ataque, empuje */
+        { 255, 140, 40 }, { 170, 170, 170 } };                                    /* proyectil: ataque, empuje */
+    Sf2Box box[SF2_MAX_BOXES];
+    const int n = sf2_training_boxes(a->sf2, box, SF2_MAX_BOXES), fw = sf2_frame_width(a->sf2);
+    if (n <= 0 || fw <= 0)
+        return;
+    const float kx = dst->w / (float)fw, ky = dst->h / (float)SF2_SCREEN_H, off = (float)(fw - SF2_SCREEN_W) / 2;
+    SDL_SetRenderDrawBlendMode(a->ren, SDL_BLENDMODE_BLEND);
+    for (int i = 0; i < n; i++) {
+        const Uint8 *c = col[box[i].kind & 7];
+        SDL_FRect r = { dst->x + ((float)box[i].x + off) * kx, dst->y + (float)box[i].y * ky, (float)box[i].w * kx, (float)box[i].h * ky };
+        const int attack = box[i].kind == SF2_BOX_ATTACK || box[i].kind == SF2_BOX_PROJ_ATTACK;
+        SDL_SetRenderDrawColor(a->ren, c[0], c[1], c[2], attack ? 90 : 45);
+        SDL_RenderFillRect(a->ren, &r);
+        SDL_SetRenderDrawColor(a->ren, c[0], c[1], c[2], 255);
+        SDL_RenderRect(a->ren, &r);
+    }
+}
+
 static void set_hud(App *a, int edges) {
     a->cfg.hud_edges = edges;
     sf2_set_hud_edges(a->sf2, edges);
@@ -853,20 +1035,22 @@ static void toggle_fullscreen(App *a) {
 }
 
 /* ---- menú en el juego (tecla `menu`, por omisión M; en el mando, el botón guía) -------------------------------------------- */
-typedef enum MenuPage { PG_MAIN, PG_MODS, PG_VIDEO, PG_AUDIO, PG_CONTROLS, PG_BINDS, PG_COUNT } MenuPage;
+typedef enum MenuPage { PG_MAIN, PG_MODS, PG_VIDEO, PG_AUDIO, PG_CONTROLS, PG_TRAINING, PG_BINDS, PG_COUNT } MenuPage;
 enum {
-    MI_RESUME, MI_PRESET, MI_SUB_MODS, MI_SUB_VIDEO, MI_SUB_AUDIO, MI_SUB_CONTROLS, MI_SAVE, MI_RESET, MI_QUIT,
+    MI_RESUME, MI_PRESET, MI_SUB_MODS, MI_SUB_TRAINING, MI_SUB_VIDEO, MI_SUB_AUDIO, MI_SUB_CONTROLS, MI_SAVE, MI_RESET, MI_QUIT,
     MI_WIDE, MI_WIDTH, MI_HUD, MI_LOGIC, MI_STAGE, MI_HFR, MI_DEVTOOL,
     MI_SCALE, MI_FULLSCREEN, MI_INTSCALE, MI_ASPECT, MI_SMOOTH, MI_VSYNC,
     MI_SOUND, MI_VOLUME,
+    MI_TR_ENABLED, MI_TR_TIME, MI_TR_REFILL, MI_TR_DELAY, MI_TR_LOCK, MI_TR_AUTOVS, MI_TR_DUMMY, MI_TR_INPUTS, MI_TR_HITBOXES,
     MI_KB1, MI_KB2, MI_PAD1, MI_PAD2, MI_RESTORE_ALL,
     MI_BIND, MI_RESTORE_PAGE, MI_BACK,
 };
 
-static const int page_main[] = { MI_RESUME, MI_PRESET, MI_SUB_MODS, MI_SUB_VIDEO, MI_SUB_AUDIO, MI_SUB_CONTROLS, MI_SAVE, MI_RESET, MI_QUIT };
+static const int page_main[] = { MI_RESUME, MI_PRESET, MI_SUB_MODS, MI_SUB_TRAINING, MI_SUB_VIDEO, MI_SUB_AUDIO, MI_SUB_CONTROLS, MI_SAVE, MI_RESET, MI_QUIT };
 static const int page_mods[] = { MI_WIDE, MI_WIDTH, MI_HUD, MI_LOGIC, MI_STAGE, MI_HFR, MI_DEVTOOL, MI_BACK };
 static const int page_video[] = { MI_SCALE, MI_FULLSCREEN, MI_INTSCALE, MI_ASPECT, MI_SMOOTH, MI_VSYNC, MI_BACK };
 static const int page_audio[] = { MI_SOUND, MI_VOLUME, MI_BACK };
+static const int page_training[] = { MI_TR_ENABLED, MI_TR_TIME, MI_TR_REFILL, MI_TR_DELAY, MI_TR_LOCK, MI_TR_AUTOVS, MI_TR_DUMMY, MI_TR_INPUTS, MI_TR_HITBOXES, MI_BACK };
 static const int page_controls[] = { MI_KB1, MI_KB2, MI_PAD1, MI_PAD2, MI_RESTORE_ALL, MI_BACK };
 static const struct { const int *items; int n; const char *title; } pages[PG_COUNT - 1] = {
     { page_main, (int)(sizeof page_main / sizeof *page_main), "" },
@@ -874,6 +1058,7 @@ static const struct { const int *items; int n; const char *title; } pages[PG_COU
     { page_video, (int)(sizeof page_video / sizeof *page_video), "Video" },
     { page_audio, (int)(sizeof page_audio / sizeof *page_audio), "Sonido" },
     { page_controls, (int)(sizeof page_controls / sizeof *page_controls), "Controles" },
+    { page_training, (int)(sizeof page_training / sizeof *page_training), "Entrenamiento" },
 };
 
 /* controles de una página de asignaciones: la dirección, los seis botones, moneda, start y (solo el jugador 1) servicio */
@@ -1012,6 +1197,7 @@ static int menu_activate(App *a, int dir) {
         break;
     }
     case MI_SUB_MODS: if (!dir) menu_goto(a, PG_MODS); break;
+    case MI_SUB_TRAINING: if (!dir) menu_goto(a, PG_TRAINING); break;
     case MI_SUB_VIDEO: if (!dir) menu_goto(a, PG_VIDEO); break;
     case MI_SUB_AUDIO: if (!dir) menu_goto(a, PG_AUDIO); break;
     case MI_SUB_CONTROLS: if (!dir) menu_goto(a, PG_CONTROLS); break;
@@ -1039,6 +1225,23 @@ static int menu_activate(App *a, int dir) {
             osd(a, a->dev_sel ? "Herramienta de desarrollo: %s (teclas del jugador 1; F10 reinicia dentro de ella)" : "Herramientas de desarrollo apagadas: juego original", dev_tool_names[a->dev_sel]);
         }
         break;
+    case MI_TR_ENABLED: set_training(a, !a->cfg.tr_enabled); break;
+    case MI_TR_TIME: a->cfg.tr_infinite_time = !a->cfg.tr_infinite_time; apply_training(a); break;
+    case MI_TR_REFILL: a->cfg.tr_refill = (a->cfg.tr_refill + d + 3) % 3; apply_training(a); break;
+    case MI_TR_DELAY: {
+        int v = a->cfg.tr_refill_delay + 10 * (dir ? dir : 1);
+        a->cfg.tr_refill_delay = v < 10 ? 10 : v > 600 ? (dir ? 600 : 10) : v;
+        apply_training(a);
+        break;
+    }
+    case MI_TR_LOCK: a->cfg.tr_lock_p2 = !a->cfg.tr_lock_p2; apply_training(a); break;
+    case MI_TR_AUTOVS: a->cfg.tr_auto_vs = !a->cfg.tr_auto_vs; apply_training(a); break;
+    case MI_TR_DUMMY:
+        a->cfg.tr_dummy = (a->cfg.tr_dummy + d + SF2_CONFIG_DUMMY_MODES) % SF2_CONFIG_DUMMY_MODES;
+        apply_training(a);
+        break;
+    case MI_TR_INPUTS: a->cfg.show_inputs = !a->cfg.show_inputs; apply_training(a); break;
+    case MI_TR_HITBOXES: a->cfg.show_hitboxes = !a->cfg.show_hitboxes; break;
     case MI_SCALE: a->cfg.scale = (a->cfg.scale + d + 7) % 7; apply_window_size(a); break;           /* 0 = ajustar, 1 a 6 */
     case MI_FULLSCREEN: if (a->win) toggle_fullscreen(a); break;
     case MI_INTSCALE: a->cfg.integer_scale = !a->cfg.integer_scale; break;
@@ -1140,13 +1343,16 @@ static const char *yesno(int v) { return v ? "si" : "no"; }
 
 static void menu_item(const App *a, int idx, const char **label, char *val, size_t n, const char **hint) {
     static const char *const labels[] = {
-        [MI_RESUME] = "Continuar", [MI_PRESET] = "Ajuste rapido", [MI_SUB_MODS] = "Pantalla ancha y mods  >", [MI_SUB_VIDEO] = "Video  >",
+        [MI_RESUME] = "Continuar", [MI_PRESET] = "Ajuste rapido", [MI_SUB_MODS] = "Pantalla ancha y mods  >", [MI_SUB_TRAINING] = "Entrenamiento  >", [MI_SUB_VIDEO] = "Video  >",
         [MI_SUB_AUDIO] = "Sonido  >", [MI_SUB_CONTROLS] = "Controles  >", [MI_SAVE] = "Guardar configuracion", [MI_RESET] = "Reiniciar el juego", [MI_QUIT] = "Salir",
         [MI_WIDE] = "Pantalla ancha (F9)", [MI_WIDTH] = "Ancho del cuadro", [MI_HUD] = "Marcador (HUD)", [MI_LOGIC] = "Logica ancha (F3)",
         [MI_STAGE] = "Stage completo (F4)", [MI_HFR] = "HFR (F1)", [MI_DEVTOOL] = "Herramientas de desarrollo",
         [MI_SCALE] = "Escala de la ventana", [MI_FULLSCREEN] = "Pantalla completa (F11)", [MI_INTSCALE] = "Escala entera",
         [MI_ASPECT] = "Relacion de aspecto", [MI_SMOOTH] = "Filtro suave", [MI_VSYNC] = "VSync",
         [MI_SOUND] = "Sonido", [MI_VOLUME] = "Volumen",
+        [MI_TR_ENABLED] = "Modo entrenamiento (7)", [MI_TR_TIME] = "Sin limite de tiempo", [MI_TR_REFILL] = "Barras de vida", [MI_TR_DELAY] = "Retardo de la recuperacion",
+        [MI_TR_LOCK] = "Jugador 2 sin controles", [MI_TR_AUTOVS] = "Versus automatico", [MI_TR_DUMMY] = "Comportamiento de J2",
+        [MI_TR_INPUTS] = "Visor de entradas (8)", [MI_TR_HITBOXES] = "Cajas de golpe (9)",
         [MI_KB1] = "Teclado jugador 1  >", [MI_KB2] = "Teclado jugador 2  >", [MI_PAD1] = "Mando jugador 1  >", [MI_PAD2] = "Mando jugador 2  >",
         [MI_RESTORE_ALL] = "Restaurar todos los controles", [MI_RESTORE_PAGE] = "Restaurar esta pagina", [MI_BACK] = "< Volver",
     };
@@ -1154,6 +1360,7 @@ static void menu_item(const App *a, int idx, const char **label, char *val, size
         [MI_RESUME] = "Vuelve al juego (Esc, M o B).",
         [MI_PRESET] = "Original, widescreen 16:9 o ultraancho: ajusta varios mods a la vez.",
         [MI_SUB_MODS] = "Pantalla ancha, ancho, marcador, logica ancha, stage completo, HFR y herramientas de desarrollo.",
+        [MI_SUB_TRAINING] = "Sin tiempo, barras, dummy con guion, entradas y cajas.",
         [MI_SUB_VIDEO] = "Escala, pantalla completa, aspecto, filtro y VSync.",
         [MI_SUB_AUDIO] = "Sonido y volumen.",
         [MI_SUB_CONTROLS] = "Asigna teclas y botones de mando de cada jugador.",
@@ -1170,6 +1377,15 @@ static void menu_item(const App *a, int idx, const char **label, char *val, size
         [MI_FULLSCREEN] = "Ventana o pantalla completa.", [MI_INTSCALE] = "Solo multiplos enteros: pixeles sin deformar (con aspecto de pixel).",
         [MI_ASPECT] = "4:3 como el monitor de la recreativa, o pixeles cuadrados.", [MI_SMOOTH] = "Filtro lineal en vez de pixeles nitidos.",
         [MI_VSYNC] = "Sincroniza con el monitor. Apagado, el HFR sigue su refresco con reloj propio.",
+        [MI_TR_ENABLED] = "Interruptor general. CAMBIA EL JUEGO; apagado = original.",
+        [MI_TR_TIME] = "El temporizador del asalto se queda en 99.",
+        [MI_TR_REFILL] = "Normales / tras un retardo / siempre llenas (sin KO).",
+        [MI_TR_DELAY] = "Cuadros sin dano antes de llenar (60 = 1 s).",
+        [MI_TR_LOCK] = "J2 ignora teclado y mando: lo maneja el dummy.",
+        [MI_TR_AUTOVS] = "Desde el titulo: monedas y versus; J2 elige solo.",
+        [MI_TR_DUMMY] = "Guion: clave script de [training] en el .ini.",
+        [MI_TR_INPUTS] = "Palanca, botones e historial de J1 y J2 en pantalla.",
+        [MI_TR_HITBOXES] = "Azul dano, rojo ataque, verde empuje, naranja proyectil.",
         [MI_SOUND] = "Apaga o enciende el sonido de esta sesion.", [MI_VOLUME] = "Izquierda y derecha cambian de 10 en 10.",
         [MI_KB1] = "Teclas del jugador 1.", [MI_KB2] = "Teclas del jugador 2.", [MI_PAD1] = "Botones del mando 1 (jugador 1).", [MI_PAD2] = "Botones del mando 2 (jugador 2).",
         [MI_RESTORE_ALL] = "Deja teclas y mandos como vienen por omision.",
@@ -1187,6 +1403,19 @@ static void menu_item(const App *a, int idx, const char **label, char *val, size
     case MI_LOGIC: snprintf(val, n, "%s", yesno(a->cfg.wide_logic)); break;
     case MI_STAGE: snprintf(val, n, "%s", yesno(a->cfg.stage_full)); break;
     case MI_HFR: snprintf(val, n, "%s", yesno(a->cfg.hfr)); break;
+    case MI_TR_ENABLED: snprintf(val, n, "%s", yesno(a->cfg.tr_enabled)); break;
+    case MI_TR_TIME: snprintf(val, n, "%s", yesno(a->cfg.tr_infinite_time)); break;
+    case MI_TR_REFILL: snprintf(val, n, "< %s >", a->cfg.tr_refill == 0 ? "normales" : a->cfg.tr_refill == 1 ? "tras un retardo" : "siempre llenas"); break;
+    case MI_TR_DELAY: snprintf(val, n, "< %d >", a->cfg.tr_refill_delay); break;
+    case MI_TR_LOCK: snprintf(val, n, "%s", yesno(a->cfg.tr_lock_p2)); break;
+    case MI_TR_AUTOVS: snprintf(val, n, "%s", yesno(a->cfg.tr_auto_vs)); break;
+    case MI_TR_DUMMY: {
+        static const char *const names[] = { "quieto", "agachado", "salta", "se cubre de pie", "se cubre agachado", "camina hacia J1", "se aleja de J1", "guion" };
+        snprintf(val, n, "< %s >", names[a->cfg.tr_dummy & 7]);
+        break;
+    }
+    case MI_TR_INPUTS: snprintf(val, n, "%s", yesno(a->cfg.show_inputs)); break;
+    case MI_TR_HITBOXES: snprintf(val, n, "%s", yesno(a->cfg.show_hitboxes)); break;
     case MI_DEVTOOL: snprintf(val, n, "< %s >%s", dev_tool_names[a->dev_sel], a->dev_sel != sf2_dev_tool(a->sf2) ? " Enter" : ""); break;
     case MI_SCALE: if (a->cfg.scale > 0) snprintf(val, n, "< x%d >", a->cfg.scale); else snprintf(val, n, "< ajustar >"); break;
     case MI_FULLSCREEN: snprintf(val, n, "%s", yesno(a->win && (SDL_GetWindowFlags(a->win) & SDL_WINDOW_FULLSCREEN))); break;
@@ -1298,6 +1527,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *ev) {
         else if (input_hotkey_matches(a->input, SF2_HK_STAGE_FULL, sc)) set_stage_full(a, !a->cfg.stage_full);
         else if (input_hotkey_matches(a->input, SF2_HK_HFR, sc)) set_hfr(a, !a->cfg.hfr);
         else if (input_hotkey_matches(a->input, SF2_HK_WIDE_LOGIC, sc)) set_wide_logic(a, !a->cfg.wide_logic);
+        else if (input_hotkey_matches(a->input, SF2_HK_TRAINING, sc)) set_training(a, !a->cfg.tr_enabled);
+        else if (input_hotkey_matches(a->input, SF2_HK_SHOW_INPUTS, sc)) set_show_inputs(a, !a->cfg.show_inputs);
+        else if (input_hotkey_matches(a->input, SF2_HK_SHOW_HITBOXES, sc)) set_show_hitboxes(a, !a->cfg.show_hitboxes);
         else if (input_hotkey_matches(a->input, SF2_HK_SCREENSHOT, sc)) write_screenshot(a);
         else if (input_hotkey_matches(a->input, SF2_HK_RESET, sc)) { sf2_reset(a->sf2); a->halted = 0; a->new_frame = 1; osd(a, "Reinicio"); }
         else if (sc == SDL_SCANCODE_RETURN && (ev->key.mod & SDL_KMOD_ALT) && a->win) toggle_fullscreen(a);
@@ -1307,7 +1539,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *ev) {
 
 /* secuencia de --menu-test: abre el menú, asigna P1 arriba = W y abajo = K, sube la escala a x4 y apaga el VSync */
 static const SDL_Scancode menu_test_keys[] = {
-    SDL_SCANCODE_M, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_RETURN,   /* Controles */
+    SDL_SCANCODE_M, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_DOWN, SDL_SCANCODE_RETURN,   /* Controles */
     SDL_SCANCODE_RETURN, SDL_SCANCODE_RETURN, SDL_SCANCODE_W,                                       /* teclado 1, Arriba, tecla W */
     SDL_SCANCODE_DOWN, SDL_SCANCODE_RETURN, SDL_SCANCODE_K,                                          /* Abajo, tecla K */
     SDL_SCANCODE_ESCAPE, SDL_SCANCODE_ESCAPE, SDL_SCANCODE_UP, SDL_SCANCODE_UP, SDL_SCANCODE_RETURN, /* atrás, atrás, Video */
@@ -1384,8 +1616,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     }
     if (a->menu_test && a->frames_run >= 400 && menu_test_step(a)) done = 1;
     if (a->menu_png && !a->menu && a->frames_run >= 400 && !a->menu_shot_done) {
-        a->menu = 1;                                       /* páginas 0-4 son las del menú; 5, 6, 7, 8 las asignaciones de teclado 1 y 2 y de mando 1 y 2 */
-        if (a->menu_shot_page >= 5) { a->menu_page = PG_BINDS; a->bind_player = (a->menu_shot_page - 5) & 1; a->bind_pad = (a->menu_shot_page - 5) >> 1; }
+        a->menu = 1;                                       /* páginas 0-5 son las del menú; 6, 7, 8, 9 las asignaciones de teclado 1 y 2 y de mando 1 y 2 */
+        if (a->menu_shot_page >= 6) { a->menu_page = PG_BINDS; a->bind_player = (a->menu_shot_page - 6) & 1; a->bind_pad = (a->menu_shot_page - 6) >> 1; }
         else a->menu_page = a->menu_shot_page;
     }
     update_title(a, SDL_GetTicksNS());

@@ -3,7 +3,7 @@
 Se abre con **M** (tecla `menu` en `[hotkeys]`) o con el botón guía del mando; pausa el juego. Flechas o cruceta para elegir y cambiar, **Enter** o A para aceptar, **Esc** o B para volver a la página anterior (en la principal, cierra); **M**, Start o el botón guía cierran de golpe.
 
 ## Páginas
-**Principal:** Continuar · Ajuste rápido (Original, Widescreen 16:9, Ultraancho 3440x1440, Ultraancho 768) · Pantalla ancha y mods ▸ · Video ▸ · Sonido ▸ · Controles ▸ · Guardar configuración · Reiniciar el juego · Salir.
+**Principal:** Continuar · Ajuste rápido (Original, Widescreen 16:9, Ultraancho 3440x1440, Ultraancho 768) · Pantalla ancha y mods ▸ · Entrenamiento ▸ · Video ▸ · Sonido ▸ · Controles ▸ · Guardar configuración · Reiniciar el juego · Salir.
 
 | Página | Opción | Equivale a |
 |---|---|---|
@@ -13,6 +13,15 @@ Se abre con **M** (tecla `menu` en `[hotkeys]`) o con el botón guía del mando;
 | | Lógica ancha (cambia el juego) | F3, `wide_logic` |
 | | Stage completo (cambia el juego) | F4, `stage_full` |
 | | HFR | F1, `hfr` |
+| Entrenamiento (cambia el juego mientras está encendido; ver `docs/ENTRENAMIENTO.md`) | Modo entrenamiento (interruptor general) | 7, `[training] enabled` |
+| | Sin límite de tiempo | `infinite_time` |
+| | Barras de vida (normales / tras un retardo / siempre llenas) | `refill` |
+| | Retardo de la recuperación (10 a 600 cuadros, de 10 en 10) | `refill_delay` |
+| | Jugador 2 sin controles | `lock_p2` |
+| | Versus automático | `auto_vs` |
+| | Comportamiento de J2 (quieto, agachado, salta, se cubre de pie o agachado, camina hacia J1 o se aleja, guion) | `dummy` (el guion, en `script` del `.ini`) |
+| | Visor de entradas | 8, `show_inputs` |
+| | Cajas de golpe | 9, `show_hitboxes` |
 | Video | Escala de la ventana (x1 a x6, o ajustar = maximizada) | `scale` |
 | | Pantalla completa | F11, `fullscreen` |
 | | Escala entera | `integer_scale` |
@@ -28,5 +37,5 @@ Enter y pulsa la tecla o el botón (los gatillos también valen); **Esc** cancel
 Los cambios valen para la sesión; solo "Guardar configuración" escribe el `.ini` en uso. Cada mod sigue siendo un interruptor: apagados, el juego es idéntico a MAME.
 
 ## Pruebas sin tocar el teclado
-- `sf2 --menu-png archivo.png [--menu-page N]` abre el menú tras 400 cuadros, guarda una captura y termina (N: 0 principal, 1 mods, 2 video, 3 sonido, 4 controles, 5 y 6 teclado 1 y 2, 7 y 8 mando 1 y 2).
+- `sf2 --menu-png archivo.png [--menu-page N]` abre el menú tras 400 cuadros, guarda una captura y termina (N: 0 principal, 1 mods, 2 video, 3 sonido, 4 controles, 5 entrenamiento, 6 y 7 teclado 1 y 2, 8 y 9 mando 1 y 2).
 - `sf2 --menu-test` teclea una secuencia (asignar teclas, escala, VSync) y comprueba el resultado.

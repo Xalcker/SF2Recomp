@@ -10,6 +10,7 @@
 #include "cps1.h"
 #include "crc32.h"
 #include "hostio.h"
+#include "machine.h"
 #include "romset.h"
 #include "sf2.h"
 #include "zipread.h"
@@ -414,6 +415,84 @@ static void test_stage_full(const char *rom, const char *script) {
     sf2_destroy(a); sf2_destroy(d); sf2_destroy(e);
 }
 
+
+/* mod de entrenamiento (docs/ENTRENAMIENTO.md): apagado (o solo con el registro de entradas) la partida es identica a la original;
+ * encendido, el temporizador no baja, las barras se llenan, J2 ignora el teclado y sigue el guion, y el versus empieza solo */
+#define TR_FRAMES 1900
+static uint32_t train_run(Sf2 *s, int frames, uint16_t in1) {
+    for (int i = 0; i < frames; i++) {
+        sf2_set_input(s, 0, in1, 0);
+        CHECK(sf2_run_frame(s) > 0);
+        sf2_audio_clear(s);
+    }
+    return sf2_state_crc(s);
+}
+
+static void test_training(const char *rom, const char *script) {
+    Sf2 *a = make_machine(rom, script), *b = make_machine(rom, script), *c = make_machine(rom, script);
+    CHECK(a && b && c);
+    if (!a || !b || !c) return;
+    char err[200];
+    Sf2Training t;
+    memset(&t, 0, sizeof t);
+    /* 1. con el mod apagado y con solo el registro de entradas, la partida no cambia (el interruptor apagado = juego original) */
+    uint32_t base = train_run(a, TR_FRAMES, 0);
+    t.track_inputs = 1;
+    CHECK(sf2_training_set(b, &t, err, sizeof err) == 0);
+    CHECK(train_run(b, TR_FRAMES, 0) == base);
+    Sf2InputEvent ev[SF2_TRAIN_HISTORY];
+    CHECK(sf2_training_history(b, 0, ev, SF2_TRAIN_HISTORY) > 0);
+    /* 2. guiones: los validos se aceptan y los malos se rechazan sin cambiar nada */
+    t.enabled = 1; t.dummy = SF2_DUMMY_SCRIPT;
+    snprintf(t.script, sizeof t.script, "d:30 df:3 f+lp:2 n:30");
+    CHECK(sf2_training_set(c, &t, err, sizeof err) == 0);
+    snprintf(t.script, sizeof t.script, "d:30 zz:3");
+    CHECK(sf2_training_set(c, &t, err, sizeof err) == -1 && strstr(err, "zz") != NULL);
+    snprintf(t.script, sizeof t.script, "d:0");
+    CHECK(sf2_training_set(c, &t, err, sizeof err) == -1);
+    snprintf(t.script, sizeof t.script, "   ");
+    CHECK(sf2_training_set(c, &t, err, sizeof err) == -1);       /* modo script con guion vacio */
+    Sf2Training got;
+    sf2_training_get(c, &got);
+    CHECK(strcmp(got.script, "d:30 df:3 f+lp:2 n:30") == 0 && got.enabled);
+    /* 3. versus automatico + sin limite de tiempo + barras llenas + J2 bloqueado y siguiendo el guion */
+    memset(&t, 0, sizeof t);
+    t.enabled = 1; t.infinite_time = 1; t.refill = 2; t.refill_delay = 60; t.lock_p2 = 1; t.auto_vs = 1; t.track_inputs = 1;
+    t.dummy = SF2_DUMMY_SCRIPT;
+    snprintf(t.script, sizeof t.script, "d:30 df:3 f+lp:2 n:30");
+    Sf2 *d = make_machine(rom, "");
+    CHECK(d != NULL);
+    if (!d) return;
+    CHECK(sf2_training_set(d, &t, err, sizeof err) == 0);
+    int fight_frames = 0, p2_dummy_ok = 0, host_leak = 0;
+    Mem *mem = &((Machine *)d)->mem;                         /* Sf2 empieza por su Machine (runtime/sf2.c) */
+    for (int i = 0; i < 4500; i++) {
+        sf2_set_input(d, 0, i % 40 < 3 ? (SF2_IN1_LP | (SF2_IN1_HP << 8) | (SF2_IN1_LEFT << 8)) : 0, 0);   /* J1 pulsa LP, "J2 humano" HP e izquierda */
+        CHECK(sf2_run_frame(d) > 0);
+        sf2_audio_clear(d);
+        const int fight = mem->wram[0xFF8001 - 0xFF0000] == 2 && mem->wram[0xFF8005 - 0xFF0000] == 4 && mem->wram[0xFF8009 - 0xFF0000] == 0x0A;
+        if (fight) {
+            fight_frames++;
+            CHECK(mem->wram[0xFF8ACE - 0xFF0000] == 0x99);
+            const int l1 = (int16_t)((mem->wram[0xFF83F0 - 0xFF0000] << 8) | mem->wram[0xFF83F1 - 0xFF0000]);
+            const int l2 = (int16_t)((mem->wram[0xFF86F0 - 0xFF0000] << 8) | mem->wram[0xFF86F1 - 0xFF0000]);
+            CHECK(l1 == 0x90 && l2 == 0x90);
+        }
+    }
+    CHECK(fight_frames > 1000);                               /* el versus empezo solo y llego al combate */
+    CHECK(mem->wram[0xFF86C6 - 0xFF0000] != 0 && mem->wram[0xFF83C6 - 0xFF0000] != 0);   /* J1 y J2 existen: no hay rival de la maquina */
+    /* el historial de J2 solo tiene lo del guion/seleccion: nunca HP ni LEFT del "J2 humano" del anfitrion */
+    int n = sf2_training_history(d, 1, ev, SF2_TRAIN_HISTORY);
+    CHECK(n > 0);
+    for (int i = 0; i < n; i++) {
+        if (ev[i].mask & SF2_PAD_HP) host_leak = 1;
+        if (ev[i].mask == (SF2_PAD_RIGHT | SF2_PAD_LP) || ev[i].mask == (SF2_PAD_LEFT | SF2_PAD_LP) || ev[i].mask == SF2_PAD_DOWN) p2_dummy_ok = 1;
+    }
+    CHECK(!host_leak);
+    CHECK(p2_dummy_ok);
+    sf2_destroy(a); sf2_destroy(b); sf2_destroy(c); sf2_destroy(d);
+}
+
 int main(int argc, char **argv) {
     if (argc < 3) { fprintf(stderr, "uso: %s <sf2.zip|carpeta> <entradas.txt> [otro origen]\n", argv[0]); return 2; }
     uint8_t *script;
@@ -429,6 +508,7 @@ int main(int argc, char **argv) {
     test_widescreen(argv[1], (const char *)script);
     test_wide_logic(argv[1], (const char *)script);
     test_stage_full(argv[1], (const char *)script);
+    test_training(argv[1], (const char *)script);
     free(script);
     printf("sf2_rom_tests: %d comprobaciones, %d fallos\n", g_checks, g_fail);
     return g_fail ? 1 : 0;

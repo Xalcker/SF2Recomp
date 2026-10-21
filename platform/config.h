@@ -31,6 +31,7 @@ typedef enum Sf2Hotkey {
     SF2_HK_SAVE_STATE, SF2_HK_LOAD_STATE, SF2_HK_SLOT_PREV, SF2_HK_SLOT_NEXT,
     SF2_HK_PAUSE, SF2_HK_FAST_FORWARD, SF2_HK_FULLSCREEN, SF2_HK_SCREENSHOT, SF2_HK_RESET, SF2_HK_QUIT,
     SF2_HK_WIDESCREEN, SF2_HK_WIDE_LOGIC, SF2_HK_STAGE_FULL, SF2_HK_HFR, SF2_HK_MENU,
+    SF2_HK_TRAINING, SF2_HK_SHOW_INPUTS, SF2_HK_SHOW_HITBOXES,
     SF2_HK_COUNT
 } Sf2Hotkey;
 
@@ -58,6 +59,17 @@ typedef struct Sf2Config {
     int difficulty;              /* 0 (más fácil) a 7 (más difícil); 3 = normal */
     int coin_a, coin_b;          /* índice de tabla de precios (config_coinage_names) */
     int free_play, two_coins_to_start, demo_sounds, allow_continue, freeze, test_mode;
+    /* [training]: mod de entrenamiento (docs/ENTRENAMIENTO.md); apagado = juego original */
+    int tr_enabled;              /* interruptor general (tecla training) */
+    int tr_infinite_time;        /* temporizador siempre en 99 */
+    int tr_refill;               /* 0 = no, 1 = barra llena tras tr_refill_delay cuadros sin daño, 2 = siempre llena */
+    int tr_refill_delay;
+    int tr_lock_p2;              /* J2 no responde al teclado ni al mando: lo maneja el dummy */
+    int tr_auto_vs;              /* versus automatico desde el titulo */
+    int tr_dummy;                /* modo del dummy (config_dummy_names) */
+    char tr_script[256];         /* guion del dummy cuando tr_dummy = script */
+    int show_inputs;             /* visor de entradas de J1 y J2 (tecla show_inputs) */
+    int show_hitboxes;           /* cajas de golpe y de daño (tecla show_hitboxes) */
     /* [paths] */
     char rom_path[512];          /* sf2.zip o carpeta con las ROMs ("" = buscar) */
     char state_dir[512];         /* carpeta de estados guardados ("" = la de preferencias) */
@@ -80,6 +92,8 @@ void config_dsw(const Sf2Config *c, uint8_t *a, uint8_t *b, uint8_t *dswc);
 const char *config_action_name(int action);        /* "p1_up", "coin1"... */
 const char *config_hotkey_name(int hotkey);
 extern const char *const config_coinage_names[8];  /* "4c1c" ... "1c6c" */
+#define SF2_CONFIG_DUMMY_MODES 8
+extern const char *const config_dummy_names[SF2_CONFIG_DUMMY_MODES];   /* "stand" ... "script" (el orden de Sf2DummyMode) */
 
 #ifdef __cplusplus
 }

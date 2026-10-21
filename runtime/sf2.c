@@ -10,6 +10,7 @@
 #include "recomp_funcs.h"
 #include "sound.h"
 #include "state.h"
+#include "training_priv.h"
 #include "video.h"
 
 #define STATE_MAGIC   "SF2R"
@@ -33,6 +34,8 @@ struct Sf2 {
     int dev_tool;                    /* herramienta de desarrollo pedida (sf2_set_dev_tool), 0 = juego normal */
     uint8_t user_dswc;               /* DSWC pedido por el anfitrión; el de la máquina vale esto salvo con una herramienta */
     int wide_logic;                  /* mod de lógica ancha pedido (D58): se aplica si el ancho del cuadro es mayor que 384 */
+    Training train;                  /* mod de entrenamiento (training.h); apagado = juego original */
+    uint16_t host_in[3];             /* entradas del anfitrión tal cual (sf2_set_input); las que ve el juego pasan por el mod */
     Sf2SampleHook sample_hook;
     void *sample_user;
 };
@@ -59,10 +62,20 @@ static void apply_wide_logic(Sf2 *s);
 
 static void on_vblank(Machine *mc) {
     Sf2 *s = mc->user;
-    video_vblank(&s->video, &mc->mem);
-    apply_wide_logic(s);                 /* la escena que se acaba de dibujar decide si el juego corre con los parches activos */
-    if (s->video.flip_warned)
-        s->flip = 1;
+    if (s->has_video) {
+        video_vblank(&s->video, &mc->mem);
+        apply_wide_logic(s);             /* la escena que se acaba de dibujar decide si el juego corre con los parches activos */
+        if (s->video.flip_warned)
+            s->flip = 1;
+    }
+    if (s->train.cfg.enabled || s->train.cfg.track_inputs) {
+        /* mod de entrenamiento: toca la RAM y calcula las entradas que leerá la IRQ2 que se entrega a continuación */
+        uint16_t out[3];
+        training_vblank(&s->train, &mc->mem, s->host_in, out);
+        mc->cps.manual_in0 = out[0];
+        mc->cps.manual_in1 = out[1];
+        mc->cps.manual_in2 = out[2];
+    }
 }
 
 static void on_sample(Machine *mc, uint64_t frame) {
@@ -140,8 +153,8 @@ int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, 
     s->mc.quiet = 1;
     s->mc.on_sample = on_sample;
     video_init(&s->video, &s->gfx);
-    if (s->has_video)
-        s->mc.on_vblank = on_vblank;
+    s->mc.on_vblank = on_vblank;
+    training_init(&s->train);
     if (s->has_sound) {
         if (sound_init(&s->snd, roms) < 0) {
             set_err(err, errn, "no se pudo preparar la placa de sonido");
@@ -183,6 +196,7 @@ void sf2_set_dev_tool(Sf2 *s, int tool) {
 int sf2_dev_tool(const Sf2 *s) { return s->dev_tool; }
 
 void sf2_reset(Sf2 *s) {
+    training_reset(&s->train);
     apply_dev_tool(s);
     machine_reset(&s->mc);
     s->audio_len = 0;
@@ -192,10 +206,26 @@ void sf2_reset(Sf2 *s) {
 }
 
 void sf2_set_input(Sf2 *s, uint16_t in0, uint16_t in1, uint16_t in2) {
-    s->mc.cps.manual_in0 = in0;
-    s->mc.cps.manual_in1 = in1;
-    s->mc.cps.manual_in2 = in2;
+    s->host_in[0] = in0;
+    s->host_in[1] = in1;
+    s->host_in[2] = in2;
+    training_inputs(&s->train, in0, in1, in2, &s->mc.cps.manual_in0, &s->mc.cps.manual_in1, &s->mc.cps.manual_in2);
 }
+
+int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn) {
+    int was = s->train.cfg.enabled || s->train.cfg.track_inputs;
+    if (training_configure(&s->train, t, err, errn) != 0)
+        return -1;
+    if (!was && (s->train.cfg.enabled || s->train.cfg.track_inputs))
+        training_reset(&s->train);
+    sf2_set_input(s, s->host_in[0], s->host_in[1], s->host_in[2]);
+    return 0;
+}
+
+void sf2_training_get(const Sf2 *s, Sf2Training *t) { *t = s->train.cfg; }
+int sf2_training_history(const Sf2 *s, int player, Sf2InputEvent *out, int max) { return training_history(&s->train, player, out, max); }
+int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max) { return training_boxes(&s->mc.mem, out, max); }
+uint16_t sf2_training_pad(const Sf2 *s, int player) { return player >= 0 && player <= 1 ? s->train.now[player] : 0; }
 
 int sf2_load_input_script(Sf2 *s, const char *text, const char *name, char *err, size_t errn) {
     int n = cps1_parse_inputs(&s->mc.cps, text, name, err, errn);
