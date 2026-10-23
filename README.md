@@ -9,7 +9,7 @@
 > browser (WebAssembly), and is frame-exact against MAME 0.289 on fourteen full playthroughs. **No ROMs or Capcom assets are
 > included**: you supply your own `sf2.zip` (MAME `sf2` set), and the recompiler generates the C code at build time on your
 > machine. Build instructions are below (in Spanish); `make ROMDIR=/path/to/sf2.zip` is the short version. This project is
-> developed with AI assistance (Claude). MIT licensed, excluding anything derived from the ROMs.
+> developed with AI assistance (Claude). GPL-2.0 licensed, excluding anything derived from the ROMs.
 
 Recompilación estática del programa 68000 de *Street Fighter II: The World Warrior* (Capcom CPS1, World 910522) a C
 portable, al estilo de N64Recomp. El jugador aporta sus propias ROMs: el repositorio solo contiene herramientas,
@@ -185,5 +185,5 @@ web: hito 5 (`docs/bitacora/2026-10-19-hito5-rendimiento.md`), no se ha vuelto a
 
 ## Licencia
 
-El código de este repositorio se publica bajo la licencia [MIT](LICENSE). Los componentes de `third_party/` (Musashi, ymfm)
+El código de este repositorio se publica bajo la licencia [GPL-2.0](LICENSE). Los componentes de `third_party/` (Musashi, ymfm)
 conservan sus propias licencias. Esta licencia no cubre las ROMs ni nada derivado de ellas, que pertenecen a Capcom.
