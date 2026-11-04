@@ -19,6 +19,7 @@ set(SF2_GENERATED_DIR "" CACHE PATH "Usar el C ya generado en esta carpeta (p. e
 option(SF2_BUILD_APP "Compilar el juego (sf2, SDL3)" ON)
 option(SF2_BUILD_HARNESS "Compilar los arneses de validacion con Musashi (no en Web)" ON)
 option(SF2_BUILD_TESTS "Registrar las pruebas de CTest" ON)
+option(SF2_USE_MODS "Aplicar parches de mods durante la recompilacion" ON)
 set(SF2_BFRAMES 12000 CACHE STRING "Cuadros de la partida a ciegas (make BFRAMES=N)")
 set(SF2_INPUTS "${CMAKE_SOURCE_DIR}/tools/inputs_sf2.txt" CACHE FILEPATH "Secuencia de entradas de la partida de validacion")
 set(SF2_VFRAMES "100,650,900,1100,1250,1600,1800,2200,3000,3702,4400,5000,5600,6200,7000,8000,10000" CACHE STRING

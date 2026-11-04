@@ -36,10 +36,17 @@ function(sf2_generation_pipeline OUTDIR)
   foreach(f ${SF2_GEN_SOURCES})
     list(APPEND srcs "${gen}/${f}")
   endforeach()
+  # Dependiendo de si SF2_USE_MODS está activo, añadimos el flag --mods
+  if(SF2_USE_MODS)
+    set(MODS_FLAG "--mods ${SF2_ROOT}/recompiler/mod_patches.txt")
+  else()
+    set(MODS_FLAG "")
+  endif()
+
   add_custom_command(OUTPUT ${srcs} "${gen}/recomp_funcs.h"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${gen}"
     COMMAND "${Python3_EXECUTABLE}" "${SF2_ROOT}/recompiler/gen_c.py" "${rom_bin}" "${gen}"
-            --hints "${tools}/hints.txt" --mods "${SF2_ROOT}/recompiler/mod_patches.txt" --cycles "${cycles_bin}" --parts ${SF2_PARTS}
+            --hints "${tools}/hints.txt" ${MODS_FLAG} --cycles "${cycles_bin}" --parts ${SF2_PARTS}
             --report "${OUTDIR}/coverage.txt"
     DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/hints.txt" "${SF2_ROOT}/recompiler/mod_patches.txt"
             "${rom_bin}" "${cycles_bin}"
