@@ -42,13 +42,16 @@ int video_scene_wide(const Mem *m) {
     const int mode = ram[0x8001], phase = ram[0x8005], sub = ram[0x8009];
     int fight;
     if (mode == 2 && phase == 4) {
-        /* partida: subfase 0x08 presentación de la ronda, 0x0A pelea, 0x0C victoria, 0x10 recuento de puntos; el resto de
-         * subfases son el VS, el mapa y el diálogo del vencido */
-        fight = sub == 0x08 || sub == 0x0a || sub == 0x0c || sub == 0x10;
+        /* partida: subfase 0x08 presentación de la ronda, 0x0A pelea, 0x0C victoria, 0x0E paso de un cuadro hacia el recuento (con el
+         * escenario en pantalla: sin ella las bandas parpadeaban, D62), 0x10 recuento de puntos; el resto de subfases son el VS, el mapa, el
+         * diálogo del vencido y la pantalla negra entre asaltos (0x06) */
+        fight = sub == 0x08 || sub == 0x0a || sub == 0x0c || sub == 0x0e || sub == 0x10;
     } else {
         /* demostración (modo atracción): modo 0x0A con fase 2 es la selección (subfase 0) y el combate (subfase 2); modo
-         * 0x0C con fase 2 es su victoria; el ranking y el título tienen otras fases */
-        fight = (mode == 0x0a && phase == 2 && sub == 2) || (mode == 0x0c && phase == 2);
+         * 0x0C con fase 2 es su victoria, a la que se llega por un cuadro de fase 0 con el combate aún en pantalla (D62; la fase 0 del
+         * modo 0x0C también es la intro del atracción, que se distingue porque no hay luchadores: 0xFF86C6 = 0); el ranking y el título
+         * tienen otras fases */
+        fight = (mode == 0x0a && phase == 2 && sub == 2) || (mode == 0x0c && (phase == 2 || (phase == 0 && ram[0x86c6] != 0)));
     }
     return fight;
 }
@@ -528,7 +531,9 @@ static void render_sprites(Video *v) {
                 const int sy = (y + nys * 16) & 0x1ff;
                 const int rowcode = 0x10 * (flipy ? ny - 1 - nys : nys);
                 for (int nxs = 0; nxs < nx; nxs++) {
-                    const int sx = v->xsigned ? x + nxs * 16 : (x + nxs * 16) & 0x1ff;
+                    /* en la placa los tiles de un bloque que pasan de la X 511 reaparecen a la izquierda (fuera de la ventana de 384, salvo
+                     * un trozo de los bloques muy anchos); con el cuadro ensanchado esa vuelta se vería dentro de la vista: se recortan */
+                    const int sx = v->xsigned || v->rw > VIDEO_W ? x + nxs * 16 : (x + nxs * 16) & 0x1ff;
                     const int colcode = flipx ? (code + (nx - 1) - nxs) & 0xf : (code + nxs) & 0xf;
                     draw_sprite_tile_wrap(v, (code & ~0xf) + colcode + rowcode, col, flipx, flipy, sx, sy);
                 }

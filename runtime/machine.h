@@ -117,6 +117,8 @@ void machine_poll_irq(Machine *mc);
 
 /* estado guardable de la máquina completa (CPU, memoria, cuadro, placa de sonido si hay) */
 void machine_state(Machine *mc, struct StateStream *s);
+/* lo mismo con o sin la placa de sonido (with_sound = 0: solo la placa principal; la máquina sombra de la pantalla ancha, D62) */
+void machine_state_ex(Machine *mc, struct StateStream *s, int with_sound);
 
 #ifdef __cplusplus
 }

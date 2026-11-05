@@ -30,6 +30,8 @@ struct M68K {
     uint8_t irq_pending;  /* nivel de IRQ pendiente (0 = ninguno) */
     int32_t mod_fixcam;   /* stage completo (D59): 1 = cámara principal fija en el centro de sus topes; solo con mod_wide > 0 */
     int32_t mod_wide;     /* mods de lógica (D58): píxeles extra de pantalla ancha por lado, 0 = juego original; lo leen los parches de recompiler/mod_patches.txt */
+    int32_t mod_view;     /* pantalla ancha (D62): píxeles extra por lado de las ventanas «¿está a la vista?» de los objetos (solo dibujo); 0 = original */
+    int32_t mod_bx;       /* pantalla ancha (D62): margen del constructor de sprites para X fuera de 0-511 (vista de más de 512; X con signo); 0 = original */
     /* sonido estéreo (docs/ESTEREO.md): 1 = el parche de 0x62AC anota en snd_x/snd_ok la X en pantalla del objeto (a6) que
      * encola cada sonido; 0 = juego original (el parche no hace nada).  Solo lo lee el anfitrión: no cambia la partida. */
     int32_t mod_stereo;

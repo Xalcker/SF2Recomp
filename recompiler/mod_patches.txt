@@ -24,20 +24,23 @@
 #   0x2816/0x281a  ventana de actividad de objetos (x - cam + 0x60 <= 0x240)
 0x2816 | uint32_t s = 0x60u; | uint32_t s = 0x60u + (uint32_t)c->mod_wide;
 0x281a | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_wide;
+#   Ventanas de visibilidad y constructor de sprites (D62): solo deciden qué se dibuja y dónde, así que no usan c->mod_wide sino c->mod_view
+#   (píxeles extra por lado de la vista, en toda escena ancha aunque la lógica ancha esté apagada) y c->mod_bx (margen del constructor
+#   cuando la vista pasa de 512 px; con 512 la X de 9 bits ya cubre la vista).  Con los dos a 0 valen lo mismo que el original.
 #   0x28d6/0x28da, 0x290e/0x2912, 0x2944/0x2948  ventanas de visibilidad de objetos (tres tamaños)
-0x28d6 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
-0x28da | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
-0x290e | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
-0x2912 | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_wide;
-0x2944 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
-0x2948 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_wide;
+0x28d6 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+0x28da | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_view;
+0x290e | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+0x2912 | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_view;
+0x2944 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+0x2948 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_view;
 #   0x47dc/0x47e0, 0x4804/0x4808, 0x482c/0x4830  objetos de escenario a la vista (cámaras de SCROLL1, 2 y 3)
-0x47dc | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
-0x47e0 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
-0x4804 | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_wide;
-0x4808 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_wide;
-0x482c | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_wide;
-0x4830 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_wide;
+0x47dc | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+0x47e0 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_view;
+0x4804 | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_view;
+0x4808 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_view;
+0x482c | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_view;
+0x4830 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_view;
 #   0x2d46e/0x2d472, 0x33218/0x3321c, 0x33296/0x3329a  proyectiles: dejan de existir al salir de la ventana
 0x2d46e | uint32_t s = 0x100u; | uint32_t s = 0x100u + (uint32_t)c->mod_wide;
 0x2d472 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
@@ -47,14 +50,14 @@
 0x3329a | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
 #   0x7f256 y siete más: el constructor de sprites descarta los fragmentos con X >= 512 o negativa (sin signo); con la vista ancha
 #   se aceptan los de X en [-mod_wide, 512 + mod_wide) y se guardan tal cual (X negativa con signo; el renderizador la entiende)
-0x7f256 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
-0x7f33a | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
-0x7f388 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
-0x7f3e0 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
-0x7f6c6 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
-0x7f7a8 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
-0x7f7f0 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
-0x7f844 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+0x7f256 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x7f33a | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x7f388 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x7f3e0 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x7f6c6 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x7f7a8 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x7f7f0 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x7f844 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
 #
 # Sonido estéreo (docs/ESTEREO.md): no cambia la partida.  Con c->mod_stereo != 0, antes de encolar el comando de sonido d0 en la
 # ranura d1, mod_sound_tag (runtime/cpu.h) anota la X en pantalla del objeto a6 que lo pide; la placa de sonido la usa para

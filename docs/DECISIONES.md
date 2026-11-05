@@ -675,3 +675,17 @@ sigue mono. (5) El paneo no es parte del estado guardado: tras cargar, las frase
 número de canales (`on_audio`, `sf2_audio_channels`); la aplicación abre el dispositivo en estéreo y cambia el formato del flujo de entrada
 al encender o apagar el mod. Comprobado: apagado, audio idéntico byte a byte al anterior y `compare-audio` igual a MAME; encendido, la
 partida y los comandos de sonido idénticos a los del mod apagado.
+
+## D62 (2026-11-04): Sprites de las bandas anchas con una máquina sombra; ventanas de dibujo separadas de la lógica
+
+Fallos del usuario: en todos los modos de pantalla ancha los objetos aparecían de golpe en las bandas añadidas (lámpara de Honda, piedras y bicicletas de Chun-Li,
+barriles de Ken) y algunos sprites pasaban de la derecha a la izquierda. Medido con un escáner de la tabla de sprites (`ryu.txt` en 512, lógica ancha y 768) y
+tiras de cuadros. Decisiones: (1) los parches de dibujo (ventanas de visibilidad `0x28D6`-`0x2948`, `0x47DC`-`0x4830` y el constructor `0x7F256`…) leen campos
+propios, `mod_view` (píxeles extra por lado de la vista) y `mod_bx` (margen del constructor solo si la vista pasa de 512, con la X con signo en el renderizador), en
+vez de `mod_wide`, que queda para la lógica (paredes, cámara, actividad, vida de los proyectiles). Con la lógica ancha a 512 el constructor admitía X hasta 575 y el
+renderizador las envolvía (`& 0x1ff`): era la vuelta de los poderes. (2) Con la lógica original los parches de dibujo cambian la partida (más ciclos del 68000:
+la X del rival divergía en el cuadro 30.728 de `ryu.txt`), así que se aplican en una máquina sombra que repite dos cuadros desde el estado real sin sonido
+(`machine_state_ex`) y presta su tabla de sprites; la partida real queda idéntica (RAM de trabajo igual en `ryu`, `ken` y `chunli`). (3) En los cuadros
+ensanchados los tiles de un bloque que pasan de la X 511 se recortan en vez de dar la vuelta. (4) El criterio de escena ancha añade la subfase 0x0E y el modo 0x0C
+fase 0 con luchadores (`0xFF86C6`), que vaciaban las bandas un cuadro; la fase 0 del modo 0x0C sin luchadores es la intro del atracción. Comprobado: `make test` 8/8
+(centro del cuadro ancho idéntico al de 384), `compare-video` 17/17.

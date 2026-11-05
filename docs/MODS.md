@@ -71,6 +71,7 @@ El bloque `0x86E98-0x8A2C8` de la ROM son menús de desarrollo que la placa nunc
 
 ## Límites conocidos
 
+- Pantalla ancha con la lógica original: una máquina sombra calcula los sprites de las bandas añadidas (D62); cuesta tres veces el núcleo en las escenas anchas.
 - Relleno de extremos: es un reflejo; los fondos con rótulos o figuras junto al borde muestran su copia. Dhalsim (elefantes de primer plano) y Ken (barco) no tienen arte más allá.
 - Lógica ancha y stage completo: no se han revisado a fondo la IA, los jefes ni los ataques que empujan contra la pared; la dificultad de la IA no está reajustada.
 - Cajas de golpe con `stage_full`: el desplazamiento no está resuelto. Agarre y bloqueo no tienen caja propia.
