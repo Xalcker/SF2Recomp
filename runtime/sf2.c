@@ -39,6 +39,14 @@ struct Sf2 {
     uint16_t host_in[3];             /* entradas del anfitrión tal cual (sf2_set_input); las que ve el juego pasan por el mod */
     Sf2SampleHook sample_hook;
     void *sample_user;
+    /* pantalla ancha con la lógica original (D62): máquina sombra que repite cada cuadro desde el estado real con las ventanas de
+     * visibilidad ensanchadas; de ella solo se toma la tabla de sprites, así que la partida real no cambia */
+    Machine shadow;
+    int shadow_init, shadow_ready, shadow_failed, shadow_next_ok, shadow_vb;
+    uint8_t *shadow_buf;
+    size_t shadow_cap;
+    uint16_t shadow_obj[OBJ_WORDS];       /* tabla para el VBlank de este cuadro */
+    uint16_t shadow_next[OBJ_WORDS];      /* la que se acaba de calcular, para el VBlank del cuadro siguiente */
 };
 
 static void set_err(char *err, size_t n, const char *fmt, ...) SF2_PRINTF(3, 4);
@@ -65,6 +73,10 @@ static void on_vblank(Machine *mc) {
     Sf2 *s = mc->user;
     if (s->has_video) {
         video_vblank(&s->video, &mc->mem);
+        if (s->shadow_ready) {           /* tabla de sprites de la máquina sombra (D62): la misma partida, con las ventanas ensanchadas */
+            memcpy(s->video.obj, s->shadow_obj, sizeof s->video.obj);
+            s->shadow_ready = 0;
+        }
         apply_wide_logic(s);             /* la escena que se acaba de dibujar decide si el juego corre con los parches activos */
         if (s->video.flip_warned)
             s->flip = 1;
@@ -115,6 +127,11 @@ void sf2_destroy(Sf2 *s) {
         sound_free(&s->snd);
     gfx_free(&s->gfx);
     machine_free(&s->mc);
+    if (s->shadow_init) {
+        s->shadow.cps.events = NULL;         /* el guion de entradas es el de la máquina real (ya liberado) */
+        machine_free(&s->shadow);
+    }
+    free(s->shadow_buf);
     free(s->prog);
     free(s->audio);
     free(s->scratch);
@@ -206,6 +223,7 @@ void sf2_reset(Sf2 *s) {
     training_reset(&s->train);
     apply_dev_tool(s);
     machine_reset(&s->mc);
+    s->shadow_next_ok = s->shadow_ready = 0;      /* la tabla de la máquina sombra era de la partida anterior */
     s->audio_len = 0;
     s->flip = 0;
     if (s->has_video)
@@ -249,7 +267,80 @@ void sf2_set_dips(Sf2 *s, uint8_t a, uint8_t b, uint8_t c) {
     s->mc.mem.dswc = s->dev_tool ? (uint8_t)(c & 0x7f) : c;
 }
 
+/* ---- máquina sombra de la pantalla ancha (D62) ------------------------------------------------------------------------------
+ * Con la pantalla ancha y la lógica original, las ventanas «¿está a la vista?» del juego (pensadas para 384 px) hacen que los objetos de
+ * las bandas añadidas aparezcan de golpe.  Ensancharlas en la propia partida la cambia (dibujar más objetos cuesta ciclos del 68000 y el
+ * juego se ralentiza de otra forma: la X del rival divergía en el combate contra Dhalsim de ryu.txt), así que se hace en una copia: antes
+ * de cada cuadro se copia la placa principal (sin sonido: el Z80 no influye en el 68000), la copia corre el cuadro con mod_view/mod_bx y
+ * su tabla de sprites sustituye a la real al latchearla.  La copia no arrastra diferencias porque cada cuadro parte del estado real. */
+static void shadow_vblank(Machine *mc) {
+    Sf2 *s = mc->user;
+    if (++s->shadow_vb < 2)
+        return;                          /* el primer VBlank latchea la tabla que construyó la máquina real: solo vale el segundo */
+    const uint32_t base = ((uint32_t)mc->mem.cps_a[CPSA_OBJ_BASE] * 256u) & ~(uint32_t)0x7ff & 0x3ffffu;
+    for (int i = 0; i < OBJ_WORDS; i++) {
+        const uint32_t off = base + 2u * (uint32_t)i;
+        s->shadow_next[i] = off + 1 < GFXRAM_SIZE ? (uint16_t)(mc->mem.gfxram[off] << 8 | mc->mem.gfxram[off + 1]) : 0;
+    }
+    s->shadow_next_ok = 1;
+}
+
+static void shadow_frame(Sf2 *s) {
+    /* lo calculado en el cuadro anterior es la tabla del VBlank de este */
+    s->shadow_ready = s->shadow_next_ok;
+    if (s->shadow_ready)
+        memcpy(s->shadow_obj, s->shadow_next, sizeof s->shadow_obj);
+    s->shadow_next_ok = 0;
+    if (s->shadow_failed || !s->has_video || s->wide_logic || s->stage_full || s->video.w <= SF2_SCREEN_W || s->video.rw <= SF2_SCREEN_W)
+        return;
+    if (!s->shadow_init) {
+        machine_init(&s->shadow, s->prog, CPS1_FRAME_CYCLES);
+        s->shadow.quiet = 1;
+        s->shadow.user = s;
+        s->shadow.on_vblank = shadow_vblank;
+        s->shadow_init = 1;
+    }
+    StateStream st;
+    state_begin_save(&st, NULL, 0);
+    machine_state_ex(&s->mc, &st, 0);
+    if (st.pos > s->shadow_cap) {
+        uint8_t *b = realloc(s->shadow_buf, st.pos);
+        if (!b) { s->shadow_failed = 1; return; }
+        s->shadow_buf = b;
+        s->shadow_cap = st.pos;
+    }
+    state_begin_save(&st, s->shadow_buf, s->shadow_cap);
+    machine_state_ex(&s->mc, &st, 0);
+    StateStream ld;
+    state_begin_load(&ld, s->shadow_buf, st.pos);
+    machine_state_ex(&s->shadow, &ld, 0);
+    if (st.error || ld.error) { s->shadow_failed = 1; return; }
+    /* entradas y configuración que no forman parte del estado */
+    Cps1 *c = &s->shadow.cps, *r = &s->mc.cps;
+    c->events = r->events;
+    c->nevents = r->nevents;
+    c->manual_in0 = r->manual_in0; c->manual_in1 = r->manual_in1; c->manual_in2 = r->manual_in2;
+    memcpy(c->dev_in1, r->dev_in1, sizeof c->dev_in1);
+    memcpy(c->dev_until, r->dev_until, sizeof c->dev_until);
+    s->shadow.mem.in0 = s->mc.mem.in0; s->shadow.mem.in1 = s->mc.mem.in1; s->shadow.mem.in2 = s->mc.mem.in2;
+    s->shadow.mem.dswa = s->mc.mem.dswa; s->shadow.mem.dswb = s->mc.mem.dswb; s->shadow.mem.dswc = s->mc.mem.dswc;
+    M68K *cpu = &s->shadow.cpu;
+    cpu->mod_wide = cpu->mod_fixcam = cpu->mod_stereo = 0;
+    cpu->mod_view = (s->video.rw - SF2_SCREEN_W) / 2;
+    cpu->mod_bx = s->video.rw > 512 ? (s->video.rw - 512) / 2 : 0;
+    /* la tabla que se latchea en un VBlank se construye en el cuadro anterior: la copia corre dos cuadros y se queda con el segundo
+     * latch, que la máquina real usará en su próximo VBlank */
+    const uint64_t v0 = s->shadow.vblanks;
+    s->shadow_vb = 0;
+    for (int guard = 0; s->shadow.vblanks < v0 + 2 && guard < 128; guard++) {
+        int r2 = machine_step(&s->shadow);
+        if (r2 == MACHINE_ERROR) { s->shadow_failed = 1; s->shadow_next_ok = 0; return; }
+        if (r2 == MACHINE_DONE) break;
+    }
+}
+
 int sf2_run_frame(Sf2 *s) {
+    shadow_frame(s);
     uint64_t v0 = s->mc.vblanks;
     do {
         int st = machine_step(&s->mc);
@@ -301,7 +392,13 @@ static void apply_wide_logic(Sf2 *s) {
     const int on = (s->wide_logic || s->stage_full) && s->video.rw > SF2_SCREEN_W;
     s->mc.cpu.mod_wide = on ? (s->video.rw - SF2_SCREEN_W) / 2 : 0;
     s->mc.cpu.mod_fixcam = on && s->stage_full;
-    video_set_xsigned(&s->video, s->stage_full && s->video.w > SF2_SCREEN_W);
+    /* dibujo (D62), con o sin lógica ancha: las ventanas «¿está a la vista?» se ensanchan lo que la vista, para que los objetos de las
+     * bandas añadidas no aparezcan de golpe; el constructor de sprites admite X fuera de 0-511 solo si la vista pasa de 512 (hasta
+     * 512 la X de 9 bits ya cubre la vista entera) y entonces el renderizador lee la X con signo */
+    /* en la partida real solo con lógica ancha o stage completo (que ya cambian el juego); con la lógica original lo hace la máquina sombra */
+    s->mc.cpu.mod_view = on ? (s->video.rw - SF2_SCREEN_W) / 2 : 0;
+    s->mc.cpu.mod_bx = on && s->video.rw > 512 ? (s->video.rw - 512) / 2 : 0;
+    video_set_xsigned(&s->video, s->video.w > 512);
     if (s->has_sound)
         sound_set_pan_half(&s->snd, s->video.rw / 2);     /* mod estéreo: el borde de la vista es el extremo del paneo */
 }
@@ -456,6 +553,7 @@ int sf2_state_load(Sf2 *s, const uint8_t *buf, size_t len, char *err, size_t err
         return -1;
     }
     s->audio_len = 0;
+    s->shadow_next_ok = s->shadow_ready = 0;
     if (s->has_video)
         video_render(&s->video, &s->mc.mem);
     return 0;

@@ -42,6 +42,22 @@ demostración. Invariante: con la opción activa el cuadro no cambia fuera de la
 Selección, mapa, versus, final y créditos se dibujan solo en la ventana original; las barras laterales toman el color del fondo de la pantalla (el del borde en la fila de arriba). Los bonus se
 ensanchan como un combate, con el relleno de D54.
 
+### Sprites en las bandas añadidas (D62, 2026-11-04)
+El juego decide qué objetos dibuja con ventanas «¿está a la vista?» pensadas para 384 px (`0x28C2`, `0x28FA`, `0x2932` y las de escenario `0x47D4`-`0x4824`:
+el origen del objeto entre −64 y 448 respecto de la cámara, con márgenes según su tamaño). En las bandas añadidas los objetos aparecían y desaparecían de golpe: la
+lámpara de Honda, las piedras y las bicicletas de Chun-Li, los barriles de Ken. Los parches de `mod_patches.txt` ensanchan esas ventanas con `c->mod_view` (píxeles extra
+por lado de la vista) y el constructor de sprites admite X fuera de 0-511 con `c->mod_bx` solo cuando la vista pasa de 512 (entonces el renderizador lee la X con signo).
+Aplicarlo en la partida la cambia (dibujar más objetos cuesta ciclos del 68000 y el juego se ralentiza de otra forma: la X del rival divergía contra Dhalsim), así que
+**con la lógica original lo hace una máquina sombra** (`shadow_frame` en `runtime/sf2.c`): antes de cada cuadro se copia la placa principal sin el sonido, la copia corre
+dos cuadros con los parches y su segundo latch de la tabla de sprites sustituye al real en el VBlank siguiente (la tabla que se latchea en un VBlank se construyó en el
+cuadro anterior). La partida real no lleva parches y es idéntica a la original (RAM de trabajo igual en todos los cuadros de `ryu.txt`, `ken.txt` a 512 y `chunli.txt` a
+640); la copia no arrastra diferencias porque parte cada cuadro del estado real. Cuesta correr el núcleo tres veces en las escenas anchas (con vídeo, 3.306 → 1.807
+cuadros por segundo en macOS, 30 veces el tiempo real). Con la lógica ancha o el stage completo, que ya cambian el juego, los parches van en la propia partida.
+
+Además: los sprites de bloque (varios tiles en una entrada) que pasan de la X 511 ya no reaparecen por la izquierda en los cuadros ensanchados (en la placa daban la vuelta
+fuera de la ventana de 384), y el criterio de escena ancha cuenta la subfase 0x0E (un cuadro hacia el recuento) y el paso de la demostración a su victoria (modo 0x0C fase 0
+con luchadores), que dejaban las bandas vacías un cuadro.
+
 ### Lógica ancha (fase 4, D58)
 Las paredes de los luchadores y los topes de la cámara usan 384 píxeles fijos en el código del juego. `recompiler/mod_patches.txt` cambia, por dirección, siete instrucciones del C
 generado (`0x2D98` pared de un objeto contra la cámara, `0x83650` seguimiento de la cámara) para que lean `c->mod_wide` (píxeles extra por lado; 0 = original). Con el interruptor apagado
@@ -76,6 +92,10 @@ con el mod apagado. Rendimiento: +33 % de píxeles; el vídeo cuesta unos 0,2 ms
 - Lógica ancha: no se han revisado a fondo los ataques que empujan al rival contra la pared, los proyectiles que se descartan al salir de pantalla, los jefes de bonus ni la IA; la dificultad no está
   reajustada (los combos de esquina duran menos).
 - El HUD depende de la asignación de ranuras del juego; si una pantalla usara otras ranuras, esa parte quedaría en el centro.
+- Con la lógica original, los proyectiles siguen desapareciendo donde los borra el juego (su ventana de vida es lógica y no se toca), y los objetos que el juego crea al
+  entrar en su ventana de actividad (`0x280E`) nacen donde la recreativa los crea.
+- La máquina sombra no ve los retoques del modo entrenamiento en el VBlank del cuadro que repite; con el entrenamiento activo puede haber un cuadro de diferencia en los
+  sprites de las bandas.
 
 ## 6. Cómo se hizo, por fases
 

@@ -170,10 +170,13 @@ RecompFn rt_dispatch(M68K *c) {
 static void cpu_reset(Machine *mc) {
     M68K *c = &mc->cpu;
     const int32_t mod_wide = c->mod_wide, mod_fixcam = c->mod_fixcam, mod_stereo = c->mod_stereo;   /* ajustes del anfitrión: el reinicio no los cambia */
+    const int32_t mod_view = c->mod_view, mod_bx = c->mod_bx;
     memset(c, 0, sizeof *c);
     c->mod_wide = mod_wide;
     c->mod_fixcam = mod_fixcam;
     c->mod_stereo = mod_stereo;
+    c->mod_view = mod_view;
+    c->mod_bx = mod_bx;
     c->mem = &mc->mem;
     c->s = 1;
     c->im = 7;
@@ -295,6 +298,10 @@ int machine_step(Machine *mc) {
 
 /* ---- estado guardable ---------------------------------------------------------------------- */
 void machine_state(Machine *mc, StateStream *s) {
+    machine_state_ex(mc, s, 1);
+}
+
+void machine_state_ex(Machine *mc, StateStream *s, int with_sound) {
     M68K *c = &mc->cpu;
     for (int i = 0; i < 8; i++) st_u32(s, &c->d[i]);
     for (int i = 0; i < 8; i++) st_u32(s, &c->a[i]);
@@ -325,10 +332,11 @@ void machine_state(Machine *mc, StateStream *s) {
     st_check(s, skip <= 1);
     mem_state(&mc->mem, s);
     cps1_state(&mc->cps, s);
-    uint8_t has_sound = (uint8_t)(mc->sound != NULL);
+    const uint8_t want_sound = (uint8_t)(with_sound && mc->sound != NULL);
+    uint8_t has_sound = want_sound;
     st_u8(s, &has_sound);
-    st_check(s, has_sound == (uint8_t)(mc->sound != NULL));      /* el estado y la máquina deben coincidir en llevar sonido */
-    if (mc->sound)
+    st_check(s, has_sound == want_sound);      /* el estado y la máquina deben coincidir en llevar sonido */
+    if (want_sound)
         sound_state(mc->sound, s);
     if (!s->saving && !s->error) {
         /* el punto de reanudación debe ser una dirección de la tabla de despacho (se cede solo en ellas) */
