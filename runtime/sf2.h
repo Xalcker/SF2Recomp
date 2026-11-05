@@ -137,8 +137,18 @@ int sf2_training_history(const Sf2 *s, int player, Sf2InputEvent *out, int max);
 int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max);
 /* entrada canónica (SF2_PAD_*) que recibe el juego ahora mismo, del jugador 0/1 */
 uint16_t sf2_training_pad(const Sf2 *s, int player);
-/* audio mezclado desde la última llamada a sf2_audio_clear: muestras mono float a SF2_AUDIO_RATE */
+/* audio mezclado desde la última llamada a sf2_audio_clear: `count` floats a SF2_AUDIO_RATE, mono (la mezcla validada contra MAME) o,
+ * con el mod estéreo, pares L, R intercalados; sf2_audio_channels dice cuál (1 o 2) */
 const float *sf2_audio(const Sf2 *s, size_t *count);
+unsigned sf2_audio_channels(const Sf2 *s);
+/* Sonido estéreo (docs/ESTEREO.md; apagado por omisión = audio original, mono e idéntico a MAME): las voces del OKI (golpes, gritos,
+ * proyectiles) suenan a la izquierda o a la derecha según dónde está en pantalla el luchador u objeto que las pide; la música
+ * (YM2151) sigue al centro.  No cambia la partida ni el estado guardado; solo la mezcla del altavoz. */
+void sf2_set_stereo(Sf2 *s, int on);
+int sf2_stereo(const Sf2 *s);
+/* separación del sonido estéreo, 0 a 100 % (100 por omisión: un sonido en el borde de la pantalla no suena en el lado contrario;
+ * 0 = las dos salidas iguales a la mezcla mono).  Cambia también las frases que ya suenan. */
+void sf2_set_stereo_width(Sf2 *s, int percent);
 void sf2_audio_clear(Sf2 *s);
 
 uint64_t sf2_frame_count(const Sf2 *s);       /* cuadros del juego (entregas de IRQ2) */

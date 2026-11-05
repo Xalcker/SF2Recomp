@@ -6,7 +6,7 @@ con opciones de línea de comandos o desde `sf2recomp.ini`. Última revisión: 2
 **Regla de todos los mods:** son interruptores y, **apagados, el juego es idéntico a MAME** (`make compare-video` 17/17, las 14 secuencias con el mismo CRC de
 estado, `make test`). Se distinguen dos clases:
 
-- **Solo presentación** (no tocan la partida; el estado del juego es el mismo encendidos o apagados): pantalla ancha, HUD en los bordes, HFR, visores de entradas y de cajas.
+- **Solo presentación** (no tocan la partida; el estado del juego es el mismo encendidos o apagados): pantalla ancha, HUD en los bordes, HFR, sonido estéreo, visores de entradas y de cajas.
 - **Cambian el juego** (con el mod encendido la partida ya no coincide con MAME): lógica ancha, stage completo, herramientas de desarrollo, modo entrenamiento.
   Ninguno forma parte del estado guardado, así que un estado guardado con uno puede cargarse con otro.
 
@@ -17,6 +17,7 @@ estado, `make test`). Se distinguen dos clases:
 | Lógica ancha | Los luchadores y la cámara usan todo el ancho de la ventana ancha | **sí** | **F3**, `wide_logic = true`, `--wide-logic`, menú | `WIDESCREEN.md` |
 | Stage completo (ultraancho) | Cámara fija y escenario entero a la vista (688 o 768 px) para monitores 21:9 y más | **sí** | **F4**, `stage_full = true`, `--stage-full`, menú; perfiles `mods/ultrawide*.ini` | `ULTRAWIDE.md` |
 | HFR | Cuadros intermedios (interpolados) al refresco del monitor: 120, 144, 240 Hz sin acelerar el juego | no | **F1**, `hfr = true`, `--hfr`, menú | `HFR.md` |
+| Sonido estéreo | Golpes, voces y proyectiles suenan del lado de la pantalla donde ocurren; la música, al centro | no | `[audio] stereo = true`, `--stereo`, menú ▸ Sonido | `ESTEREO.md` |
 | Herramientas de desarrollo | Abre los menús ocultos de Capcom que el código ya trae (prueba de scroll y OBJ TEST) | **sí** | `--dev-tool 1\|2`, menú ▸ Pantalla ancha y mods | `HERRAMIENTAS_DEV.md` |
 | Modo entrenamiento | Sin límite de tiempo, barras que se recuperan, J2 como dummy con guion, versus automático | **sí** | **7**, `[training] enabled = true`, `--training`, menú ▸ Entrenamiento | `ENTRENAMIENTO.md` |
 | Visor de entradas | Palanca, botones e historial de J1 y J2 en pantalla | no | **8**, `show_inputs = true`, `--show-inputs`, menú ▸ Entrenamiento | `ENTRENAMIENTO.md` |
@@ -46,6 +47,11 @@ Perfiles listos: `mods/ultrawide-3440.ini` (688 px, ajuste exacto de 3440x1440) 
 La lógica sigue a 59,637 Hz (acelerarla cambiaría el juego); el anfitrión dibuja varios cuadros entre dos estados consecutivos interpolando posición de sprites y de capas, redondeada
 al píxel. Cuesta un cuadro de latencia; con un monitor de 60 Hz no hace nada. Detalles, medidas y correcciones tras jugarlo en `HFR.md`.
 
+## Sonido estéreo
+
+Un parche en la rutina que encola los sonidos (`0x62AC`) anota la X en pantalla del luchador u objeto que pide cada uno; la placa de sonido reparte la
+voz del OKI que arranca ese comando entre izquierda y derecha. La música sigue al centro y, con las voces al centro, L y R son la mezcla original bit a bit. Detalles en `ESTEREO.md`.
+
 ## Modo entrenamiento y visores
 
 Un gancho en el VBlank (`runtime/training.c`) retoca la RAM y las entradas justo antes de entregar la IRQ2: temporizador y su subcontador, barras de vida, entradas de J2 (dummy con guion),
@@ -60,6 +66,7 @@ El bloque `0x86E98-0x8A2C8` de la ROM son menús de desarrollo que la placa nunc
 
 - `make compare-video`: 17 cuadros píxel a píxel contra MAME.
 - `python3 tools/playgen.py --verify tools/sequences/*.txt`: el CRC de estado de las 14 secuencias, con los parches de lógica apagados.
+- `make compare-audio`: la mezcla mono contra MAME, bit a bit (sonido estéreo apagado).
 - `make test` (`tests/README.md`): invariantes de ancho (`test_widescreen`), HUD, estados con relleno, instantáneas de HFR (`test_hfr_snapshot`), lógica ancha y stage completo, y `test_training`.
 
 ## Límites conocidos

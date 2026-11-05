@@ -128,10 +128,11 @@ uint8_t oki6295_read(const Oki6295 *o) {
     return r;
 }
 
-float oki6295_generate(Oki6295 *o) {
+float oki6295_generate_voices(Oki6295 *o, float voice_out[4]) {
     float out = 0.0f;
     for (int v = 0; v < 4; v++) {
         OkiVoice *vo = &o->voice[v];
+        voice_out[v] = 0.0f;
         if (!vo->playing)
             continue;
         int nibble = rom_byte(o, vo->base + vo->sample / 2) >> (((vo->sample & 1) << 2) ^ 4);
@@ -143,9 +144,15 @@ float oki6295_generate(Oki6295 *o) {
         else if (vo->step < 0) vo->step = 0;
         /* MAME: stream.add_int(0, i, int16 * float, 2048) -> (s32) truncado y luego double / 2048 */
         int32_t s = (int32_t)((float)(int16_t)vo->signal * vo->volume);
-        out += (float)((double)s / 2048);
+        voice_out[v] = (float)((double)s / 2048);
+        out += voice_out[v];
         if (++vo->sample >= vo->count)
             vo->playing = 0;
     }
     return out;
+}
+
+float oki6295_generate(Oki6295 *o) {
+    float voice_out[4];
+    return oki6295_generate_voices(o, voice_out);
 }

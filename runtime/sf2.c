@@ -16,7 +16,7 @@
 #define STATE_MAGIC   "SF2R"
 #define STATE_VERSION 2u            /* 2: hito 6, instante de la IRQ2 (reloj de MAME, D47) */
 #define STATE_HEADER  24u            /* marca, versión, CRC del código, longitud, CRC del contenido, reservado */
-#define AUDIO_MAX     (SF2_AUDIO_RATE * 2u)     /* si el anfitrión no consume, se descarta lo más antiguo pasados 2 s */
+#define AUDIO_MAX     (SF2_AUDIO_RATE * 2u)     /* si el anfitrión no consume, se descarta lo más antiguo pasados 2 s (muestras por canal) */
 
 struct Sf2 {
     Machine mc;                      /* primer miembro (ganchos y depuración) */
@@ -26,7 +26,8 @@ struct Sf2 {
     int has_video, has_sound;
     uint8_t *prog;                   /* imagen de programa de 1 MiB (la máquina la lee, no la copia) */
     float *audio;
-    size_t audio_len, audio_cap;
+    size_t audio_len, audio_cap;     /* en floats: muestras por canales */
+    unsigned audio_channels;         /* 1 = mono (el original), 2 = estéreo (mod de sonido estéreo) */
     uint8_t *scratch;
     size_t scratch_cap;
     int flip;
@@ -84,9 +85,14 @@ static void on_sample(Machine *mc, uint64_t frame) {
         s->sample_hook(s->sample_user, frame, s->video.frame);
 }
 
-static void on_audio(void *user, const float *mono, unsigned n) {
+static void on_audio(void *user, const float *buf, unsigned frames, unsigned channels) {
     Sf2 *s = user;
-    if (s->audio_len + n > AUDIO_MAX)
+    if (channels != s->audio_channels) {       /* el mod estéreo cambió entre dos bloques: lo pendiente ya no vale */
+        s->audio_channels = channels;
+        s->audio_len = 0;
+    }
+    const size_t n = (size_t)frames * channels;
+    if (s->audio_len + n > AUDIO_MAX * channels)
         s->audio_len = 0;
     if (s->audio_len + n > s->audio_cap) {
         size_t cap = s->audio_cap ? s->audio_cap : 4096;
@@ -98,7 +104,7 @@ static void on_audio(void *user, const float *mono, unsigned n) {
         s->audio = a;
         s->audio_cap = cap;
     }
-    memcpy(s->audio + s->audio_len, mono, n * sizeof *mono);
+    memcpy(s->audio + s->audio_len, buf, n * sizeof *buf);
     s->audio_len += n;
 }
 
@@ -163,6 +169,7 @@ int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, 
             return -1;
         }
         s->snd.on_audio = on_audio;
+        s->audio_channels = 1;
         s->snd.user = s;
         machine_attach_sound(&s->mc, &s->snd);
     }
@@ -295,7 +302,25 @@ static void apply_wide_logic(Sf2 *s) {
     s->mc.cpu.mod_wide = on ? (s->video.rw - SF2_SCREEN_W) / 2 : 0;
     s->mc.cpu.mod_fixcam = on && s->stage_full;
     video_set_xsigned(&s->video, s->stage_full && s->video.w > SF2_SCREEN_W);
+    if (s->has_sound)
+        sound_set_pan_half(&s->snd, s->video.rw / 2);     /* mod estéreo: el borde de la vista es el extremo del paneo */
 }
+
+void sf2_set_stereo(Sf2 *s, int on) {
+    if (!s->has_sound)
+        return;
+    s->mc.cpu.mod_stereo = on != 0;
+    sound_set_stereo(&s->snd, on);
+}
+
+int sf2_stereo(const Sf2 *s) { return s->has_sound && s->snd.stereo; }
+
+void sf2_set_stereo_width(Sf2 *s, int percent) {
+    if (s->has_sound)
+        sound_set_pan_width(&s->snd, (percent < 0 ? 0 : percent > 100 ? 100 : percent) / 100.0f);
+}
+
+unsigned sf2_audio_channels(const Sf2 *s) { return s->audio_channels ? s->audio_channels : 1; }
 
 void sf2_set_wide_logic(Sf2 *s, int on) {
     s->wide_logic = on != 0;

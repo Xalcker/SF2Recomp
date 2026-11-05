@@ -55,6 +55,8 @@ typedef struct Sf2Config {
     int audio;                   /* 0 = sin sonido */
     int volume;                  /* 0-100 */
     int audio_rate;              /* frecuencia del dispositivo (la mezcla es de 48 kHz y SDL la convierte) */
+    int stereo;                  /* mod de sonido estéreo (docs/ESTEREO.md): voces del OKI según la posición en pantalla; 0 = mono original */
+    int stereo_width;            /* separación del estéreo, 0-100 % */
     /* [dip]: valores con nombre; dsw() los combina */
     int difficulty;              /* 0 (más fácil) a 7 (más difícil); 3 = normal */
     int coin_a, coin_b;          /* índice de tabla de precios (config_coinage_names) */

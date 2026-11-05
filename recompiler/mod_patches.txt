@@ -55,3 +55,9 @@
 0x7f7a8 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
 0x7f7f0 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
 0x7f844 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide; uint32_t d = ((c->d[4] + (uint32_t)c->mod_wide) & 0xffffu);
+#
+# Sonido estéreo (docs/ESTEREO.md): no cambia la partida.  Con c->mod_stereo != 0, antes de encolar el comando de sonido d0 en la
+# ranura d1, mod_sound_tag (runtime/cpu.h) anota la X en pantalla del objeto a6 que lo pide; la placa de sonido la usa para
+# repartir la voz del OKI entre los altavoces.  Solo lee la RAM y escribe en campos del anfitrión (snd_x/snd_ok).
+#   0x62ac  move.w d0,0x0(a4,d1.w) de la rutina que encola sonidos (0x62A4)
+0x62ac | { uint32_t v = (c->d[0] & 0xffffu); | { if (c->mod_stereo) mod_sound_tag(c); uint32_t v = (c->d[0] & 0xffffu);

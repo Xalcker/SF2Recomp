@@ -28,7 +28,7 @@ Se abre con **M** (tecla `menu` en `[hotkeys]`) o con el botón guía del mando;
 | | Relación de aspecto (4:3 / pixel) | `aspect` |
 | | Filtro suave | `smooth` |
 | | VSync | `vsync` |
-| Sonido | Sonido (silencia la sesión) y Volumen (de 10 en 10) | `audio`, `volume` |
+| Sonido | Sonido (silencia la sesión), Volumen (de 10 en 10), Estéreo (mod, `ESTEREO.md`) y Separación estéreo (0 a 100 %) | `audio`, `volume`, `stereo`, `stereo_width` |
 | Controles | Teclado jugador 1 y 2, Mando jugador 1 y 2, Restaurar todos los controles | `[keys]`, `[pad]` |
 
 **Asignar controles:** en Controles ▸ elige jugador y dispositivo; cada acción (arriba, abajo, izquierda, derecha, seis botones, moneda, start y, para el jugador 1, servicio) muestra su tecla o botón.

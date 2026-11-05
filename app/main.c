@@ -50,6 +50,7 @@ typedef struct App {
     SDL_Texture *tex;
     SDL_AudioDeviceID audio_dev;
     SDL_AudioStream *audio;
+    int audio_channels;          /* canales del flujo de entrada: 1 = mezcla mono original, 2 = mod estéreo (sf2_audio_channels) */
     Input *input;
     int slot;
     int paused, halted, nothrottle, fast, new_frame;
@@ -143,6 +144,8 @@ static void usage(const char *argv0) {
         "  --show-inputs      visor de las entradas de J1 y J2    --show-hitboxes   cajas de golpe y de dano\n"
         "  --widescreen       pantalla ancha real (mas escenario a los lados en combate, sin estirar)   --hud-edges\n"
         "  --hfr              cuadros intermedios al refresco del monitor (interpola camara y sprites; no cambia el juego)\n"
+        "  --stereo           sonido estereo: golpes y voces del lado de la pantalla donde ocurren (no cambia el juego)\n"
+        "  --stereo-width 0-100  separacion del sonido estereo (100 por omision)\n"
         "  --dev-tool 1-2     abre una herramienta de desarrollo oculta de Capcom (1 scroll, 2 OBJ TEST); cambia el juego\n"
         "  --wide-logic       con pantalla ancha, paredes y camara del juego con el ancho nuevo (cambia el juego)\n"
         "  --volume 0-100     --mute                                     --nothrottle\n"
@@ -263,7 +266,9 @@ static void audio_open(App *a) {
         fprintf(stderr, "sin sonido (SDL audio: %s)\n", SDL_GetError());
         return;
     }
-    SDL_AudioSpec dev = { SDL_AUDIO_F32, 1, a->cfg.audio_rate }, src = { SDL_AUDIO_F32, 1, (int)SF2_AUDIO_RATE };
+    /* el dispositivo en estéreo: la mezcla mono original sale igual por los dos lados y el mod estéreo cambia solo el flujo de entrada */
+    SDL_AudioSpec dev = { SDL_AUDIO_F32, 2, a->cfg.audio_rate }, src = { SDL_AUDIO_F32, 1, (int)SF2_AUDIO_RATE };
+    a->audio_channels = 1;
     a->audio_dev = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &dev);
     if (!a->audio_dev) {
         fprintf(stderr, "sin sonido (SDL_OpenAudioDevice: %s)\n", SDL_GetError());
@@ -283,7 +288,7 @@ static void audio_open(App *a) {
 }
 
 static int audio_queued_ms(const App *a) {
-    return (int)((int64_t)SDL_GetAudioStreamQueued(a->audio) * 1000 / (int64_t)(sizeof(float) * SF2_AUDIO_RATE));
+    return (int)((int64_t)SDL_GetAudioStreamQueued(a->audio) * 1000 / (int64_t)(sizeof(float) * SF2_AUDIO_RATE * (a->audio_channels > 1 ? 2 : 1)));
 }
 
 /* ---- vídeo --------------------------------------------------------------------------------------------------- */
@@ -524,8 +529,16 @@ static int run_one_frame(App *a, int push_audio) {
     a->frame_arrive_ns = SDL_GetTicksNS();
     size_t n;
     const float *samples = sf2_audio(a->sf2, &n);
-    if (a->audio && push_audio && n)
-        SDL_PutAudioStreamData(a->audio, samples, (int)(n * sizeof(float)));
+    if (a->audio && push_audio && n) {
+        const int ch = (int)sf2_audio_channels(a->sf2);
+        if (ch != a->audio_channels) {          /* se encendió o apagó el mod estéreo */
+            SDL_AudioSpec src = { SDL_AUDIO_F32, ch, (int)SF2_AUDIO_RATE };
+            if (SDL_SetAudioStreamFormat(a->audio, &src, NULL))
+                a->audio_channels = ch;
+        }
+        if (ch == a->audio_channels)
+            SDL_PutAudioStreamData(a->audio, samples, (int)(n * sizeof(float)));
+    }
     sf2_audio_clear(a->sf2);
     return a->max_frames && sf2_frame_count(a->sf2) >= a->max_frames;
 }
@@ -610,7 +623,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     a->frame_ns = (uint64_t)(1e9 / SF2_FRAME_HZ);
 
     const char *cfg_arg = NULL, *rom_arg = NULL, *inputs = NULL, *load_state_arg = NULL, *png_list = NULL;
-    int opt_scale = -1, opt_fs = 0, opt_wide = 0, opt_hud = 0, opt_logic = 0, opt_stage = 0, opt_hfr = 0, opt_training = 0, opt_dummy = -1, opt_show_inputs = 0, opt_show_hitboxes = 0, opt_dev = 0, opt_vol = -1, opt_mute = 0, write_cfg = 0;
+    int opt_scale = -1, opt_fs = 0, opt_wide = 0, opt_hud = 0, opt_logic = 0, opt_stage = 0, opt_hfr = 0, opt_stereo = 0, opt_stereo_width = -1, opt_training = 0, opt_dummy = -1, opt_show_inputs = 0, opt_show_hitboxes = 0, opt_dev = 0, opt_vol = -1, opt_mute = 0, write_cfg = 0;
     const char *opt_dscript = NULL;
     a->png_dir = ".";
     for (int i = 1; i < argc; i++) {
@@ -625,6 +638,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         else if (!strcmp(s, "--wide-logic")) opt_logic = 1;
         else if (!strcmp(s, "--stage-full")) opt_stage = 1;
         else if (!strcmp(s, "--hfr")) opt_hfr = 1;
+        else if (!strcmp(s, "--stereo")) opt_stereo = 1;
+        else if (!strcmp(s, "--stereo-width") && i + 1 < argc) opt_stereo_width = atoi(argv[++i]);
         else if (!strcmp(s, "--training")) opt_training = 1;
         else if (!strcmp(s, "--dummy") && i + 1 < argc) {
             const char *v = argv[++i];
@@ -718,6 +733,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     if (opt_logic) a->cfg.wide_logic = 1;
     if (opt_stage) { a->cfg.stage_full = 1; a->cfg.widescreen = 1; }
     if (opt_hfr) a->cfg.hfr = 1;
+    if (opt_stereo) a->cfg.stereo = 1;
+    if (opt_stereo_width >= 0) a->cfg.stereo_width = opt_stereo_width > 100 ? 100 : opt_stereo_width;
     if (opt_training) { a->cfg.tr_enabled = 1; a->cfg.show_inputs = 1; }
     if (opt_dummy >= 0) a->cfg.tr_dummy = opt_dummy;
     if (opt_dscript) snprintf(a->cfg.tr_script, sizeof a->cfg.tr_script, "%s", opt_dscript);
@@ -767,6 +784,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     sf2_set_hud_edges(a->sf2, a->cfg.hud_edges);
     sf2_set_wide_logic(a->sf2, a->cfg.wide_logic);
     sf2_set_stage_full(a->sf2, a->cfg.stage_full);
+    sf2_set_stereo(a->sf2, a->cfg.stereo);
+    sf2_set_stereo_width(a->sf2, a->cfg.stereo_width);
     apply_training(a);
     if (a->npng)
         sf2_set_sample_hook(a->sf2, on_sample, a);
@@ -1029,6 +1048,27 @@ static void set_volume(App *a, int v) {
     if (a->audio) SDL_SetAudioStreamGain(a->audio, a->cfg.volume / 100.0f);
 }
 
+/* reinicio de la máquina: también quita la pausa (si no, la máquina se queda parada en la pantalla negra del arranque y parece colgada) */
+static void reset_game(App *a) {
+    sf2_reset(a->sf2);
+    a->halted = 0;
+    a->paused = 0;
+    a->next_ns = 0;
+    a->new_frame = 1;
+    osd(a, "Reinicio");
+}
+
+static void set_stereo(App *a, int on) {
+    a->cfg.stereo = on != 0;
+    sf2_set_stereo(a->sf2, a->cfg.stereo);
+    osd(a, a->cfg.stereo ? "Sonido estereo: activado" : "Sonido estereo: apagado (mono original)");
+}
+
+static void set_stereo_width(App *a, int v) {
+    a->cfg.stereo_width = v < 0 ? 0 : v > 100 ? 100 : v;
+    sf2_set_stereo_width(a->sf2, a->cfg.stereo_width);
+}
+
 static void toggle_fullscreen(App *a) {
     bool fs = (SDL_GetWindowFlags(a->win) & SDL_WINDOW_FULLSCREEN) != 0;
     SDL_SetWindowFullscreen(a->win, !fs);
@@ -1040,7 +1080,7 @@ enum {
     MI_RESUME, MI_PRESET, MI_SUB_MODS, MI_SUB_TRAINING, MI_SUB_VIDEO, MI_SUB_AUDIO, MI_SUB_CONTROLS, MI_SAVE, MI_RESET, MI_QUIT,
     MI_WIDE, MI_WIDTH, MI_HUD, MI_LOGIC, MI_STAGE, MI_HFR, MI_DEVTOOL,
     MI_SCALE, MI_FULLSCREEN, MI_INTSCALE, MI_ASPECT, MI_SMOOTH, MI_VSYNC,
-    MI_SOUND, MI_VOLUME,
+    MI_SOUND, MI_VOLUME, MI_STEREO, MI_STEREO_WIDTH,
     MI_TR_ENABLED, MI_TR_TIME, MI_TR_REFILL, MI_TR_DELAY, MI_TR_LOCK, MI_TR_AUTOVS, MI_TR_DUMMY, MI_TR_INPUTS, MI_TR_HITBOXES,
     MI_KB1, MI_KB2, MI_PAD1, MI_PAD2, MI_RESTORE_ALL,
     MI_BIND, MI_RESTORE_PAGE, MI_BACK,
@@ -1049,7 +1089,7 @@ enum {
 static const int page_main[] = { MI_RESUME, MI_PRESET, MI_SUB_MODS, MI_SUB_TRAINING, MI_SUB_VIDEO, MI_SUB_AUDIO, MI_SUB_CONTROLS, MI_SAVE, MI_RESET, MI_QUIT };
 static const int page_mods[] = { MI_WIDE, MI_WIDTH, MI_HUD, MI_LOGIC, MI_STAGE, MI_HFR, MI_DEVTOOL, MI_BACK };
 static const int page_video[] = { MI_SCALE, MI_FULLSCREEN, MI_INTSCALE, MI_ASPECT, MI_SMOOTH, MI_VSYNC, MI_BACK };
-static const int page_audio[] = { MI_SOUND, MI_VOLUME, MI_BACK };
+static const int page_audio[] = { MI_SOUND, MI_VOLUME, MI_STEREO, MI_STEREO_WIDTH, MI_BACK };
 static const int page_training[] = { MI_TR_ENABLED, MI_TR_TIME, MI_TR_REFILL, MI_TR_DELAY, MI_TR_LOCK, MI_TR_AUTOVS, MI_TR_DUMMY, MI_TR_INPUTS, MI_TR_HITBOXES, MI_BACK };
 static const int page_controls[] = { MI_KB1, MI_KB2, MI_PAD1, MI_PAD2, MI_RESTORE_ALL, MI_BACK };
 static const struct { const int *items; int n; const char *title; } pages[PG_COUNT - 1] = {
@@ -1202,7 +1242,7 @@ static int menu_activate(App *a, int dir) {
     case MI_SUB_AUDIO: if (!dir) menu_goto(a, PG_AUDIO); break;
     case MI_SUB_CONTROLS: if (!dir) menu_goto(a, PG_CONTROLS); break;
     case MI_SAVE: if (!dir) save_config(a); break;
-    case MI_RESET: if (!dir) { sf2_reset(a->sf2); a->halted = 0; a->new_frame = 1; menu_close(a); osd(a, "Reinicio"); } break;
+    case MI_RESET: if (!dir) { reset_game(a); menu_close(a); } break;
     case MI_QUIT: if (!dir) return 1; break;
     case MI_WIDE: set_widescreen(a, sf2_frame_width(a->sf2) <= SF2_SCREEN_W); break;
     case MI_WIDTH: {
@@ -1259,6 +1299,8 @@ static int menu_activate(App *a, int dir) {
         SDL_SetAudioStreamGain(a->audio, a->cfg.audio ? a->cfg.volume / 100.0f : 0.0f);
         break;
     case MI_VOLUME: set_volume(a, dir ? a->cfg.volume + 10 * dir : (a->cfg.volume >= 100 ? 0 : a->cfg.volume + 10)); break;
+    case MI_STEREO: set_stereo(a, !a->cfg.stereo); break;
+    case MI_STEREO_WIDTH: set_stereo_width(a, dir ? a->cfg.stereo_width + 10 * dir : (a->cfg.stereo_width >= 100 ? 0 : a->cfg.stereo_width + 10)); break;
     case MI_KB1: case MI_KB2: case MI_PAD1: case MI_PAD2:
         if (dir) break;
         a->bind_player = id == MI_KB2 || id == MI_PAD2;
@@ -1349,7 +1391,7 @@ static void menu_item(const App *a, int idx, const char **label, char *val, size
         [MI_STAGE] = "Stage completo (F4)", [MI_HFR] = "HFR (F1)", [MI_DEVTOOL] = "Herramientas de desarrollo",
         [MI_SCALE] = "Escala de la ventana", [MI_FULLSCREEN] = "Pantalla completa (F11)", [MI_INTSCALE] = "Escala entera",
         [MI_ASPECT] = "Relacion de aspecto", [MI_SMOOTH] = "Filtro suave", [MI_VSYNC] = "VSync",
-        [MI_SOUND] = "Sonido", [MI_VOLUME] = "Volumen",
+        [MI_SOUND] = "Sonido", [MI_VOLUME] = "Volumen", [MI_STEREO] = "Estereo (mod)", [MI_STEREO_WIDTH] = "Separacion estereo",
         [MI_TR_ENABLED] = "Modo entrenamiento (7)", [MI_TR_TIME] = "Sin limite de tiempo", [MI_TR_REFILL] = "Barras de vida", [MI_TR_DELAY] = "Retardo de la recuperacion",
         [MI_TR_LOCK] = "Jugador 2 sin controles", [MI_TR_AUTOVS] = "Versus automatico", [MI_TR_DUMMY] = "Comportamiento de J2",
         [MI_TR_INPUTS] = "Visor de entradas (8)", [MI_TR_HITBOXES] = "Cajas de golpe (9)",
@@ -1387,6 +1429,8 @@ static void menu_item(const App *a, int idx, const char **label, char *val, size
         [MI_TR_INPUTS] = "Palanca, botones e historial de J1 y J2 en pantalla.",
         [MI_TR_HITBOXES] = "Azul dano, rojo ataque, verde empuje, naranja proyectil.",
         [MI_SOUND] = "Apaga o enciende el sonido de esta sesion.", [MI_VOLUME] = "Izquierda y derecha cambian de 10 en 10.",
+        [MI_STEREO] = "Golpes y voces del lado donde ocurren; musica al centro. No cambia el juego.",
+        [MI_STEREO_WIDTH] = "0 = mono, 100 = un sonido en el borde no se oye del otro lado. De 10 en 10.",
         [MI_KB1] = "Teclas del jugador 1.", [MI_KB2] = "Teclas del jugador 2.", [MI_PAD1] = "Botones del mando 1 (jugador 1).", [MI_PAD2] = "Botones del mando 2 (jugador 2).",
         [MI_RESTORE_ALL] = "Deja teclas y mandos como vienen por omision.",
         [MI_RESTORE_PAGE] = "Deja esta pagina como viene por omision.", [MI_BACK] = "Vuelve a la pagina anterior (Esc).",
@@ -1425,6 +1469,8 @@ static void menu_item(const App *a, int idx, const char **label, char *val, size
     case MI_VSYNC: snprintf(val, n, "%s", yesno(a->cfg.vsync)); break;
     case MI_SOUND: snprintf(val, n, "%s", yesno(a->audio && a->cfg.audio)); break;
     case MI_VOLUME: snprintf(val, n, "< %d >", a->cfg.volume); break;
+    case MI_STEREO: snprintf(val, n, "%s", yesno(a->cfg.stereo)); break;
+    case MI_STEREO_WIDTH: snprintf(val, n, "< %d %% >", a->cfg.stereo_width); break;
     case MI_BIND: {
         const int act = bind_action(a, idx);
         const char *s = a->bind_pad ? a->cfg.pads[act] : a->cfg.keys[act];
@@ -1531,7 +1577,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *ev) {
         else if (input_hotkey_matches(a->input, SF2_HK_SHOW_INPUTS, sc)) set_show_inputs(a, !a->cfg.show_inputs);
         else if (input_hotkey_matches(a->input, SF2_HK_SHOW_HITBOXES, sc)) set_show_hitboxes(a, !a->cfg.show_hitboxes);
         else if (input_hotkey_matches(a->input, SF2_HK_SCREENSHOT, sc)) write_screenshot(a);
-        else if (input_hotkey_matches(a->input, SF2_HK_RESET, sc)) { sf2_reset(a->sf2); a->halted = 0; a->new_frame = 1; osd(a, "Reinicio"); }
+        else if (input_hotkey_matches(a->input, SF2_HK_RESET, sc)) reset_game(a);
         else if (sc == SDL_SCANCODE_RETURN && (ev->key.mod & SDL_KMOD_ALT) && a->win) toggle_fullscreen(a);
     }
     return SDL_APP_CONTINUE;

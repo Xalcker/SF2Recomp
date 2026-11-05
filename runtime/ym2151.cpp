@@ -122,8 +122,14 @@ void ym2151_free(Ym2151 *y) {
 
 void ym2151_reset(Ym2151 *y) {
     y->intf.now = 0;
+    y->intf.sync = 0;
     y->intf.in_access = false;
     y->intf.nqueue = 0;
+    /* los temporizadores y la ocupación son instantes absolutos del reloj de la placa, que vuelve a 0: sin borrarlos, tras un
+     * reinicio el temporizador A vencía donde iba la partida anterior y el Z80 (que lee los comandos en su interrupción) quedaba mudo */
+    y->intf.timer[0] = y->intf.timer[1] = YM2151_NEVER;
+    y->intf.busy_end = 0;
+    y->intf.irq = 0;
     y->chip.reset();
 }
 

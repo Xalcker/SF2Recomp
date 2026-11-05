@@ -137,7 +137,7 @@ secuencia), `python3 tools/playgen.py --verify tools/sequences/*.txt` (CRC de lo
 Además de correr el juego tal cual, el port trae mods que se activan desde el menú **M**, con teclas, con opciones de línea de comandos o en `sf2recomp.ini`. **Apagados, el juego es idéntico a MAME.**
 Solo presentación: **pantalla ancha** real (512 px = 16:9 sin estirar, hasta 800), **HUD en los bordes** y **HFR** (120/144/240 Hz por interpolación, sin acelerar el juego). Cambian el juego: **lógica ancha**, **stage completo** para monitores ultraanchos
 (`mods/ultrawide-3440.ini`), las **herramientas de desarrollo de Capcom** (`--dev-tool`) y el **modo entrenamiento** (`--training`: sin límite de tiempo, barras que se recuperan, J2 como dummy con guion, visor de entradas y cajas de golpe; teclas `7`/`8`/`9`).
-Catálogo y cómo activar cada uno en `docs/MODS.md`; el menú en `docs/MENU.md`; detalle en `docs/WIDESCREEN.md`, `docs/ULTRAWIDE.md`, `docs/HFR.md` y `docs/ENTRENAMIENTO.md`.
+Catálogo y cómo activar cada uno en `docs/MODS.md`; el menú en `docs/MENU.md`; detalle en `docs/WIDESCREEN.md`, `docs/ULTRAWIDE.md`, `docs/HFR.md`, `docs/ESTEREO.md` y `docs/ENTRENAMIENTO.md`.
 
 ## Estructura
 

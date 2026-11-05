@@ -40,7 +40,7 @@ elseif(CMAKE_CROSSCOMPILING)
   ExternalProject_Add(sf2_hostgen
     SOURCE_DIR "${CMAKE_SOURCE_DIR}/recompiler/host"
     BINARY_DIR "${CMAKE_BINARY_DIR}/hostgen"
-    CMAKE_ARGS -DSF2_ROM_DIR=${SF2_ROM_DIR} -DCMAKE_BUILD_TYPE=Release
+    CMAKE_ARGS -DSF2_ROM_DIR=${SF2_ROM_DIR} -DSF2_USE_MODS=${SF2_USE_MODS} -DCMAKE_BUILD_TYPE=Release
     INSTALL_COMMAND ""
     # siempre se entra en el sub-build (es incremental: solo regenera si cambian las ROMs o el recompilador); con 0 una
     # compilación cruzada seguía con el C de un recompilador anterior (hito 6)

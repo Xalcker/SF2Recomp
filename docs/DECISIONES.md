@@ -661,3 +661,17 @@ doble: `enabled` (cambia el juego) y `track_inputs` (solo registra); con ambos a
 (`test_training`) y con `compare-video` 17/17. (5) Direcciones: temporizador `0xFF8ACE` (BCD) y su subcontador `0xFF8ACF` (30 → 1; fijar solo el temporizador deja el marcador en 98),
 vida `jugador+0x30` (máximo 0x90); el formato de las cajas lo documenta `docs/HITBOXES.md`. (6) El dummy `block` se basa en los botones que pulsa J1 y no en que su ataque esté activo. No es
 parte del estado guardado.
+
+## D61 (2026-11-04): Sonido estéreo con la posición anotada al encolar el comando y una mezcla paralela del OKI
+
+Mod de solo presentación (`docs/ESTEREO.md`): las frases del OKI suenan del lado donde ocurren. Decisiones: (1) la posición se toma donde el juego todavía la
+conoce, al encolar el comando en `0x62A4` (`a6` = objeto que suena, X en `0x6(a6)`, cámara en `0xFF8BD8`), con un parche en `0x62AC` de
+`recompiler/mod_patches.txt` que solo actúa con `c->mod_stereo` y solo escribe campos del anfitrión; adivinar por el número de frase o por la
+posición de los luchadores al sonar daría el lado equivocado con proyectiles y golpes recibidos. (2) La posición viaja con el comando por la cola de
+latches y una voz la toma al arrancar si el comando tiene menos de 50 ms (la percusión de la música usa el OKI sin comandos nuevos y debe quedar al
+centro). (3) La mezcla original no se toca: el OKI genera lo mismo y, con el mod, llena además dos anillos L/R que pasan por el mismo remuestreador;
+ley de balance (lado propio entero, el contrario al `1 − separación` en el borde; separación ajustable, 100 % por omisión tras probarlo el usuario) para que una voz al centro dé exactamente la mezcla mono. (4) El YM2151
+sigue mono. (5) El paneo no es parte del estado guardado: tras cargar, las frases en curso siguen al centro. (6) La salida pasa a llevar el
+número de canales (`on_audio`, `sf2_audio_channels`); la aplicación abre el dispositivo en estéreo y cambia el formato del flujo de entrada
+al encender o apagar el mod. Comprobado: apagado, audio idéntico byte a byte al anterior y `compare-audio` igual a MAME; encendido, la
+partida y los comandos de sonido idénticos a los del mod apagado.

@@ -49,7 +49,14 @@
 #define SOUND_RING        16384u      /* historia de muestras de cada flujo (potencia de 2) */
 #define SOUND_LATCH_QUEUE 256u
 
-typedef struct SoundLatchWrite { uint64_t t; uint8_t which, val; } SoundLatchWrite;
+/* pos_ok/pos: mod estéreo, posición en pantalla del objeto que pidió el comando (no forman parte del estado guardado) */
+typedef struct SoundLatchWrite { uint64_t t; uint8_t which, val; uint8_t pos_ok; int16_t pos; } SoundLatchWrite;
+
+/* mod de sonido estéreo (docs/ESTEREO.md): solo cambia la mezcla del altavoz; la placa, los chips y sus flujos siguen igual */
+#define SOUND_SCREEN_HALF 192         /* mitad de la pantalla de 384: la X en pantalla de un sonido centrado */
+#define SOUND_PAN_WIDTH   1.0f        /* separación por omisión: un sonido en el borde de la pantalla no suena en el lado contrario */
+#define SOUND_PAN_MARGIN  32            /* píxeles fuera de la vista que aún cuentan como «en el borde» */
+#define SOUND_PAN_MAX_AGE (SOUND_Z80_HZ / 20u)   /* una frase del OKI que empieza más de 50 ms después del comando suena al centro */
 
 typedef struct SoundLofi {           /* audio_resampler_lofi de MAME */
     uint32_t fs, ft, divide, step;
@@ -75,11 +82,24 @@ typedef struct Cps1Sound {
     SoundLofi rs_ym, rs_oki;
     float gain_ym, gain_oki;
 
+    /* mod estéreo: con stereo != 0 el OKI llena además oki_l/oki_r con cada voz repartida según su paneo y la salida es
+     * estéreo intercalada (L, R); con 0 todo es exactamente el camino original (mono, idéntico a MAME) */
+    int stereo;
+    int pan_half;                    /* media anchura de la vista en píxeles (192 en 384; más con pantalla ancha) */
+    float pan_width;                 /* separación 0..1: en el borde, el lado contrario suena al 1 - pan_width (0 = mono) */
+    float oki_l[SOUND_RING], oki_r[SOUND_RING];
+    float voice_pan[4];              /* -1 izquierda .. +1 derecha, fijado al empezar la frase */
+    uint8_t next_pos_ok; int16_t next_pos;   /* posición para la siguiente escritura del latch 1 (sound_latch_pos) */
+    uint8_t cmd_pos_ok; int16_t cmd_pos;     /* la del último comando aplicado al latch 1 */
+    uint64_t cmd_t;                  /* ciclo del Z80 en que se aplicó */
+
     /* salidas opcionales */
     FILE *f_events, *f_ym, *f_oki, *f_mono, *f_chunks;   /* los abre y cierra el anfitrión (validación) */
     FILE *f_trace;                   /* traza de pasos del Z80 (sound_set_trace) */
     uint64_t trace_from, trace_to;
-    void (*on_audio)(void *user, const float *mono, unsigned n);   /* bloque de 48 kHz recién mezclado */
+    /* bloque de 48 kHz recién mezclado: n muestras de `channels` canales (1 = mono, el original; 2 = L, R intercalados con el
+     * mod estéreo) */
+    void (*on_audio)(void *user, const float *buf, unsigned n, unsigned channels);
     void *user;
     uint64_t chunk_ym0, chunk_oki0;  /* cuentas en la actualización anterior (para chunks.txt) */
 
@@ -105,6 +125,16 @@ void sound_state(Cps1Sound *s, struct StateStream *st);
 void sound_latch_write(Cps1Sound *s, int which, uint8_t val, uint64_t cyc68);
 /* hace correr la placa hasta el ciclo del 68000 `cyc68` (el Z80 puede pasarse una instrucción) */
 void sound_run_until(Cps1Sound *s, uint64_t cyc68);
+
+/* mod estéreo: enciende (1) o apaga (0) la salida estéreo; apagado, la placa y la mezcla son las originales */
+void sound_set_stereo(Cps1Sound *s, int on);
+/* mod estéreo: separación de 0 (todo al centro) a 1 (en el borde, nada en el lado contrario); se aplica también a las frases en curso */
+void sound_set_pan_width(Cps1Sound *s, float width);
+/* mod estéreo: media anchura de la vista en píxeles, para convertir la X en pantalla en paneo */
+void sound_set_pan_half(Cps1Sound *s, int half);
+/* mod estéreo: posición en pantalla (pos_ok = 0: sin posición, al centro) del comando que se escribirá a continuación en el
+ * latch 1 con sound_latch_write */
+void sound_latch_pos(Cps1Sound *s, int pos_ok, int16_t pos);
 
 /* ciclo del Z80 que corresponde a un ciclo del 68000 */
 static inline uint64_t sound_z80_cycle(uint64_t cyc68) {

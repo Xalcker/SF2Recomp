@@ -52,7 +52,7 @@ for (;;) {
     sf2_set_input(s, in0, in1, in2);                           // bits SF2_IN0_*, SF2_IN1_*, SF2_IN2_*; 1 = pulsado
     if (sf2_run_frame(s) < 0) ...                              // hasta el siguiente VBlank; sf2_error(s) si el código falló
     present(sf2_frame(s));                                     // 384 x 224, 0x00RRGGBB
-    size_t n; const float *a = sf2_audio(s, &n);               // mono, 48 kHz, la mezcla validada contra MAME
+    size_t n; const float *a = sf2_audio(s, &n);               // 48 kHz: mono (la mezcla validada contra MAME) o L,R con sf2_set_stereo; sf2_audio_channels
     queue_audio(a, n); sf2_audio_clear(s);
 }
 ```
@@ -269,7 +269,8 @@ del 68000; `sound_run_until(s, ciclo68)` hace avanzar el Z80 hasta el ciclo del 
 (`sound_z80_cycle`), procesando en orden las escrituras de latch, los sucesos del YM2151 y la actualización
 periódica de 50 Hz. Antes de cada acceso a un chip se generan sus muestras hasta el instante del acceso; en
 cada actualización periódica se mezcla el bloque nuevo de 48 kHz con el remuestreador "lofi" de MAME
-(ganancias 0,35, 0,35 y 0,30) y se entrega a `on_audio`. Salidas opcionales: `f_events` (sucesos como
+(ganancias 0,35, 0,35 y 0,30) y se entrega a `on_audio` con su número de canales (1; 2 con el mod estéreo, `sound_set_stereo`,
+`docs/ESTEREO.md`, que reparte las voces del OKI con dos anillos más y deja intacta la mezcla mono). Salidas opcionales: `f_events` (sucesos como
 `tools/mame_audio.lua`), `f_ym`, `f_oki`, `f_mono` (float32) y `f_chunks`. `sound_report` imprime contadores.
 
 Depuración: `sound_set_trace(s, f, desde, hasta)` (ciclos del Z80) traza cada paso del Z80 en `f`; `sf2_blind` lo activa

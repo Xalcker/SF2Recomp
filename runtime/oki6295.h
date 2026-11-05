@@ -46,5 +46,7 @@ void oki6295_write(Oki6295 *o, uint8_t data);
 uint8_t oki6295_read(const Oki6295 *o);
 /* una muestra de salida (suma de las voces, escala de MAME: 1,0 = fondo de escala) */
 float oki6295_generate(Oki6295 *o);
+/* lo mismo (mismo valor, mismas operaciones) dejando además en voice_out la aportación de cada voz (0 si calla) */
+float oki6295_generate_voices(Oki6295 *o, float voice_out[4]);
 
 #endif

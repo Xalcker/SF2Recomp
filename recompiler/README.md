@@ -17,6 +17,9 @@ llegue también a `build-win` y `build-web`). `make -j8` lo lanza a través del 
 ## Qué genera
 
 - `mod_patches.txt` (D58): parches de los mods de lógica, con `c->mod_wide = 0` iguales al original; `--mods` de `gen_c.py`.
+  `--no-mods` genera sin ningún parche (build vanilla): es lo que pasa CMake con `-DSF2_USE_MODS=OFF` (por omisión ON). En una build así los
+  mods que dependen de parches (lógica ancha, stage completo, posición del sonido estéreo) no tienen efecto; cambiar la opción regenera el C
+  (`<build>/gen_mods.txt`).
 - `recomp_funcs.h`: prototipos `void f_XXXXXX(M68K *c);`, la macro `TAILDISPATCH` y las
   declaraciones de la tabla (`recomp_table`, `recomp_table_len`, `recomp_reset_pc`,
   `recomp_insn_count`) y, desde el hito 5, `recomp_rom_crc32`: el CRC-32 de la imagen de programa con la que se

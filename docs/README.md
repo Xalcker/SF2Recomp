@@ -10,6 +10,7 @@
 - `WIDESCREEN.md`: pantalla ancha real (512 px, 16:9 sin estirar), HUD en los bordes y lógica ancha: cómo está hecha, qué se midió y los límites.
 - `ULTRAWIDE.md`: stage completo con cámara fija para monitores ultraanchos (`mods/*.ini`).
 - `HFR.md`: más de 60 cuadros por segundo por interpolación de render.
+- `ESTEREO.md`: sonido estéreo con las voces del OKI del lado de la pantalla donde ocurren.
 - `ENTRENAMIENTO.md`: el mod de entrenamiento (sin tiempo, dummy con guion, visor de entradas, cajas); `HITBOXES.md`: formato de las cajas de golpe y de daño.
 - `HERRAMIENTAS_DEV.md`: los menús de desarrollo ocultos de Capcom y cómo abrirlos.
 - `MEJORAS.md`: ideas de mods y mejoras, con el estado de cada una.

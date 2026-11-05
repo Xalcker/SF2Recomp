@@ -7,7 +7,7 @@
  *             [--dump-frame N --dump-dir dir] [--io-table archivo] [--frame-cycles N]
  *             [--insns N] [--cov archivo] [--log-io] [--quiet] [--step]
  *             [--gfx dir] [--png-frames a,b,c] [--png-dir dir] [--png-prefix nombre]
- *             [--audio] [--audio-dir dir] [--wav archivo] [--sound-roms dir] [--sound-cmds archivo]
+ *             [--audio] [--audio-dir dir] [--wav archivo] [--stereo] [--sound-roms dir] [--sound-cmds archivo]
  *             [--roms zip|dir]
  *
  * Con --png-frames se cargan las ROMs gráficas (--gfx, por defecto sf2) y se renderiza cada VBlank; en el
@@ -56,9 +56,9 @@ static WavWriter g_wav;
 static uint64_t g_dump_frame;
 static const char *g_dump_dir;
 
-static void on_audio(void *user, const float *mono, unsigned n) {
+static void on_audio(void *user, const float *buf, unsigned n, unsigned channels) {
     (void)user;
-    if (g_wav.f) wav_add_float(&g_wav, mono, n);
+    if (g_wav.f && channels == g_wav.channels) wav_add_float(&g_wav, buf, n * channels);
 }
 
 static FILE *open_out(const char *dir, const char *name, const char *mode) {
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
     const char *rom_path = NULL, *inputs = NULL, *summary = NULL, *gfx_dir = "sf2", *png_list = NULL;
     const char *cov_path = NULL, *io_table = NULL;
     uint64_t frame_cycles = CPS1_FRAME_CYCLES, max_frames = 600, max_insns = 0;
-    int log_io = 0, detail = 0, audio = 0, quiet = 0, step = 0;
+    int log_io = 0, detail = 0, audio = 0, quiet = 0, step = 0, stereo = 0;
     const char *audio_dir = NULL, *wav_path = NULL, *sound_roms = "sf2", *cmds_path = NULL;
     const char *dispatch_path = NULL, *dips = NULL, *roundtrip_list = NULL;
     int fallback = 0;
@@ -221,6 +221,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--audio-dir") && i + 1 < argc) { audio_dir = argv[++i]; audio = 1; }
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc) { wav_path = argv[++i]; audio = 1; }
         else if (!strcmp(argv[i], "--sound-roms") && i + 1 < argc) sound_roms = argv[++i];
+        else if (!strcmp(argv[i], "--stereo")) { stereo = 1; audio = 1; }    /* mod de sonido estéreo (docs/ESTEREO.md): el WAV sale estéreo */
         else if (!strcmp(argv[i], "--sound-cmds") && i + 1 < argc) cmds_path = argv[++i];
         else if (!strcmp(argv[i], "--dispatch-log") && i + 1 < argc) dispatch_path = argv[++i];
         else if (!strcmp(argv[i], "--dips") && i + 1 < argc) dips = argv[++i];
@@ -242,7 +243,7 @@ int main(int argc, char **argv) {
                         "        [--dump-frame N --dump-dir dir] [--io-table archivo] [--frame-cycles N]\n"
                         "        [--insns N] [--cov archivo] [--log-io] [--quiet] [--step]\n"
                         "        [--gfx dir|zip] [--png-frames a,b,c] [--png-dir dir] [--png-prefix nombre]\n"
-                        "        [--audio] [--audio-dir dir] [--wav archivo] [--sound-roms dir|zip] [--sound-cmds archivo]\n"
+                        "        [--audio] [--audio-dir dir] [--wav archivo] [--stereo] [--sound-roms dir|zip] [--sound-cmds archivo]\n"
                         "        [--roms dir|zip] [--dips a,b,c] [--dispatch-log archivo] [--fallback] [--roundtrip a,b,c]\n", argv[0]);
         return 1;
     }
@@ -307,7 +308,11 @@ int main(int argc, char **argv) {
             g_sound.f_chunks = open_out(audio_dir, "chunks.txt", "w");
             if (!g_sound.f_events || !g_sound.f_ym || !g_sound.f_oki || !g_sound.f_mono || !g_sound.f_chunks) return 1;
         }
-        if (wav_path && wav_open(&g_wav, wav_path, SOUND_OUT_RATE, 1) < 0) { perror(wav_path); return 1; }
+        if (wav_path && wav_open(&g_wav, wav_path, SOUND_OUT_RATE, stereo ? 2 : 1) < 0) { perror(wav_path); return 1; }
+        if (stereo) {
+            mc->cpu.mod_stereo = 1;
+            sound_set_stereo(&g_sound, 1);
+        }
         g_sound.on_audio = on_audio;
         machine_attach_sound(mc, &g_sound);
         if (!mc->quiet) fprintf(stderr, "sonido: placa CPS1 con las ROMs de %s%s%s%s%s\n", sound_roms,

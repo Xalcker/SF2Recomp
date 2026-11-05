@@ -879,6 +879,8 @@ def main():
     ap.add_argument("--report", help="archivo de informe de cobertura")
     ap.add_argument("--mods", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "mod_patches.txt"),
                     help="parches de los mods de lógica (D58); todos valen lo mismo que el original con c->mod_wide = 0")
+    ap.add_argument("--no-mods", action="store_true",
+                    help="no aplicar ningún parche de mods (build vanilla, SF2_USE_MODS=OFF): los mods de lógica y el estéreo no tienen efecto")
     ap.add_argument("--ack", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "m68000_ack.txt"),
                     help="punto de muestreo de interrupciones por instrucción (tools/mame_m68000_ack.py)")
     ap.add_argument("--clock", choices=["mame", "musashi"], default="mame",
@@ -892,7 +894,9 @@ def main():
     ack = load_ack(args.ack) if args.clock == "mame" else []
     if args.clock == "mame" and not ack:
         raise SystemExit("gen_c.py: --clock mame necesita la tabla --ack (recompiler/m68000_ack.txt)")
-    mods = load_mod_patches(args.mods)
+    mods = {} if args.no_mods else load_mod_patches(args.mods)
+    if args.no_mods:
+        print("parches de mods: ninguno (--no-mods)")
     gen = Gen(an, load_cycles(args.cycles), args.clock, ack, mods)
     os.makedirs(args.outdir, exist_ok=True)
 

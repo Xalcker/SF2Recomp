@@ -275,6 +275,7 @@ Sobre el núcleo validado se añadieron interruptores que, apagados, dejan el ju
 | Herramientas de desarrollo de Capcom | — | `HERRAMIENTAS_DEV.md` | — |
 | Menú del juego | — | `MENU.md` | — |
 | Modo entrenamiento, visores y cajas de golpe | D60 | `ENTRENAMIENTO.md`, `HITBOXES.md` | `2026-10-21-mod-entrenamiento` |
+| Sonido estéreo | D61 | `ESTEREO.md` | `2026-11-04-mod-estereo` |
 
 Pendiente: ver los límites de cada mod en `docs/MODS.md` y la lista de ideas con su estado en `docs/MEJORAS.md`.
 

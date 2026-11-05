@@ -9,6 +9,7 @@ set(CMAKE_SOURCE_DIR_ROOT "${SF2_ROOT}")
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
 set(SF2_HOSTGEN ON)
+option(SF2_USE_MODS "Aplicar parches de mods durante la recompilacion" ON)   # lo pasa cmake/SF2Generation.cmake
 add_subdirectory("${CMAKE_SOURCE_DIR_ROOT}/third_party" third_party)
 include(SF2Pipeline)
 set(SF2_PARTS 16)

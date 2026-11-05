@@ -35,6 +35,7 @@ void config_defaults(Sf2Config *c) {
     c->audio = 1;
     c->volume = 80;
     c->audio_rate = 48000;
+    c->stereo_width = 100;
     c->difficulty = 3;
     c->coin_a = c->coin_b = 3;
     c->free_play = 0;
@@ -194,6 +195,8 @@ int config_parse(Sf2Config *c, const char *text, char *warnbuf, size_t warn_size
             if (ieq(key, "enabled")) set_bool(&w, lineno, key, val, &c->audio);
             else if (ieq(key, "volume")) set_int(&w, lineno, key, val, 0, 100, &c->volume);
             else if (ieq(key, "rate")) set_int(&w, lineno, key, val, 8000, 192000, &c->audio_rate);
+            else if (ieq(key, "stereo")) set_bool(&w, lineno, key, val, &c->stereo);
+            else if (ieq(key, "stereo_width")) set_int(&w, lineno, key, val, 0, 100, &c->stereo_width);
             else warn(&w, lineno, "clave desconocida en [audio]: %s", key);
         } else if (ieq(section, "dip")) {
             if (ieq(key, "difficulty")) set_int(&w, lineno, key, val, 0, 7, &c->difficulty);
@@ -286,8 +289,11 @@ size_t config_format(const Sf2Config *c, char *out, size_t cap) {
             "# monitores ultraanchos: 3440x1440 con aspect = 4:3 pide wide_width = 688; 768 deja franjas finas arriba y abajo).  CAMBIA EL JUEGO.\n"
             "stage_full = %s\n\n",
         yn(c->widescreen), c->wide_width, c->hud_edges ? "edges" : "center", yn(c->wide_logic), yn(c->stage_full));
-    put(&o, "[audio]\nenabled = %s\n# volume: 0 a 100\nvolume = %d\n# rate: frecuencia del dispositivo de audio; la mezcla es de 48000 Hz y SDL la convierte\nrate = %d\n\n",
-        yn(c->audio), c->volume, c->audio_rate);
+    put(&o, "[audio]\nenabled = %s\n# volume: 0 a 100\nvolume = %d\n# rate: frecuencia del dispositivo de audio; la mezcla es de 48000 Hz y SDL la convierte\nrate = %d\n"
+            "# stereo (mod): golpes, gritos y proyectiles suenan del lado de la pantalla donde ocurren; la musica sigue al centro.\n"
+            "# No cambia la partida; apagado es el sonido original (mono, identico a MAME)\nstereo = %s\n"
+            "# stereo_width: separacion, 0 a 100 (100 = un sonido en el borde de la pantalla no se oye en el lado contrario)\nstereo_width = %d\n\n",
+        yn(c->audio), c->volume, c->audio_rate, yn(c->stereo), c->stereo_width);
     put(&o, "[dip]\n# dipswitches de la placa (los valores de MAME entre parentesis)\n"
             "# difficulty: 0 (mas facil) a 7 (mas dificil); 3 = normal\ndifficulty = %d\n"
             "# coin_a, coin_b: monedas por credito: 4c1c 3c1c 2c1c 1c1c 1c2c 1c3c 1c4c 1c6c\ncoin_a = %s\ncoin_b = %s\n"

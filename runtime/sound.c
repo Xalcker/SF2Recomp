@@ -92,6 +92,8 @@ static void lofi_apply(const SoundLofi *r, const float *ring, float *d, uint64_t
 }
 
 /* ---- flujos de los chips -------------------------------------------------------------------- */
+static void stereo_resync(Cps1Sound *s);
+
 static inline uint64_t stream_index(uint64_t t, uint32_t rate) {
     return t * rate / SOUND_Z80_HZ;          /* floor(t[s] * rate), t en ciclos del Z80 */
 }
@@ -122,11 +124,39 @@ static void oki_update(Cps1Sound *s, uint64_t upto) {
         return;
     uint64_t n = upto + 1 - s->oki_count;
     while (n--) {
-        float v = oki6295_generate(&s->oki);
+        float v;
+        if (s->stereo) {
+            /* mod estéreo: la misma muestra (oki_buf no cambia) y además cada voz repartida a la izquierda y a la derecha; una
+             * voz al centro suma lo mismo en los dos lados que en la mezcla original */
+            float vo[4], l = 0.0f, r = 0.0f;
+            v = oki6295_generate_voices(&s->oki, vo);
+            for (int i = 0; i < 4; i++) {
+                const float p = s->voice_pan[i] * s->pan_width;
+                l += vo[i] * (p > 0.0f ? 1.0f - p : 1.0f);
+                r += vo[i] * (p < 0.0f ? 1.0f + p : 1.0f);
+            }
+            s->oki_l[s->oki_count & (SOUND_RING - 1)] = l;
+            s->oki_r[s->oki_count & (SOUND_RING - 1)] = r;
+        } else {
+            v = oki6295_generate(&s->oki);
+        }
         s->oki_buf[s->oki_count & (SOUND_RING - 1)] = v;
         if (s->f_oki) fwrite(&v, sizeof v, 1, s->f_oki);
         s->oki_count++;
     }
+}
+
+/* mod estéreo: paneo de una frase que empieza en el ciclo t del Z80, según el último comando con posición */
+static float start_pan(const Cps1Sound *s, uint64_t t) {
+    /* sin posición, comando viejo (la percusión de la música usa el OKI sin comandos nuevos) o posición fuera de la vista con
+     * margen (objetos con otras coordenadas, p. ej. en los bonus): al centro, como el original */
+    if (!s->cmd_pos_ok || t - s->cmd_t > SOUND_PAN_MAX_AGE || s->pan_half <= 0)
+        return 0.0f;
+    const int d = s->cmd_pos - SOUND_SCREEN_HALF;
+    if (d < -(s->pan_half + SOUND_PAN_MARGIN) || d > s->pan_half + SOUND_PAN_MARGIN)
+        return 0.0f;
+    float p = (float)d / (float)s->pan_half;
+    return p < -1.0f ? -1.0f : p > 1.0f ? 1.0f : p;
 }
 
 /* actualización periódica k (instante k / 50 s): flujos de los chips y bloque nuevo del altavoz */
@@ -136,14 +166,31 @@ static void periodic_update(Cps1Sound *s, uint64_t k) {
     uint64_t last = k * SOUND_OUT_RATE / SOUND_UPDATE_HZ;
     if (last + 1 > s->out_count) {
         uint32_t n = (uint32_t)(last + 1 - s->out_count);
-        float *mix = calloc(n, sizeof *mix);
-        lofi_apply(&s->rs_ym, s->ym_l, mix, s->out_count, s->gain_ym, n);
-        lofi_apply(&s->rs_ym, s->ym_r, mix, s->out_count, s->gain_ym, n);
-        lofi_apply(&s->rs_oki, s->oki_buf, mix, s->out_count, s->gain_oki, n);
-        if (s->f_mono) fwrite(mix, sizeof *mix, n, s->f_mono);
-        if (s->on_audio) s->on_audio(s->user, mix, n);
+        if (!s->stereo) {
+            float *mix = calloc(n, sizeof *mix);
+            lofi_apply(&s->rs_ym, s->ym_l, mix, s->out_count, s->gain_ym, n);
+            lofi_apply(&s->rs_ym, s->ym_r, mix, s->out_count, s->gain_ym, n);
+            lofi_apply(&s->rs_oki, s->oki_buf, mix, s->out_count, s->gain_oki, n);
+            if (s->f_mono) fwrite(mix, sizeof *mix, n, s->f_mono);
+            if (s->on_audio) s->on_audio(s->user, mix, n, 1);
+            free(mix);
+        } else {
+            /* mod estéreo: el YM2151 igual en los dos lados (el altavoz de la placa es mono) y el OKI de oki_l/oki_r, sumados en
+             * el mismo orden que la mezcla mono: con todas las voces al centro L y R valen exactamente la mezcla original */
+            float *buf = calloc(4 * (size_t)n, sizeof *buf), *l = buf + 2 * (size_t)n, *r = l + n;
+            lofi_apply(&s->rs_ym, s->ym_l, l, s->out_count, s->gain_ym, n);
+            lofi_apply(&s->rs_ym, s->ym_r, l, s->out_count, s->gain_ym, n);
+            memcpy(r, l, n * sizeof *r);
+            lofi_apply(&s->rs_oki, s->oki_l, l, s->out_count, s->gain_oki, n);
+            lofi_apply(&s->rs_oki, s->oki_r, r, s->out_count, s->gain_oki, n);
+            for (uint32_t i = 0; i < n; i++) {
+                buf[2 * i] = l[i];
+                buf[2 * i + 1] = r[i];
+            }
+            if (s->on_audio) s->on_audio(s->user, buf, n, 2);
+            free(buf);
+        }
         s->out_count += n;
-        free(mix);
         if (s->f_chunks)
             fprintf(s->f_chunks, "%llu %llu %u\n", (unsigned long long)(s->ym_count - s->chunk_ym0),
                     (unsigned long long)(s->oki_count - s->chunk_oki0), n);
@@ -177,6 +224,11 @@ static void process_events(Cps1Sound *s, uint64_t t) {
         if (best == t_l) {
             SoundLatchWrite *w = &s->lq[s->lq_head];
             s->latch[w->which - 1] = w->val;
+            if (s->stereo && w->which == 1 && w->val != 0xff) {     /* 0xFF = «sin comando» tras cada uno */
+                s->cmd_pos_ok = w->pos_ok;
+                s->cmd_pos = w->pos;
+                s->cmd_t = w->t;
+            }
             s->lq_head = (s->lq_head + 1) % SOUND_LATCH_QUEUE;
             s->lq_count--;
         } else if (best == t_ym) {
@@ -219,11 +271,19 @@ static void io_write(Cps1Sound *s, uint16_t a, uint8_t v, uint64_t t) {
         ym2151_write(s->ym, t, t, a & 1, v);
         s->ym_writes++;
         break;
-    case 0xf002:
+    case 0xf002: {
         oki_update(s, stream_index(t, SOUND_OKI_RATE));
+        int was = s->stereo ? oki6295_read(&s->oki) : 0;
         oki6295_write(&s->oki, v);
+        if (s->stereo) {
+            int started = oki6295_read(&s->oki) & ~was & 0x0f;    /* una voz solo empieza si estaba callada */
+            for (int i = 0; i < 4; i++)
+                if (started & (1 << i))
+                    s->voice_pan[i] = start_pan(s, t);
+        }
         s->oki_writes++;
         break;
+    }
     case 0xf004: s->bank = v & 1; s->bank_writes++; break;
     case 0xf006:
         s->pin7_writes++;
@@ -280,6 +340,8 @@ int sound_init(Cps1Sound *s, const RomSet *rs) {
     z80_reset(&s->z);
     lofi_init(&s->rs_ym, SOUND_YM_RATE, SOUND_OUT_RATE);
     lofi_init(&s->rs_oki, SOUND_OKI_RATE, SOUND_OUT_RATE);
+    s->pan_half = SOUND_SCREEN_HALF;
+    s->pan_width = SOUND_PAN_WIDTH;
     s->gain_ym = 0.35f;
     s->gain_oki = 0.30f;
     return 0;
@@ -297,6 +359,7 @@ void sound_reset(Cps1Sound *s) {
     memset(s->ym_l, 0, sizeof s->ym_l);
     memset(s->ym_r, 0, sizeof s->ym_r);
     memset(s->oki_buf, 0, sizeof s->oki_buf);
+    stereo_resync(s);
     s->chunk_ym0 = s->chunk_oki0 = 0;
     s->latch_writes = s->latch_reads = s->ym_writes = s->ym_reads = s->oki_writes = s->oki_reads = s->unmapped = 0;
     s->pin7_writes = s->bank_writes = 0;
@@ -337,6 +400,42 @@ void sound_state(Cps1Sound *s, StateStream *st) {
     st_f32s(st, s->ym_l, SOUND_RING);
     st_f32s(st, s->ym_r, SOUND_RING);
     st_f32s(st, s->oki_buf, SOUND_RING);
+    /* el reparto estéreo no se guarda: tras cargar, las frases en curso siguen al centro (al guardar no se toca: la aplicación guarda
+     * copias de rescate cada 600 cuadros y el sonido no debe notarlo) */
+    if (!st->saving) {
+        for (unsigned i = 0; i < SOUND_LATCH_QUEUE; i++)
+            s->lq[i].pos_ok = 0;
+        stereo_resync(s);
+    }
+}
+
+/* mod estéreo: las voces al centro y los flujos L/R iguales a la mezcla del OKI (sin saltos al encender el mod o al cargar) */
+static void stereo_resync(Cps1Sound *s) {
+    memcpy(s->oki_l, s->oki_buf, sizeof s->oki_l);
+    memcpy(s->oki_r, s->oki_buf, sizeof s->oki_r);
+    for (int i = 0; i < 4; i++)
+        s->voice_pan[i] = 0.0f;
+    s->cmd_pos_ok = s->next_pos_ok = 0;
+}
+
+void sound_set_stereo(Cps1Sound *s, int on) {
+    on = on != 0;
+    if (on && !s->stereo)
+        stereo_resync(s);
+    s->stereo = on;
+}
+
+void sound_set_pan_width(Cps1Sound *s, float width) {
+    s->pan_width = width < 0.0f ? 0.0f : width > 1.0f ? 1.0f : width;
+}
+
+void sound_set_pan_half(Cps1Sound *s, int half) {
+    s->pan_half = half > 0 ? half : SOUND_SCREEN_HALF;
+}
+
+void sound_latch_pos(Cps1Sound *s, int pos_ok, int16_t pos) {
+    s->next_pos_ok = pos_ok != 0;
+    s->next_pos = pos;
 }
 
 void sound_free(Cps1Sound *s) {
@@ -354,7 +453,9 @@ void sound_latch_write(Cps1Sound *s, int which, uint8_t val, uint64_t cyc68) {
         process_events(s, s->lq[s->lq_head].t);
     }
     unsigned i = (s->lq_head + s->lq_count) % SOUND_LATCH_QUEUE;
-    s->lq[i] = (SoundLatchWrite){ tz, (uint8_t)which, val };
+    s->lq[i] = (SoundLatchWrite){ tz, (uint8_t)which, val, s->next_pos_ok, s->next_pos };
+    if (which == 1)
+        s->next_pos_ok = 0;
     s->lq_count++;
 }
 

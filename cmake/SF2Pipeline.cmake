@@ -36,20 +36,26 @@ function(sf2_generation_pipeline OUTDIR)
   foreach(f ${SF2_GEN_SOURCES})
     list(APPEND srcs "${gen}/${f}")
   endforeach()
-  # Dependiendo de si SF2_USE_MODS está activo, añadimos el flag --mods
+  # SF2_USE_MODS: con ON se aplican los parches de recompiler/mod_patches.txt; con OFF, --no-mods (gen_c.py los aplicaría por omisión).
+  # Va como lista para que --mods y la ruta sean dos argumentos.  El generador de Makefiles no vuelve a ejecutar una regla porque cambie
+  # su orden: la opción se escribe en un archivo (solo si cambia) del que depende la regeneración.
   if(SF2_USE_MODS)
-    set(MODS_FLAG "--mods ${SF2_ROOT}/recompiler/mod_patches.txt")
+    set(mods_args --mods "${SF2_ROOT}/recompiler/mod_patches.txt")
+    set(mods_value ON)
   else()
-    set(MODS_FLAG "")
+    set(mods_args --no-mods)
+    set(mods_value OFF)
   endif()
+  set(mods_stamp "${OUTDIR}/gen_mods.txt")
+  file(CONFIGURE OUTPUT "${mods_stamp}" CONTENT "SF2_USE_MODS=${mods_value}\n")
 
   add_custom_command(OUTPUT ${srcs} "${gen}/recomp_funcs.h"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${gen}"
     COMMAND "${Python3_EXECUTABLE}" "${SF2_ROOT}/recompiler/gen_c.py" "${rom_bin}" "${gen}"
-            --hints "${tools}/hints.txt" ${MODS_FLAG} --cycles "${cycles_bin}" --parts ${SF2_PARTS}
+            --hints "${tools}/hints.txt" ${mods_args} --cycles "${cycles_bin}" --parts ${SF2_PARTS}
             --report "${OUTDIR}/coverage.txt"
     DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/hints.txt" "${SF2_ROOT}/recompiler/mod_patches.txt"
-            "${rom_bin}" "${cycles_bin}"
+            "${rom_bin}" "${cycles_bin}" "${mods_stamp}"
     COMMENT "Recompilando el 68000 a C (gen_c.py, 16 partes)"
     VERBATIM)
   add_custom_target(sf2_generate DEPENDS ${srcs} "${gen}/recomp_funcs.h")
