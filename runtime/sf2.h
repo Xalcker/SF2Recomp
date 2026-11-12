@@ -63,6 +63,9 @@ typedef struct Sf2 Sf2;
 const GameDef *sf2_game(void);
 /* cuadros por segundo de esa variante */
 double sf2_frame_hz(void);
+/* 1 si los mods existen en esa variante (solo en sf2): en las demás se rechazan la pantalla ancha, la lógica ancha, el stage
+ * completo, el entrenamiento y sus cajas, el estéreo y las herramientas de desarrollo, y el juego queda original */
+int sf2_has_mods(void);
 
 /* opciones por omisión: vídeo y sonido activados, dipswitches de MAME */
 void sf2_options_default(Sf2Options *o);

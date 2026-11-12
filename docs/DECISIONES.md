@@ -705,3 +705,29 @@ núcleo lo dice en vez de correr sin punto de muestra ni pistas. (5) Los mods so
 aplica `mod_patches.txt`. (6) `tools/games.py` repite en Python lo que necesitan las herramientas; `runtime/game.c` es la referencia.
 Comprobado: con `sf2` la salida es idéntica byte a byte a la de antes (resumen, audio, comandos de sonido, capturas, traza de estado),
 `make test` 8/8 y las 14 secuencias reproducen su CRC.
+
+## D64 (2026-11-12): Código que el juego construye en RAM, recompilado en su dirección y comprobado al entrar
+
+*Champion Edition* monta dos rutinas en la RAM gráfica a partir de bytes codificados de la ROM (byte + 3, palabra + 0x18) y las llama con
+direcciones ofuscadas (una protección). Opciones: un intérprete de respaldo (Musashi solo existe en los arneses, D46), escribirlas a mano
+(perdería el reloj de MAME, D47) o recompilarlas. Decisión: pista `ram_code DEST ORIGEN LON SUMA [w]`; el análisis decodifica esos bytes en
+una imagen ampliada que los pone en DEST, `gen_c.py` genera la función con su dirección de RAM (entra en la tabla de despacho como cualquier
+otra) y al entrar comprueba (`rt_check_ram_code`) que la memoria contiene exactamente esos bytes: si el juego los cambiara, error fatal con
+la dirección, nunca una ejecución distinta en silencio. Junto a ella, `offset_table BASE N PASO` para tablas de desplazamientos que el
+análisis no reconoce (intercaladas con otros datos).
+
+## D65 (2026-11-12): La IRQ empieza en el primer ciclo ≥ fin + 49 que es 5 mod 10 (no fin + 50)
+
+La regla de D47 se midió en WW. Leyendo `state_interrupt` de MAME (6 ciclos internos y una escritura antes del IACK, `vpa_sync` al primer
+múltiplo de 10 ≥ IACK + 4, manejador 35 ciclos después) sale fin + 49. Las dos solo difieren si el fin de la instrucción interrumpida es 6
+mod 10; en WW no pasa en ninguna IRQ porque el cuadro (167.680 ciclos) es múltiplo de 10 y la fase con el reloj E no se mueve, pero a 12 MHz
+(201.216 ciclos por cuadro) sí: daba un cuadro de CE con otro PC interrumpido. Con fin + 49, CE es idéntica en registros y WW no cambia
+(salida byte a byte, 14 secuencias).
+
+## D66 (2026-11-12): En una variante sin mods la fachada los rechaza; punto de muestra por variante en MAME
+
+Los mods leen y escriben RAM y ROM de WW (escena de la pantalla ancha, entrenamiento, cajas, cola de sonido del estéreo, herramientas de
+desarrollo): en CE romperían la partida. Con `has_mods = 0`, `sf2_set_video_width` (salvo 384), la lógica ancha, el stage completo, el
+estéreo, `sf2_training_set` y las herramientas de desarrollo se rechazan o no hacen nada, y `sf2_has_mods()` lo dice a la aplicación; el
+HFR, que solo interpola el dibujo, sigue. El manejador de la IRQ2 de CE no lee el CPS-B: el punto de muestra es su primer acceso de E/S, una
+escritura, y `tools/mame_game.lua` pone en MAME un tap de lectura o de escritura según `SF2_GAME`.

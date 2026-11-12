@@ -109,7 +109,10 @@ const GameDef game_sf2ce = {
     "sf2ce", "Street Fighter II': Champion Edition (World 920513)",
     12000000u, 201216u,                 /* 12 MHz * 512 * 262 / 8 MHz */
     0x180000u, 0x600000u, &cpsb_21_def, &mapper_s9263b, COUNT(roms_sf2ce), roms_sf2ce,
-    0, 0, 0, 0, 0,                      /* programa sin analizar todavía (fase 1) */
+    /* fase 1 (bitácora 2026-11-12-variantes-fase-1): manejador de la IRQ2 en 0x5C6; no lee el CPS-B, así que el punto de muestra
+     * es su primer acceso de E/S, la escritura de la base de OBJ (`move.w 0x26(a5),$800100.l`) en 0x5DA; contador de cuadros
+     * 0x1C(a5) (0x6AC) y bandera de VBlank 0xFF020E (0x6B0) en las mismas direcciones que WW.  Sin mods. */
+    1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 0,
 };
 
 static const GameDef *const games[] = { &game_sf2, &game_sf2ce };

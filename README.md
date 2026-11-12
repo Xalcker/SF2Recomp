@@ -25,8 +25,8 @@ sin un solo salto a código no recompilado. Sin avisos de ASan/UBSan, sin fugas 
 con estados que reproducen la partida exacta. Hoja de ruta y estado del proyecto en `docs/PLAN.md`; cada paso tiene su entrada
 en `docs/bitacora/`.
 Después del hito 6 se añadieron los mods (pantalla ancha, ultraancho, HFR, entrenamiento): ver «Mods y mejoras» y `docs/MODS.md`.
-En marcha: *Champion Edition* y *Hyper Fighting* (`docs/VARIANTES.md`). El núcleo ya describe cada variante (`-DSF2_GAME=`, por omisión
-`sf2`), pero de momento solo se juega a *The World Warrior*.
+En marcha: *Champion Edition* y *Hyper Fighting* (`docs/VARIANTES.md`). *Champion Edition* ya se juega, sin mods e idéntica a MAME en
+las partidas probadas: `make GAME=sf2ce BUILD=build-ce ROMDIR=/ruta/a/sf2ce.zip` y `build-ce/sf2 /ruta/a/sf2ce.zip`.
 
 ## Qué necesitas
 

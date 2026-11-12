@@ -169,8 +169,11 @@ void romset_build_program(const RomSet *rs, uint8_t *image) {
         const RomInfo *ri = &g->roms[i];
         if (ri->kind != ROMKIND_PROGRAM || !rs->data[i])
             continue;
-        if (ri->lane == ROMLANE_WORD)          /* ROM_LOAD16_WORD_SWAP: el archivo ya está en el orden del 68000 */
-            memcpy(image + ri->dest, rs->data[i], ri->size);
+        if (ri->lane == ROMLANE_WORD)          /* ROM_LOAD16_WORD_SWAP: cada palabra del archivo tiene los bytes al revés */
+            for (uint32_t k = 0; k + 1 < ri->size; k += 2) {
+                image[ri->dest + k] = rs->data[i][k + 1];
+                image[ri->dest + k + 1] = rs->data[i][k];
+            }
         else
             for (uint32_t k = 0; k < ri->size; k++)
                 image[ri->dest + 2u * k + (uint32_t)ri->lane] = rs->data[i][k];

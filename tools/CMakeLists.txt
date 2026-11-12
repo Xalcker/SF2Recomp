@@ -12,6 +12,10 @@ target_compile_options(dasmcheck PRIVATE -w)
 set(B "${CMAKE_BINARY_DIR}")
 set(T "${SF2_ROOT}/tools")
 set(ROMSRC "${SF2_ROM_DIR}")
+# variante (D63): el set que se lanza en MAME y SF2_GAME para sus scripts de Lua (tools/mame_game.lua)
+if(NOT SF2_GAME)
+  set(SF2_GAME sf2)
+endif()
 set(BFR ${SF2_BFRAMES})
 set(INP "${SF2_INPUTS}")
 math(EXPR MAME_STR "${BFR} / 55 + 15")
@@ -45,8 +49,8 @@ add_custom_target(run-blind
           --io-table "${B}/io_table.md"
   DEPENDS sf2_blind USES_TERMINAL)
 add_custom_command(OUTPUT "${B}/summary_mame.txt"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_SUMMARY=${B}/summary_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
-          "${MAME}" sf2 ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_blind.lua"
+  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_SUMMARY=${B}/summary_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
+          "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_blind.lua"
   DEPENDS "${T}/mame_blind.lua" "${INP}" VERBATIM USES_TERMINAL)
 add_custom_target(compare-mame
   COMMAND "${Python3_EXECUTABLE}" "${T}/compare_summaries.py" "${B}/summary_recomp.txt" "${B}/summary_mame.txt" --inputs "${INP}"
@@ -69,8 +73,8 @@ add_custom_target(png-video
   DEPENDS sf2_blind USES_TERMINAL)
 add_custom_command(OUTPUT "${VDIR}/mame/.stamp"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${VDIR}/mame"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_SNAP_FRAMES=${SF2_VFRAMES} SF2_INPUTS=${INP} SF2_FRAMES=${VFRAMES_N}
-          SF2_DUMP_DIR=${VDIR}/mame "${MAME}" sf2 ${MAME_HEADLESS} -snapshot_directory "${VDIR}/mame" -str ${VMAME_STR}
+  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_SNAP_FRAMES=${SF2_VFRAMES} SF2_INPUTS=${INP} SF2_FRAMES=${VFRAMES_N}
+          SF2_DUMP_DIR=${VDIR}/mame "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -snapshot_directory "${VDIR}/mame" -str ${VMAME_STR}
           -autoboot_script "${T}/mame_snap.lua"
   COMMAND "${CMAKE_COMMAND}" -E touch "${VDIR}/mame/.stamp"
   DEPENDS "${T}/mame_snap.lua" "${INP}" "${VDIR}/vframes.txt" VERBATIM USES_TERMINAL)
@@ -95,19 +99,19 @@ add_custom_target(wav-recomp
   DEPENDS sf2_blind USES_TERMINAL)
 add_custom_command(OUTPUT "${ADIR}/mame/.stamp"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${ADIR}/mame"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_AUDIO_DIR=${ADIR}/mame SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
-          "${MAME}" sf2 ${MAME_HEADLESS} -str ${MAME_STR} -wavwrite "${ADIR}/mame/sf2_mame.wav"
+  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_AUDIO_DIR=${ADIR}/mame SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
+          "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -wavwrite "${ADIR}/mame/sf2_mame.wav"
           -autoboot_script "${T}/mame_audio.lua"
   COMMAND "${CMAKE_COMMAND}" -E touch "${ADIR}/mame/.stamp"
   DEPENDS "${T}/mame_audio.lua" "${INP}" "${ADIR}/bframes.txt" VERBATIM USES_TERMINAL)
 add_custom_target(mame-audio DEPENDS "${ADIR}/mame/.stamp")
 add_custom_target(compare-audio
-  COMMAND "${Python3_EXECUTABLE}" "${T}/compare_audio.py" "${ADIR}/recomp" "${ADIR}/mame" --sections
+  COMMAND "${Python3_EXECUTABLE}" "${T}/compare_audio.py" "${ADIR}/recomp" "${ADIR}/mame" --game ${SF2_GAME} --sections
           --report "${ADIR}/informe_audio.md"
   DEPENDS run-audio "${ADIR}/mame/.stamp" USES_TERMINAL)
 add_custom_command(OUTPUT "${ADIR}/cmds_mame.txt"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_CMDS=${ADIR}/cmds_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
-          "${MAME}" sf2 ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_sound_cmds.lua"
+  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_CMDS=${ADIR}/cmds_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
+          "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_sound_cmds.lua"
   DEPENDS "${T}/mame_sound_cmds.lua" "${INP}" "${ADIR}/bframes.txt" VERBATIM USES_TERMINAL)
 add_custom_target(compare-sound-cmds
   COMMAND sf2_blind "${SF2_ROM_BIN}" --frames ${BFR} --inputs "${INP}" --sound-cmds "${ADIR}/cmds_recomp.txt" --quiet

@@ -24,8 +24,8 @@
 --   SF2_TRACE_FRAMES "desde:hasta": cuadros que se trazan (hito 6, evaluación del reloj frente a build/sf2_blind
 --                   --trace-cycles; la traza empieza en la muestra del cuadro desde-1 y termina en la de hasta)
 --
--- Cuadro = ejecución del manejador de IRQ2, detectada con un tap de lectura sobre 0x800172 con CURPC =
--- 0xAD0 (la primera lectura de E/S del manejador).  Los taps deben guardarse en una variable global: si el
+-- Cuadro = ejecución del manejador de IRQ2, detectada con un tap sobre el primer acceso de E/S del manejador (en sf2 la
+-- lectura de 0x800172 con CURPC = 0xAD0; otras variantes en tools/mame_game.lua, SF2_GAME).  Los taps deben guardarse en una variable global: si el
 -- objeto devuelto por install_read_tap se recoge como basura, el tap desaparece.
 --
 -- Entradas: las de un cuadro N se fijan con field:set_value() durante la muestra del cuadro N-1, porque
@@ -37,7 +37,8 @@ local space = cpu.spaces["program"]
 local ioport = manager.machine.ioport
 local screen = manager.machine.screens[":screen"]
 
-local SAMPLE_PC = 0xad0
+local G = dofile((debug.getinfo(1, "S").source:match("^@(.*[/\\])") or "./") .. "mame_game.lua")   -- variante (SF2_GAME)
+local SAMPLE_PC = G.sample_pc
 local VOL1_LO, VOL1_HI = 0xff0000, 0xff0a50
 local VOL2_LO, VOL2_HI = 0xffff00, 0x1000000
 
@@ -264,9 +265,9 @@ if cmds then
     if not ok then print("mame_blind.lua: ERROR (latch) " .. tostring(err)) end
   end)
 end
-B.tap = space:install_read_tap(0x800172, 0x800173, "sf2_irq2", function(offset, data, mask)
+B.tap = G.install_sample_tap(space, "sf2_irq2", function(at_sample)
   local ok, err = pcall(function()
-    if cpu.state["CURPC"].value ~= SAMPLE_PC then B.other = B.other + 1; return end
+    if not at_sample then B.other = B.other + 1; return end
     if B.done then return end
     B.frame = B.frame + 1
     if B.frame == 1 then check_dips() end
@@ -278,8 +279,8 @@ B.tap = space:install_read_tap(0x800172, 0x800173, "sf2_irq2", function(offset, 
       B.done = true
       out:close()
       close_cmds()
-      print(string.format("mame_blind.lua: %d cuadros escritos en %s (%d lecturas de 0x800172 fuera del manejador)",
-        B.frame, out_path, B.other))
+      print(string.format("mame_blind.lua: %d cuadros escritos en %s (%d accesos a %06x fuera del manejador)",
+        B.frame, out_path, B.other, G.sample_addr))
       manager.machine:exit()
     end
   end)

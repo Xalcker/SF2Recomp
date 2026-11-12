@@ -24,7 +24,7 @@ Las prioridades (0x800168-0x80016E), el control de capas (0x800166) y el de pale
 | Fase | Qué | Estado |
 |---|---|---|
 | 0 | Núcleo para varias variantes sin cambiar WW: descriptor `GameDef` (`runtime/game.h`), reloj, CPS-B, mapeador y catálogo de ROMs por variante, `SF2_GAME` en CMake, `gen_c.py --game` | **hecha** (2026-11-12, D63) |
-| 1 | CE en vanilla: generar con `-DSF2_GAME=sf2ce`, buscar el manejador de la IRQ2, el punto de muestra y el contador de cuadros (`program_known`), llenar `tools/hints_sf2ce.txt` hasta 0 fallos de despacho, secuencias de `playgen.py` (12 personajes) y `compare-*` idénticos a MAME | pendiente (necesita `sf2ce.zip`) |
+| 1 | CE en vanilla: generar con `-DSF2_GAME=sf2ce`, buscar el manejador de la IRQ2, el punto de muestra y el contador de cuadros (`program_known`), llenar `tools/hints_sf2ce.txt` hasta 0 fallos de despacho y `compare-*` idénticos a MAME | **jugable e idéntica a MAME** en las partidas probadas (2026-11-12, D64-D66); falta cobertura: secuencias propias de CE (`playgen.py`, 12 personajes) y `compare-coverage` |
 | 2 | HF en vanilla: catálogo `sf2hf`, el resto como CE | pendiente |
 | 3 | Mods por variante: direcciones de `recompiler/mod_patches.txt`, `runtime/training.c`, la cola de sonido del estéreo, la RAM de la escena ancha... | pendiente |
 
@@ -39,6 +39,15 @@ Las prioridades (0x800168-0x80016E), el control de capas (0x800166) y el de pale
 
 ## Qué pasa hoy con CE
 
-El catálogo, el reloj y el CPS-B de CE ya están en el núcleo y probados con pruebas unitarias, pero su programa no está analizado
-(`program_known = 0`): `sf2_create` se niega a arrancarlo con un mensaje que remite a este documento. La recompilación de una imagen de
-1,5 MiB se probó con una imagen sintética (la de WW rellenada con ceros); con las ROMs reales de CE no se ha ejecutado nada todavía.
+```bash
+make GAME=sf2ce BUILD=build-ce ROMDIR=sf2ce            # o la ruta a tu sf2ce.zip
+build-ce/sf2 sf2ce                                     # o build-ce/sf2 /ruta/sf2ce.zip
+make compare-mame compare-sound-cmds GAME=sf2ce BUILD=build-ce ROMDIR=sf2ce
+```
+
+Se juega en vanilla y es idéntica a MAME en todo lo probado: 20.000 cuadros de atracción y 12.000 de la partida de `inputs_sf2.txt`
+(estado, registros, comandos de sonido, capturas) y 8.000 de audio (Z80 al ciclo, YM2151, OKI y WAV). Lo que tiene de distinto respecto a
+WW y cómo se resolvió está en la bitácora `2026-11-12-variantes-fase-1`: arranque por `trap #14`, rutinas de protección montadas en la
+RAM gráfica (D64), punto de muestra con una escritura y la regla del reloj de la IRQ a 12 MHz (D65). Los mods no existen en CE: se
+rechazan (D66). Falta recorrer el resto del juego (cobertura dinámica ~32 %): pueden aparecer más fallos de despacho, que se arreglan
+con pistas en `tools/hints_sf2ce.txt` como dice el propio mensaje de error.

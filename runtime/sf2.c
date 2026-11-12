@@ -235,7 +235,15 @@ static void apply_dev_tool(Sf2 *s) {
     s->mc.mem.dswc = s->dev_tool ? (uint8_t)(s->user_dswc & 0x7f) : s->user_dswc;
 }
 
+int sf2_has_mods(void) {
+    const GameDef *g = recomp_game();
+    return g && g->has_mods;
+}
+
+/* Los mods (pantalla ancha y su lógica, stage completo, entrenamiento y cajas, posición del estéreo, herramientas de desarrollo)
+ * leen y escriben RAM y ROM de WW: en otra variante se rechazan y el juego queda original (D65). */
 void sf2_set_dev_tool(Sf2 *s, int tool) {
+    if (!s->game->has_mods) tool = 0;
     s->dev_tool = tool < 0 || tool > 2 ? 0 : tool;
     sf2_reset(s);
 }
@@ -261,6 +269,11 @@ void sf2_set_input(Sf2 *s, uint16_t in0, uint16_t in1, uint16_t in2) {
 }
 
 int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn) {
+    if (!s->game->has_mods && (t->enabled || t->track_inputs)) {
+        if (err && errn)
+            snprintf(err, errn, "el modo entrenamiento solo existe en Street Fighter II: The World Warrior");
+        return -1;
+    }
     int was = s->train.cfg.enabled || s->train.cfg.track_inputs;
     if (training_configure(&s->train, t, err, errn) != 0)
         return -1;
@@ -272,7 +285,7 @@ int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn) {
 
 void sf2_training_get(const Sf2 *s, Sf2Training *t) { *t = s->train.cfg; }
 int sf2_training_history(const Sf2 *s, int player, Sf2InputEvent *out, int max) { return training_history(&s->train, player, out, max); }
-int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max) { return training_boxes(&s->mc.mem, out, max); }
+int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max) { return s->game->has_mods ? training_boxes(&s->mc.mem, out, max) : 0; }
 uint16_t sf2_training_pad(const Sf2 *s, int player) { return player >= 0 && player <= 1 ? s->train.now[player] : 0; }
 
 int sf2_load_input_script(Sf2 *s, const char *text, const char *name, char *err, size_t errn) {
@@ -427,7 +440,7 @@ static void apply_wide_logic(Sf2 *s) {
 }
 
 void sf2_set_stereo(Sf2 *s, int on) {
-    if (!s->has_sound)
+    if (!s->has_sound || !s->game->has_mods)
         return;
     s->mc.cpu.mod_stereo = on != 0;
     sound_set_stereo(&s->snd, on);
@@ -443,18 +456,20 @@ void sf2_set_stereo_width(Sf2 *s, int percent) {
 unsigned sf2_audio_channels(const Sf2 *s) { return s->audio_channels ? s->audio_channels : 1; }
 
 void sf2_set_wide_logic(Sf2 *s, int on) {
-    s->wide_logic = on != 0;
+    s->wide_logic = on != 0 && s->game->has_mods;
     apply_wide_logic(s);
 }
 
 void sf2_set_stage_full(Sf2 *s, int on) {
-    s->stage_full = on != 0;
+    s->stage_full = on != 0 && s->game->has_mods;
     apply_wide_logic(s);
 }
 
 int sf2_wide_logic_extra(const Sf2 *s) { return s->mc.cpu.mod_wide; }
 
 int sf2_set_video_width(Sf2 *s, int width) {
+    if (width != SF2_SCREEN_W && !s->game->has_mods)
+        return -1;                                   /* la pantalla ancha reconoce las escenas por la RAM de WW */
     if (video_set_width(&s->video, width) != 0)
         return -1;
     apply_wide_logic(s);

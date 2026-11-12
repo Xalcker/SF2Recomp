@@ -48,6 +48,9 @@ void rt_hook(M68K *c);                     /* llamado antes de cada instrucción
 void rt_fatal(M68K *c, const char *fmt, ...) SF2_NORETURN SF2_PRINTF(2, 3);
 void rt_stopped(M68K *c);                  /* la CPU ejecutó STOP: esperar la siguiente IRQ */
 RecompFn rt_lookup(uint32_t addr);         /* tabla de despacho dirección -> función (NULL si no existe) */
+/* código que el juego construye en RAM (hint ram_code, D64): al entrar en su función recompilada se comprueba que la memoria tiene
+ * los bytes con los que se generó; si no, rt_fatal (ejecutar otra cosa daría una partida distinta sin avisar) */
+void rt_check_ram_code(M68K *c, uint32_t addr, const uint8_t *bytes, uint32_t len);
 /* c->pc no está en la tabla de despacho: el anfitrión ejecuta el código ajeno con otro medio (Musashi en
  * harness/blind.c, solo con --fallback) hasta que c->pc vuelva a ser una dirección conocida, o termina con rt_fatal. */
 void rt_unknown(M68K *c);
@@ -119,13 +122,15 @@ static inline void exception(M68K *c, uint32_t vec, uint32_t pc_push) {
 /* Reloj del código generado (hito 6, D47): 1 = el del 68000 de MAME 0.289, 0 = el de Musashi (lo escribe gen_c.py). */
 extern const int recomp_clock_mame;
 
-/* Primer ciclo del manejador de una interrupción por autovector en MAME 0.289 (hito 6, D47).  `t` es el ciclo en que
- * termina la instrucción interrumpida.  La secuencia de excepción dura 46 ciclos más la espera del ciclo de
- * reconocimiento (IACK) con VPA, que se alinea con el reloj E del 68000 (periodo de 10 ciclos: vpa_sync de m68000.cpp
- * espera al siguiente múltiplo de 10 si faltan más de 3 ciclos y al otro si no).  Resultado medido en trazas de MAME:
- * el manejador empieza en el primer ciclo >= t + 50 que es 5 módulo 10, contando desde el reset. */
+/* Primer ciclo del manejador de una interrupción por autovector en MAME 0.289 (hito 6, D47; corregido en D65).  `t` es el
+ * ciclo en que termina la instrucción interrumpida.  state_interrupt de m68000-sdf.cpp hace 6 ciclos internos y una escritura
+ * de 4 antes del ciclo de reconocimiento (IACK), que empieza en t + 10; vpa_sync lo alinea con el reloj E (periodo de 10
+ * ciclos): lo lleva al primer múltiplo de 10 V >= t + 14 (al siguiente si faltan menos de 4 ciclos).  El manejador empieza en
+ * V + 35, es decir en el primer ciclo >= t + 49 que es 5 módulo 10, contando desde el reset.  Hasta D65 se usaba t + 50, medido
+ * en WW, donde solo difiere si t es 6 módulo 10, cosa que no pasaba en sus IRQ (el cuadro de 167.680 ciclos es múltiplo de 10 y
+ * la fase con el reloj E no cambia); a 12 MHz (sf2ce, cuadro de 201.216 ciclos) sí pasa. */
 static inline uint64_t irq_entry_cycle(uint64_t t) {
-    uint64_t e = t + 50;
+    uint64_t e = t + 49;
     return e + (15 - e % 10) % 10;
 }
 

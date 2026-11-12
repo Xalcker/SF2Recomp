@@ -236,7 +236,7 @@ static void test_cpsb(void) {
             if (gfx_map(game_sf2.mapper, types[t], code) != gfx_map(game_sf2ce.mapper, types[t], code)) same = 0;
     CHECK(same);
     CHECK(gfx_map(game_sf2.mapper, GFXTYPE_SCROLL1, 0x4000) == 0x14000 && gfx_map(game_sf2.mapper, GFXTYPE_SCROLL1, 0x3fff) == -1);
-    /* programa de palabras (ROM_LOAD16_WORD_SWAP): el archivo va tal cual a su dirección */
+    /* programa de palabras (ROM_LOAD16_WORD_SWAP): cada palabra del archivo va a su dirección con los bytes invertidos */
     RomSet rs;
     romset_init(&rs, &game_sf2ce);
     for (int i = 0; i < 3; i++) {
@@ -245,7 +245,7 @@ static void test_cpsb(void) {
     }
     static uint8_t img[0x180000];
     romset_build_program(&rs, img);
-    CHECK(img[0] == 0x10 && img[1] == 0x20 && img[0x80000] == 0x11 && img[0x100001] == 0x22);
+    CHECK(img[0] == 0x20 && img[1] == 0x10 && img[0x80000] == 0x21 && img[0x100001] == 0x12);
     romset_free(&rs);
 }
 

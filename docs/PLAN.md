@@ -282,8 +282,9 @@ Pendiente: ver los límites de cada mod en `docs/MODS.md` y la lista de ideas co
 ## Otras variantes: Champion Edition y Hyper Fighting (desde 2026-11-12)
 
 Plan por fases en `docs/VARIANTES.md`. Fase 0 hecha (D63, bitácora `2026-11-12-variantes-fase-0`): el núcleo describe cada variante con
-un `GameDef` (reloj, CPS-B, mapeador, ROMs) y la elige `SF2_GAME`; WW sigue idéntico byte a byte. Siguiente: fase 1, CE en vanilla
-idéntico a MAME (necesita `sf2ce.zip`).
+un `GameDef` (reloj, CPS-B, mapeador, ROMs) y la elige `SF2_GAME`; WW sigue idéntico byte a byte. Fase 1 (D64-D66, bitácora
+`2026-11-12-variantes-fase-1`): CE se juega en vanilla e idéntica a MAME en las partidas probadas (atracción, partida con entradas,
+audio). Siguiente: secuencias y cobertura propias de CE, y Hyper Fighting.
 
 ## Riesgos y mitigaciones
 

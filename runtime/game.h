@@ -30,7 +30,7 @@ extern "C" {
 
 typedef enum RomKind {
     ROMKIND_PROGRAM,    /* 68000: lane 0/1 = chip de bytes pares/impares de un par (dest = base del par, ROM_LOAD16_BYTE);
-                           lane 2 = chip de palabras en el orden del 68000 (dest = dirección, ROM_LOAD16_WORD_SWAP) */
+                           lane 2 = chip de palabras con los dos bytes de cada una invertidos (dest = dirección, ROM_LOAD16_WORD_SWAP) */
     ROMKIND_GFX,        /* región "gfx" de MAME, ROM_LOAD64_WORD (dest = offset dentro de la región) */
     ROMKIND_Z80,        /* programa del Z80 (64 KiB: 32 KiB fijos y 32 KiB de banco) */
     ROMKIND_OKI,        /* muestras del OKI MSM6295 (dest = offset en los 256 KiB) */

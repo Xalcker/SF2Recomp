@@ -3,7 +3,7 @@
 Es un espejo de runtime/game.c (que manda): id del set de MAME, tamaño de la imagen de programa y cómo se monta a
 partir de los chips (ROM_START de src/mame/capcom/cps1.cpp en MAME 0.289).  Cada chip de programa es
 (nombre actual, nombre antiguo, CRC-32, tamaño, destino, lane), con lane 0/1 = bytes pares/impares de un par
-(ROM_LOAD16_BYTE, destino = base del par) y lane 2 = palabras ya en el orden del 68000 (ROM_LOAD16_WORD_SWAP).
+(ROM_LOAD16_BYTE, destino = base del par) y lane 2 = palabras con los dos bytes invertidos (ROM_LOAD16_WORD_SWAP).
 """
 
 LANE_WORD = 2
@@ -56,7 +56,8 @@ def build_program(gid, chips):
     for i, (_, _, _, size, dest, lane) in enumerate(g["program"]):
         data = chips[i]
         if lane == LANE_WORD:
-            img[dest:dest + size] = data
+            img[dest:dest + size:2] = data[1::2]
+            img[dest + 1:dest + size:2] = data[0::2]
         else:
             img[dest + lane:dest + 2 * size:2] = data
     return img

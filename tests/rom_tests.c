@@ -498,6 +498,31 @@ static void test_training(const char *rom, const char *script) {
     sf2_destroy(a); sf2_destroy(b); sf2_destroy(c); sf2_destroy(d);
 }
 
+/* variante sin mods (D65): se rechazan y la partida queda idéntica a la de una máquina sin tocar */
+static void test_no_mods(const char *rom, const char *script) {
+    Sf2 *a = make_machine(rom, script), *b = make_machine(rom, script);
+    CHECK(a && b);
+    if (!a || !b) return;
+    char err[200];
+    Sf2Training t;
+    memset(&t, 0, sizeof t);
+    t.enabled = 1;
+    CHECK(sf2_training_set(b, &t, err, sizeof err) == -1);
+    CHECK(sf2_set_video_width(b, 512) == -1 && sf2_frame_width(b) == SF2_SCREEN_W);
+    sf2_set_wide_logic(b, 1);
+    sf2_set_stage_full(b, 1);
+    sf2_set_stereo(b, 1);
+    CHECK(sf2_wide_logic_extra(b) == 0 && !sf2_stereo(b));
+    for (int i = 0; i < 3000; i++) {
+        CHECK(sf2_run_frame(a) > 0 && sf2_run_frame(b) > 0);
+        sf2_audio_clear(a); sf2_audio_clear(b);
+    }
+    CHECK(sf2_state_crc(a) == sf2_state_crc(b));
+    Sf2Box box[8];
+    CHECK(sf2_training_boxes(b, box, 8) == 0);
+    sf2_destroy(a); sf2_destroy(b);
+}
+
 int main(int argc, char **argv) {
     if (argc < 3) { fprintf(stderr, "uso: %s <sf2.zip|carpeta> <entradas.txt> [otro origen]\n", argv[0]); return 2; }
     uint8_t *script;
@@ -510,10 +535,14 @@ int main(int argc, char **argv) {
     test_reset_and_dips(argv[1], (const char *)script);
     test_dispatch_failure(argv[1], (const char *)script);
     test_hfr_snapshot(argv[1], (const char *)script);
-    test_widescreen(argv[1], (const char *)script);
-    test_wide_logic(argv[1], (const char *)script);
-    test_stage_full(argv[1], (const char *)script);
-    test_training(argv[1], (const char *)script);
+    if (sf2_has_mods()) {
+        test_widescreen(argv[1], (const char *)script);
+        test_wide_logic(argv[1], (const char *)script);
+        test_stage_full(argv[1], (const char *)script);
+        test_training(argv[1], (const char *)script);
+    } else {
+        test_no_mods(argv[1], (const char *)script);
+    }
     free(script);
     printf("sf2_rom_tests: %d comprobaciones, %d fallos\n", g_checks, g_fail);
     return g_fail ? 1 : 0;

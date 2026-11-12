@@ -7,7 +7,8 @@ sf2 (World 910522), segun ROM_START( sf2 ) de MAME:
   0x80000-0xBFFFF : sf2e_28g.9e (pares)        + sf2e_35g.9f (impares)
   0xC0000-0xFFFFF : sf2_29b.10e (pares)        + sf2_36b.10f (impares)   (solo datos, sin codigo)
   Total 0x100000 bytes (1 MiB).  El 68000 es big-endian: el byte par es el byte alto de cada palabra.
-sf2ce (World 920513): tres ROMs de palabras de 512 KiB (s92e_23b.8f, s92_22b.7f, s92_21a.6f) seguidas, 1,5 MiB.
+sf2ce (World 920513): tres ROMs de palabras de 512 KiB (s92e_23b.8f, s92_22b.7f, s92_21a.6f) seguidas, 1,5 MiB, con
+  los dos bytes de cada palabra invertidos en el archivo (ROM_LOAD16_WORD_SWAP).
 Las tablas estan en tools/games.py (espejo de runtime/game.c).
 
 Las ROMs se identifican por CRC-32 y tamano, no por nombre (hito 5): el origen puede ser una carpeta con los

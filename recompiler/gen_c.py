@@ -799,7 +799,14 @@ class Gen:
                 labels.add(self.successor(ins))
         ctx = FuncCtx(entry, body, labels)
         out = []
+        ovl = an.overlay_bytes(entry)
+        if ovl:
+            # código en RAM (hint ram_code, D64): los bytes con los que se genera, para comprobarlos al entrar
+            lo, data = ovl
+            out.append("static const uint8_t ram_code_%06X[%d] = {%s};" % (lo, len(data), ", ".join("0x%02x" % b for b in data)))
         out.append("void %s(M68K *c)\n{" % self.fname(entry))
+        if ovl:
+            out.append("    rt_check_ram_code(c, %s, ram_code_%06X, %du);" % (hx(lo), lo, len(data)))
         out.append("    switch (c->pc) {")
         for a in sorted(labels):
             if a in an.labels or a == entry:

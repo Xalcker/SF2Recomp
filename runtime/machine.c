@@ -148,8 +148,11 @@ void rt_unknown(M68K *c) {
     mc->miss_to = c->pc;
     if (mc->on_unknown && mc->on_unknown(mc))
         return;
+    const char *id = mc->mem.game->id;            /* pistas de la variante: tools/hints.txt (sf2) o tools/hints_<set>.txt (D63) */
+    const int ww = id[0] == 's' && id[1] == 'f' && id[2] == '2' && id[3] == 0;
     rt_fatal(c, "el juego llego a codigo que el recompilador no vio: salto a %06x desde la instruccion %06x "
-                "(anadir 'entry %06x' a tools/hints.txt y regenerar)", mc->miss_to, mc->miss_from, mc->miss_to);
+                "(anadir 'entry %06x' a tools/hints%s%s.txt y regenerar)", mc->miss_to, mc->miss_from, mc->miss_to,
+                ww ? "" : "_", ww ? "" : id);
 }
 
 RecompFn rt_dispatch(M68K *c) {

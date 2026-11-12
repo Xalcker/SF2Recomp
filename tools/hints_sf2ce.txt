@@ -1,3 +1,48 @@
 # tools/hints_sf2ce.txt - correcciones manuales del análisis estático de Street Fighter II': Champion Edition (World 920513).
 # Mismo formato que tools/hints.txt (entry / label / table_end / inline_text).  Vacío hasta la fase 1 de CE
 # (docs/VARIANTES.md): se llenará al recorrer el juego y revisar los conflictos de tools/coverage.py, como en el hito 6.
+#
+# Arranque del sistema de tareas: el arranque termina con trap #14 (0x5C4), cuyo manejador (0xAA6) deja como PC de retorno
+# 0xC0 (`lea $c0(pc),a0 ; move.l a0,2(a7) ; rte`), que el análisis no sigue.
+entry 0000c0
+#
+# Tablas de saltos .w sobreextendidas (fase 1 de CE, bitácora 2026-11-12-variantes-fase-1.md): la primera entrada sobrante cae en
+# datos o a mitad de una instrucción ya decodificada.
+table_end 0068f2 0068f6     # 2 entradas; detrás hay una tabla de punteros largos a 0xA79E8, 0xA7A68...
+table_end 0282b6 0282ba     # 2 entradas; las 3.ª y 4.ª (0x290) apuntarían a 0x28546, en una tabla de datos
+table_end 03e860 03e86c     # 6 entradas; 0x600/0x800/0xA00 apuntarían a 0x3EE60, 0x3F060 y 0x3F260 (a mitad de instrucciones)
+table_end 0a126e 0a127a     # 6 entradas; la 7.ª (0xA8) apuntaría a 0xA1316, a mitad de bsr.w 0xA1314
+table_end 02b4fc 02b50c     # 8 entradas; la 9.ª (0x88) apuntaría a 0x2B584, a mitad de move.b 0x2B582
+table_end 028342 028346     # 2 entradas; las siguientes apuntarían a 0x285D2 (0x7F38, opcode inválido: la 0x1D486 de WW)
+table_end 0283c8 0283cc     # 2 entradas; las siguientes apuntarían a 0x28658 (0x7F14, opcode inválido: la 0x1D50C de WW)
+table_end 03a768 03a76e     # 3 entradas; la 4.ª (0x20E) apuntaría a 0x3A976, datos
+table_end 03f852 03f85c     # 5 entradas; la 6.ª (0x3C1E) apuntaría a 0x43470, a mitad de una instrucción
+table_end 046dce 046dda     # 6 entradas; 0x600/0x800/0xA00 apuntarían a 0x473CE, 0x475CE y 0x477CE (como 0x3E860)
+table_end 0471ce 0471d6     # 4 entradas; 0x600/0x800/0xA00 apuntarían a 0x477CE, 0x479CE (datos) y 0x47BCE
+#
+# Planificador: `movea.l $1ec(pc,d1.w),a1 ; jmp (a1)` en 0x1EA con d1 = 4, 8, 12 lee los punteros de 0x1F0-0x1FB (la base es la propia
+# extensión, 0x1EC, y su primer largo es código), así que el análisis no resuelve la tabla.
+entry 000206
+entry 00020c
+entry 00021c
+entry 0001c4                # retorno del planificador: `pea $1c4(pc)` en 0x1D8 (el análisis solo sigue pea a partir de 0x400)
+#
+# Tabla intercalada (desplazamiento .w, bandera .w) de 0x3C9CC: `move.w $3c9cc(pc,d0.w),d1 ; move.w $3c9ce(pc,d0.w),d0 ;
+# ... jmp $3c9cc(pc,d1.w)` en 0x3C9B6-0x3C9C8; 32 elementos hasta el primer destino (0x3CA4C).
+offset_table 03c9cc 32 4
+#
+# Protección: 0x6538-0x6552 copia 0x51 bytes de 0x85EB8, sumando 3 a cada uno, en la RAM gráfica 0x910900 (dirección ofuscada,
+# 0x488480 * 2), y 0x26F0-0x26FA la llama cada cuatro cuadros con `jsr (a0)`, a0 = 0x244240 << 2 (suma la RAM gráfica de
+# 0x910A00-0x917FFF y escribe el resultado en 0x304(a5)...).  Se recompila en su dirección de RAM (D64).
+ram_code 910900 085eb8 51 3
+# 0x666A-0x6686 copia 0x11 palabras de 0x72536, sumando 0x18 a cada una, en 0x918900 (0x246240 << 2); 0x3974-0x397E la llama con
+# a0 = 0x123120 << 3 cuando el bit (cuadro & 15) de 0xE5 está a 0.
+ram_code 918900 072536 22 0x18 w
+#
+# 0x1920A-0x1920E: `move.w $19212(pc,d0.w),d1 ; jmp $19212(pc,d1.w)` con 3 estados (0x6, 0x44, 0xF8), pero el juego llega con
+# d0 = 8 (cuadro 781 de inputs_sf2.txt, también en MAME): lee 0x0002 de 0x1921A y salta a 0x19214, dentro de la tabla, que se
+# ejecuta como `ori.w #$f8,d4` y cae en el estado 0 (0x19218).  La tabla solo se queda con su primera palabra y sus destinos
+# van como entradas.
+table_end 019212 019214
+offset_table 019212 3 2
+entry 019214

@@ -266,7 +266,15 @@ make analyze     # build/coverage.txt, build/disasm.txt, build/insns.txt
 Correcciones manuales del análisis, una por línea: `entry DIR` (punto de entrada), `label DIR`
 (inicio de bloque despachable), `table_end BASE FIN` (acota una tabla de salto). Vacío por ahora:
 ni el arnés en paso cerrado ni el arnés a ciegas han necesitado ninguna en toda la partida a ciegas.
-Son las de `sf2`; cada otra variante tiene las suyas en `hints_<set>.txt` (`hints_sf2ce.txt`, vacío hasta la fase 1 de CE, D63).
+Son las de `sf2`; cada otra variante tiene las suyas en `hints_<set>.txt` (`hints_sf2ce.txt`: fase 1 de CE, D63-D64). Desde D64 hay
+además `offset_table BASE N PASO` (tablas de desplazamientos que el análisis no reconoce) y `ram_code DEST ORIGEN LON SUMA [w]` (código
+que el juego monta en RAM a partir de bytes de la ROM; se recompila en su dirección y se comprueba al entrar).
+
+## mame_game.lua (D66)
+
+Lo que los scripts de MAME (`mame_blind.lua`, `mame_snap.lua`, `mame_audio.lua`, `mame_sound_cmds.lua`) necesitan de cada variante,
+elegida con `SF2_GAME` (por omisión `sf2`): el punto de muestra (lectura de 0x800172 en 0xAD0 en WW, escritura de 0x800100 en 0x5DA en
+CE) y el reloj del 68000. Los objetivos `make compare-*` pasan `SF2_GAME` y lanzan ese set en MAME.
 
 ## dump_cycles.c y dasmcheck.c (hito 1)
 

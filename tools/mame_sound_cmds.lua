@@ -26,7 +26,8 @@ local cpu = manager.machine.devices[":maincpu"]
 local space = cpu.spaces["program"]
 local ioport = manager.machine.ioport
 
-local SAMPLE_PC = 0xad0
+local G = dofile((debug.getinfo(1, "S").source:match("^@(.*[/\\])") or "./") .. "mame_game.lua")   -- variante (SF2_GAME)
+local SAMPLE_PC = G.sample_pc
 
 local out_path = assert(os.getenv("SF2_CMDS"), "falta SF2_CMDS")
 local inputs_path = os.getenv("SF2_INPUTS")
@@ -101,8 +102,8 @@ local function guarded(fn)
 end
 
 -- cuadros: mismo criterio que mame_blind.lua (lectura de 0x800172 en el punto de muestra del manejador)
-C.tap_frame = space:install_read_tap(0x800172, 0x800173, "sf2_cmds_irq2", guarded(function(offset, data, mask)
-  if C.done or cpu.state["CURPC"].value ~= SAMPLE_PC then return end
+C.tap_frame = G.install_sample_tap(space, "sf2_cmds_irq2", guarded(function(at_sample)
+  if C.done or not at_sample then return end
   C.frame = C.frame + 1
   apply_inputs(C.frame + 1)
   if max_frames > 0 and C.frame >= max_frames then
