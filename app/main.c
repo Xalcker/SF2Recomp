@@ -1062,6 +1062,10 @@ static void reset_game(App *a) {
 }
 
 static void set_stereo(App *a, int on) {
+    if (on && !sf2_has_mods()) {               /* el estéreo usa la cola de sonido de WW: en otra variante no existe (D66) */
+        osd(a, "Sonido estereo: no disponible en esta variante");
+        return;
+    }
     a->cfg.stereo = on != 0;
     sf2_set_stereo(a->sf2, a->cfg.stereo);
     osd(a, a->cfg.stereo ? "Sonido estereo: activado" : "Sonido estereo: apagado (mono original)");

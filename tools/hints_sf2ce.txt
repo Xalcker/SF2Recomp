@@ -46,3 +46,14 @@ ram_code 918900 072536 22 0x18 w
 table_end 019212 019214
 offset_table 019212 3 2
 entry 019214
+#
+# Encontradas jugando (2026-11-12, el usuario; errores.log): la tabla de 0x43614 tiene 5 entradas hasta su primer destino (0x4361E),
+# pero el análisis la cortaba en 2; la 3.ª (0x4364A) se alcanzó en el cuadro 66.647 de una partida.
+table_end 043614 04361e
+# 0x9550A-0x9550E: `move.w $9551c(pc,d0.w),d1 ; jmp $9551c(pc,d1.w)` con d0 = byte de una tabla extendido con signo: puede leer las
+# 5 palabras anteriores a la base (0x95512-0x9551B).  Sus destinos ya están decodificados; se hacen despachables.
+label 095536
+label 095530
+label 095538
+label 09553c
+label 095544

@@ -61,3 +61,13 @@ git), recompilar *Street Fighter II': Champion Edition* (World 920513) y dejarla
   no se ha ejecutado todavía y puede tener más fallos de despacho.
 - La aplicación sigue enseñando los menús de mods en CE (se rechazan al usarlos).
 - Fase 2: Hyper Fighting.
+
+## Prueba del usuario
+
+Al jugar, CE se detuvo dos veces con un salto sin código en 0x4364A desde 0x43610 (cuadros 66.647 y 2.095 de dos partidas): la tabla de
+0x43614 tiene 5 entradas y el análisis la cortaba en 2. Arreglado con `table_end 043614 04361e`. Buscando tablas terminadas antes de su
+primer destino apareció otra de riesgo, 0x9551C, indexada con un byte con signo que puede leer las 5 palabras anteriores a su base: sus
+destinos pasan a ser despachables (`label`). Sin las entradas del usuario no se pudo repetir su partida (el estado de rescate corre sin
+fallos, pero puede no pasar por ahí); se comprobó que 0x4364A, 0x43688 y 0x436C4 están en la tabla de despacho, que la partida de
+12.000 cuadros sigue idéntica a MAME y `ctest` 8/8. La aplicación decía «Sonido estéreo: activado» aunque CE lo rechaza; ahora avisa de
+que no está disponible.
