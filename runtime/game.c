@@ -96,6 +96,28 @@ static const RomInfo roms_sf2ce[] = {
     { "s92_19.12c",  "s92_19.12c",  0xbeade53fu, 0x20000, ROMKIND_OKI, 0x20000, 0 },
 };
 
+/* ROM_START( sf2hf ): otro programa; gráficos y sonido, los de sf2ce */
+static const RomInfo roms_sf2hf[] = {
+    { "s2te_23.8f",  "s2te_23.8f",  0x2dd72514u, 0x80000, ROMKIND_PROGRAM, 0x000000, ROMLANE_WORD },
+    { "s2te_22.7f",  "s2te_22.7f",  0xaea6e035u, 0x80000, ROMKIND_PROGRAM, 0x080000, ROMLANE_WORD },
+    { "s2te_21.6f",  "s2te_21.6f",  0xfd200288u, 0x80000, ROMKIND_PROGRAM, 0x100000, ROMLANE_WORD },
+    { "s92-1m.3a",   "s92-1m.3a",   0x03b0d852u, 0x80000, ROMKIND_GFX, 0x000000, 0 },
+    { "s92-3m.5a",   "s92-3m.5a",   0x840289ecu, 0x80000, ROMKIND_GFX, 0x000002, 0 },
+    { "s92-2m.4a",   "s92-2m.4a",   0xcdb5f027u, 0x80000, ROMKIND_GFX, 0x000004, 0 },
+    { "s92-4m.6a",   "s92-4m.6a",   0xe2799472u, 0x80000, ROMKIND_GFX, 0x000006, 0 },
+    { "s92-5m.7a",   "s92-5m.7a",   0xba8a2761u, 0x80000, ROMKIND_GFX, 0x200000, 0 },
+    { "s92-7m.9a",   "s92-7m.9a",   0xe584bfb5u, 0x80000, ROMKIND_GFX, 0x200002, 0 },
+    { "s92-6m.8a",   "s92-6m.8a",   0x21e3f87du, 0x80000, ROMKIND_GFX, 0x200004, 0 },
+    { "s92-8m.10a",  "s92-8m.10a",  0xbefc47dfu, 0x80000, ROMKIND_GFX, 0x200006, 0 },
+    { "s92-10m.3c",  "s92-10m.3c",  0x960687d5u, 0x80000, ROMKIND_GFX, 0x400000, 0 },
+    { "s92-12m.5c",  "s92-12m.5c",  0x978ecd18u, 0x80000, ROMKIND_GFX, 0x400002, 0 },
+    { "s92-11m.4c",  "s92-11m.4c",  0xd6ec9a0au, 0x80000, ROMKIND_GFX, 0x400004, 0 },
+    { "s92-13m.6c",  "s92-13m.6c",  0xed2c67f6u, 0x80000, ROMKIND_GFX, 0x400006, 0 },
+    { "s92_09.11a",  "s92_09.11a",  0x08f6b60eu, 0x10000, ROMKIND_Z80, 0x00000, 0 },
+    { "s92_18.11c",  "s92_18.11c",  0x7f162009u, 0x20000, ROMKIND_OKI, 0x00000, 0 },
+    { "s92_19.12c",  "s92_19.12c",  0xbeade53fu, 0x20000, ROMKIND_OKI, 0x20000, 0 },
+};
+
 #define COUNT(a) ((int)(sizeof (a) / sizeof (a)[0]))
 
 const GameDef game_sf2 = {
@@ -115,7 +137,18 @@ const GameDef game_sf2ce = {
     1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 0,
 };
 
-static const GameDef *const games[] = { &game_sf2, &game_sf2ce };
+const GameDef game_sf2hf = {
+    "sf2hf", "Street Fighter II': Hyper Fighting (World 921209)",
+    12000000u, 201216u,                 /* cps1_12MHz, como sf2ce */
+    0x180000u, 0x600000u, &cpsb_21_def, &mapper_s9263b, COUNT(roms_sf2hf), roms_sf2hf,
+    /* fase 2 (bitácora 2026-11-12-variantes-fase-2): manejador de la IRQ2 en 0x1D1E0, que escribe registros de vídeo antes de guardar
+     * los registros (movem en 0x1D24C); el punto de muestra es el primer acceso de E/S tras el movem, para que el SR y el PC apilados
+     * estén en SP+60/62 como en las demás: la escritura de 0x800122 en 0x1D264.  Contador de cuadros 0xFF801C (0x1D52E); la bandera
+     * de VBlank se mueve a 0xFF04CE (0x1D532).  Sin mods. */
+    1, 0x01D1E0u, 0x01D264u, 0xFF801Cu, 0,
+};
+
+static const GameDef *const games[] = { &game_sf2, &game_sf2ce, &game_sf2hf };
 
 int game_count(void) { return COUNT(games); }
 

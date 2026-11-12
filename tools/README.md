@@ -266,7 +266,8 @@ make analyze     # build/coverage.txt, build/disasm.txt, build/insns.txt
 Correcciones manuales del análisis, una por línea: `entry DIR` (punto de entrada), `label DIR`
 (inicio de bloque despachable), `table_end BASE FIN` (acota una tabla de salto). Vacío por ahora:
 ni el arnés en paso cerrado ni el arnés a ciegas han necesitado ninguna en toda la partida a ciegas.
-Son las de `sf2`; cada otra variante tiene las suyas en `hints_<set>.txt` (`hints_sf2ce.txt`: fase 1 de CE, D63-D64). Desde D64 hay
+Son las de `sf2`; cada otra variante tiene las suyas en `hints_<set>.txt` (`hints_sf2ce.txt`, `hints_sf2hf.txt`; D63-D64). `not_vector N`
+evita que una palabra larga del área de vectores 48-63 que en realidad es código se tome por un manejador (HF). Desde D64 hay
 además `offset_table BASE N PASO` (tablas de desplazamientos que el análisis no reconoce) y `ram_code DEST ORIGEN LON SUMA [w]` (código
 que el juego monta en RAM a partir de bytes de la ROM; se recompila en su dirección y se comprueba al entrar).
 

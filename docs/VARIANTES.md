@@ -25,7 +25,7 @@ Las prioridades (0x800168-0x80016E), el control de capas (0x800166) y el de pale
 |---|---|---|
 | 0 | Núcleo para varias variantes sin cambiar WW: descriptor `GameDef` (`runtime/game.h`), reloj, CPS-B, mapeador y catálogo de ROMs por variante, `SF2_GAME` en CMake, `gen_c.py --game` | **hecha** (2026-11-12, D63) |
 | 1 | CE en vanilla: generar con `-DSF2_GAME=sf2ce`, buscar el manejador de la IRQ2, el punto de muestra y el contador de cuadros (`program_known`), llenar `tools/hints_sf2ce.txt` hasta 0 fallos de despacho y `compare-*` idénticos a MAME | **jugable e idéntica a MAME** en las partidas probadas (2026-11-12, D64-D66); falta cobertura: secuencias propias de CE (`playgen.py`, 12 personajes) y `compare-coverage` |
-| 2 | HF en vanilla: catálogo `sf2hf`, el resto como CE | pendiente |
+| 2 | HF en vanilla: catálogo `sf2hf`, el resto como CE | **jugable e idéntica a MAME** en las partidas probadas (2026-11-12, D67); falta cobertura, como en CE |
 | 3 | Mods por variante: direcciones de `recompiler/mod_patches.txt`, `runtime/training.c`, la cola de sonido del estéreo, la RAM de la escena ancha... | pendiente |
 
 ## Cómo se elige la variante
@@ -36,6 +36,17 @@ Las prioridades (0x800168-0x80016E), el control de capas (0x800166) y el de pale
   generado. El núcleo toma el descriptor con `recomp_game()` y la aplicación busca `<set>.zip` (`sf2ce.zip`) y carga ese catálogo.
 - Las pistas del análisis son `tools/hints.txt` (WW) y `tools/hints_<set>.txt` (las demás). `mod_patches.txt` solo se aplica a WW
   (`has_mods` / `"mods"` en `tools/games.py`).
+
+## Qué pasa hoy con HF
+
+```bash
+make GAME=sf2hf BUILD=build-hf ROMDIR=sf2hf            # o la ruta a tu sf2hf.zip
+build-hf/sf2 sf2hf
+```
+
+Idéntica a MAME en 20.000 cuadros de atracción, 12.000 de `inputs_sf2.txt` y 8.000 de audio. Pistas en `tools/hints_sf2hf.txt` (las mismas
+familias que en CE, más `not_vector`); el punto de muestra es la escritura de 0x800122 en 0x1D264, tras el `movem` del manejador. Al
+compararla apareció un caso del reloj de la IRQ que WW y CE no tenían (D67). Bitácora `2026-11-12-variantes-fase-2`.
 
 ## Qué pasa hoy con CE
 

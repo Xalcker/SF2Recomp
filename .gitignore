@@ -1,5 +1,7 @@
 # ROMs y cualquier derivado del programa original (ver docs/DECISIONES.md, D5)
 sf2/
+sf2ce/
+sf2hf/
 *.bin
 *.rom
 generated/

@@ -40,6 +40,19 @@ GAMES = {
         "hints": "hints_sf2ce.txt",
         "mods": False,
     },
+    "sf2hf": {
+        "title": "Street Fighter II': Hyper Fighting (World 921209)",
+        "prog_size": 0x180000,
+        "cpu_hz": 12_000_000,
+        "frame_cycles": 201_216,
+        "program": [
+            ("s2te_23.8f", "s2te_23.8f", 0x2dd72514, 0x80000, 0x000000, LANE_WORD),
+            ("s2te_22.7f", "s2te_22.7f", 0xaea6e035, 0x80000, 0x080000, LANE_WORD),
+            ("s2te_21.6f", "s2te_21.6f", 0xfd200288, 0x80000, 0x100000, LANE_WORD),
+        ],
+        "hints": "hints_sf2hf.txt",
+        "mods": False,
+    },
 }
 
 

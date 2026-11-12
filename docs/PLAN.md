@@ -284,7 +284,8 @@ Pendiente: ver los límites de cada mod en `docs/MODS.md` y la lista de ideas co
 Plan por fases en `docs/VARIANTES.md`. Fase 0 hecha (D63, bitácora `2026-11-12-variantes-fase-0`): el núcleo describe cada variante con
 un `GameDef` (reloj, CPS-B, mapeador, ROMs) y la elige `SF2_GAME`; WW sigue idéntico byte a byte. Fase 1 (D64-D66, bitácora
 `2026-11-12-variantes-fase-1`): CE se juega en vanilla e idéntica a MAME en las partidas probadas (atracción, partida con entradas,
-audio). Siguiente: secuencias y cobertura propias de CE, y Hyper Fighting.
+audio). Fase 2 (D67, bitácora `2026-11-12-variantes-fase-2`): HF, igual. Siguiente: secuencias y cobertura propias de CE y HF, y los mods
+en las dos (fase 3).
 
 ## Riesgos y mitigaciones
 

@@ -103,7 +103,10 @@ void rt_hook(M68K *c) {
         const uint64_t s = c->cycles, sp = mc->ins_start, prev_end = mc->acc_end;
         const uint32_t ke = c->ke, k = (ke >> 8) & 63, e = ke & 63, kk = ke >> 14, ek = (ke >> 6) & 3;
         const uint64_t k_start = sp + k, k_end = s - k;
-        mc->ack = kk == 0 ? prev_end : kk == 1 ? k_start : k_end;
+        /* sin acceso antes de su latch (kk == 0) vale el comienzo de la instrucción, no el último acceso de la anterior (D67): MAME
+         * para la CPU (y así ve la IRQ) tras el primer acceso al bus o el primer fin de instrucción que alcanza el instante de la
+         * IRQ, y la anterior puede acabar con ciclos internos sin acceso (desplazamientos, MULU...) */
+        mc->ack = kk == 0 ? sp : kk == 1 ? k_start : k_end;
         const uint64_t e_start = sp + e;
         mc->acc_end = ek == 0 ? s : ek == 1 ? e_start : prev_end;
         mc->ins_start = s;

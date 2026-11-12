@@ -680,7 +680,10 @@ class Analysis:
         for i in range(0, 0x400):
             self.kind[i] = VECTOR
         self.add_entry(self.rr.rd32(4), "reset")
+        skip = set(self.hints.get("not_vectors", []))
         for v in range(2, 64):
+            if v in skip:
+                continue
             h = self.rr.rd32(v * 4)
             if h is not None and self.is_code_addr(h) and h >= 0x400:
                 self.add_entry(h, f"vector{v}")
@@ -905,6 +908,8 @@ def load_hints(path: str) -> dict:
                 unit = 2 if len(parts) > 5 and parts[5] == "w" else 1
                 hints.setdefault("ram_code", []).append((dest, src, n, add, unit))
                 hints["entries"].append(dest)
+            elif parts[0] == "not_vector":
+                hints.setdefault("not_vectors", []).append(int(parts[1], 0))
             elif parts[0] == "offset_table":
                 hints.setdefault("offset_tables", []).append((int(parts[1], 16), int(parts[2], 0), int(parts[3], 0)))
     return hints

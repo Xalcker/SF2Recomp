@@ -156,7 +156,8 @@ static int fake_read(void *ctx, size_t i, uint8_t *dst) {
 
 static void test_romset(void) {
     /* catalogos: entradas con CRC distintos, tamanos validos, destinos que no se pisan y programa completo */
-    CHECK(game_count() == 2 && game_find("sf2") == &game_sf2 && game_find("sf2ce") == &game_sf2ce && game_find("sf2x") == NULL);
+    CHECK(game_count() == 3 && game_find("sf2") == &game_sf2 && game_find("sf2ce") == &game_sf2ce && game_find("sf2hf") == &game_sf2hf
+          && game_find("sf2x") == NULL);
     for (int gi = 0; gi < game_count(); gi++) {
         const GameDef *g = game_at(gi);
         uint64_t total = 0, prog = 0;
@@ -180,7 +181,7 @@ static void test_romset(void) {
         CHECK(prog == g->prog_size);
         CHECK(romset_candidate_count(g) == 2u * (size_t)g->nroms);
         if (g == &game_sf2) CHECK(g->nroms == 23 && total == 8u * 0x20000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
-        if (g == &game_sf2ce) CHECK(g->nroms == 18 && total == 3u * 0x80000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
+        if (g == &game_sf2ce || g == &game_sf2hf) CHECK(g->nroms == 18 && total == 3u * 0x80000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
     }
     /* contenido equivocado en archivos con nombre de ROM: faltan las 23, y el informe nombra el CRC malo */
     FakeSrc fs = { { "sf2e.30g", "sf2_09.bin", "otra_cosa.bin" }, { 0x20000, 0x10000, 0x20000 }, NULL };

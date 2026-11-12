@@ -3,7 +3,8 @@
 --
 -- Punto de muestra = primer acceso de E/S del manejador de la IRQ2, el mismo instante que GameDef.sample_pc en el núcleo
 -- (runtime/game.c): en sf2 la lectura del ID del CPS-B (0x800172) en 0xAD0; en sf2ce, cuyo manejador no lee el CPS-B, la
--- escritura de la base de OBJ (0x800100) en 0x5DA.  El tap se dispara antes de que la instrucción termine su acceso y en ninguna
+-- escritura de la base de OBJ (0x800100) en 0x5DA; en sf2hf, cuyo manejador guarda los registros después de sus primeras escrituras,
+-- la primera escritura tras el movem (0x800122 en 0x1D264).  El tap se dispara antes de que la instrucción termine su acceso y en ninguna
 -- de las dos cambia registros ni RAM antes de él, así que el estado coincide con el del núcleo justo antes de ejecutarla.
 --
 --   local G = dofile(<carpeta de este archivo> .. "mame_game.lua")
@@ -11,6 +12,7 @@
 local GAMES = {
   sf2   = { sample_pc = 0x000ad0, addr = 0x800172, write = false, cpu_hz = 10000000 },
   sf2ce = { sample_pc = 0x0005da, addr = 0x800100, write = true,  cpu_hz = 12000000 },
+  sf2hf = { sample_pc = 0x01d264, addr = 0x800122, write = true,  cpu_hz = 12000000 },
 }
 
 local id = os.getenv("SF2_GAME") or "sf2"

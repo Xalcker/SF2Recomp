@@ -731,3 +731,12 @@ desarrollo): en CE romperían la partida. Con `has_mods = 0`, `sf2_set_video_wid
 estéreo, `sf2_training_set` y las herramientas de desarrollo se rechazan o no hacen nada, y `sf2_has_mods()` lo dice a la aplicación; el
 HFR, que solo interpola el dibujo, sigue. El manejador de la IRQ2 de CE no lee el CPS-B: el punto de muestra es su primer acceso de E/S, una
 escritura, y `tools/mame_game.lua` pone en MAME un tap de lectura o de escritura según `SF2_GAME`.
+
+## D67 (2026-11-12): La IRQ se ve desde el primer acceso al bus o fin de instrucción que alcanza su instante
+
+`execute_run` del 68000 de MAME deja de ejecutar cuando se acaba la porción de tiempo tanto tras un acceso al bus como al terminar una
+instrucción (`while (m_icount > 0)`); el temporizador del VBlank se atiende ahí y su IRQ la ven los latches posteriores. La regla de D47
+tomaba como punto de reconocimiento de una instrucción sin accesos antes de su latch el último acceso de la anterior: falla cuando la
+anterior acaba con ciclos internos (desplazamientos, multiplicaciones) y la IRQ llega en ellos. Ahora es el comienzo de la instrucción.
+Se vio en HF (12 cuadros con la IRQ una instrucción más tarde y uno con la RAM gráfica distinta); WW y CE no cambian (salida byte a byte,
+14 secuencias, comparaciones de CE).

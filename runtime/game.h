@@ -92,6 +92,7 @@ typedef struct GameDef {
 
 extern const GameDef game_sf2;      /* The World Warrior (World 910522) */
 extern const GameDef game_sf2ce;    /* Champion Edition (World 920513) */
+extern const GameDef game_sf2hf;    /* Hyper Fighting (World 921209) */
 
 /* descriptor por id de MAME, o NULL */
 const GameDef *game_find(const char *id);

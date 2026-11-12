@@ -5,6 +5,7 @@
 #   ram_code DEST ORIGEN LON SUMA [w]  código que el juego escribe en RAM: LON bytes (hex) de la ROM en ORIGEN, a cada byte (o a cada
 #                       palabra con `w`) se le suma SUMA, copiados en DEST; se recompila en DEST y el código generado comprueba al entrar que
 #                       la RAM contiene esos bytes (D64)
+#   not_vector N        la palabra larga del vector N (decimal) no es un puntero a código (sf2hf: código en 0xC0-0xFF)
 #   offset_table BASE N PASO  N desplazamientos de 16 bits relativos a BASE, uno cada PASO bytes: cada destino es una entrada
 #                       (tablas que el análisis no reconoce solo, como las intercaladas con otros datos; D63, fase 1 de CE)
 #
