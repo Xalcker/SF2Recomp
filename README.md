@@ -4,18 +4,23 @@
 > código, las herramientas y la documentación se desarrollan de forma asistida por IA, con revisión y verificación humanas
 > (por ejemplo, comparando cuadro a cuadro contra MAME).
 
-> **English summary:** SF2Recomp statically recompiles the Motorola 68000 program of *Street Fighter II: The World Warrior*
-> (Capcom CPS1, World 910522) into portable C, in the spirit of N64Recomp. It runs natively on macOS, Linux, Windows and the
-> browser (WebAssembly), and is frame-exact against MAME 0.289 on fourteen full playthroughs. **No ROMs or Capcom assets are
-> included**: you supply your own `sf2.zip` (MAME `sf2` set), and the recompiler generates the C code at build time on your
-> machine. Build instructions are below (in Spanish); `make ROMDIR=/path/to/sf2.zip` is the short version. This project is
-> developed with AI assistance (Claude). GPL-2.0 licensed, excluding anything derived from the ROMs.
+> **English summary:** SF2Recomp statically recompiles the Motorola 68000 program of Capcom's CPS1 *Street Fighter II* games
+> into portable C, in the spirit of N64Recomp: *The World Warrior* (World 910522), *Champion Edition* (World 920513) and *Hyper
+> Fighting* (World 921209). It runs natively on macOS, Linux, Windows and the browser (WebAssembly) and is frame-exact against
+> MAME 0.289 (fourteen full playthroughs of *The World Warrior*; attract mode, a scripted game and audio for the other two, which
+> have only been tested on macOS).
+> **No ROMs or Capcom assets are included**: you supply your own MAME zip (`sf2.zip`, `sf2ce.zip` or `sf2hf.zip`), and the
+> recompiler generates the C code at build time on your machine. Build instructions are below (in Spanish); `make
+> ROMDIR=/path/to/sf2.zip` is the short version, and `make GAME=sf2ce BUILD=build-ce ROMDIR=/path/to/sf2ce.zip` builds
+> *Champion Edition*. This project is developed with AI assistance (Claude). GPL-2.0 licensed, excluding anything derived from
+> the ROMs.
 
-Recompilación estática del programa 68000 de *Street Fighter II: The World Warrior* (Capcom CPS1, World 910522) a C
-portable, al estilo de N64Recomp. El jugador aporta sus propias ROMs: el repositorio solo contiene herramientas,
-recompilador, núcleo, aplicación y documentación (`docs/DECISIONES.md`, D5).
+Recompilación estática del programa 68000 de los *Street Fighter II* de la CPS1 de Capcom a C portable, al estilo de
+N64Recomp: *The World Warrior* (World 910522), *Champion Edition* (World 920513) y *Hyper Fighting* (World 921209). El
+jugador aporta sus propias ROMs: el repositorio solo contiene herramientas, recompilador, núcleo, aplicación y documentación
+(`docs/DECISIONES.md`, D5).
 
-Estado: **hito 6 completado** (cobertura y robustez). El mismo código compila y corre el juego completo en **macOS** (arm64),
+Estado: **hito 6 completado** (cobertura y robustez). El mismo código compila y corre *The World Warrior* completo en **macOS** (arm64),
 **Linux** (arm64 y x86-64), **Windows** (x86-64, compilación cruzada) y el **navegador** (WebAssembly), con configuración,
 dipswitches, remapeo de teclado y mando, estados guardados y carga de las ROMs desde `sf2.zip` o una carpeta. Catorce partidas
 que recorren el juego entero (los ocho personajes hasta el final con los cuatro jefes, bonus, continuar, fin de partida, dos
@@ -25,15 +30,30 @@ sin un solo salto a código no recompilado. Sin avisos de ASan/UBSan, sin fugas 
 con estados que reproducen la partida exacta. Hoja de ruta y estado del proyecto en `docs/PLAN.md`; cada paso tiene su entrada
 en `docs/bitacora/`.
 Después del hito 6 se añadieron los mods (pantalla ancha, ultraancho, HFR, entrenamiento): ver «Mods y mejoras» y `docs/MODS.md`.
-*Champion Edition* y *Hyper Fighting* ya se juegan, idénticas a MAME en las partidas probadas y con los mods salvo las herramientas de
-desarrollo (`docs/VARIANTES.md`):
-`make GAME=sf2ce BUILD=build-ce ROMDIR=/ruta/a/sf2ce.zip` y `build-ce/sf2 /ruta/a/sf2ce.zip` (o `sf2hf` y `build-hf`).
+Y después, *Champion Edition* y *Hyper Fighting* (ver «Variantes»).
+
+## Variantes
+
+Cada compilación mueve un juego: el C generado es de un programa concreto. Se elige con `GAME` (`-DSF2_GAME=` en CMake); conviene
+una carpeta de compilación por juego (`BUILD=`). Detalle, fases y límites en `docs/VARIANTES.md`.
+
+| Juego | Set de MAME | `GAME` | Estado |
+|---|---|---|---|
+| *The World Warrior* (World 910522) | `sf2` | `sf2` (por omisión) | completo: 14 partidas idénticas a MAME, todos los mods |
+| *Champion Edition* (World 920513) | `sf2ce` | `sf2ce` | idéntico a MAME en atracción, en una partida con entradas y en audio; mods salvo las herramientas de desarrollo |
+| *Hyper Fighting* (World 921209) | `sf2hf` | `sf2hf` | igual que *Champion Edition* |
+
+En *Champion Edition* y *Hyper Fighting* se ha ejecutado alrededor del 31 % del código (en *The World Warrior*, el 73,8 %): en
+partes no recorridas todavía (más personajes, jefes, finales) el juego puede pararse con un «salto a código que el recompilador no
+vio»; el mensaje dice qué pista añadir en `tools/hints_<set>.txt` y el estado de rescate permite repetirlo. Si te pasa, abre una
+incidencia con la dirección.
 
 ## Qué necesitas
 
-- **Tus ROMs**: `sf2.zip` del set `sf2` de MAME (World 910522, 23 archivos de ROM; los 8 volcados de PLD que trae no se
-  usan) o una carpeta con los 23 archivos sueltos (nombres de MAME, actuales o antiguos). Se identifican por CRC-32, así que
-  el nombre de los archivos dentro del zip da igual; si falta o sobra algo, el juego dice qué.
+- **Tus ROMs**, del set de MAME del juego que quieras compilar: `sf2.zip` (*The World Warrior*, 23 archivos de ROM), `sf2ce.zip`
+  (*Champion Edition*, 18) o `sf2hf.zip` (*Hyper Fighting*, 18), o una carpeta con los archivos sueltos (nombres de MAME,
+  actuales o antiguos). Los volcados de PLD que traen los zip no se usan. Las ROMs se identifican por CRC-32, así que el nombre
+  de los archivos dentro del zip da igual; si falta o sobra algo, el juego dice qué.
 - clang ≥ 13 (o GCC ≥ 15; GCC 14 no vale: falta `musttail`), CMake ≥ 3.20, Python 3 (sin paquetes) y SDL3 ≥ 3.2.
 - El recompilador **corre durante la compilación** sobre tus ROMs (`SF2_ROM_DIR`) y genera el C del programa de Capcom en
   el árbol de compilación. Ese código, y todo ejecutable o `.wasm` que lo contiene, **deriva de las ROMs: son para tu uso
@@ -50,12 +70,22 @@ make ROMDIR=/ruta/a/sf2.zip -j8        # recompila, compila (~20 s) y deja build
 build/sf2 /ruta/a/sf2.zip              # a jugar (la ruta se recuerda en la configuración si pones [paths] rom)
 ```
 
+Para *Champion Edition* o *Hyper Fighting*, lo mismo con `GAME` y otra carpeta de compilación:
+
+```bash
+make GAME=sf2ce BUILD=build-ce ROMDIR=/ruta/a/sf2ce.zip -j8
+build-ce/sf2 /ruta/a/sf2ce.zip         # sin ruta busca sf2ce.zip junto al juego (o sf2hf.zip en la de HF)
+```
+
 El `Makefile` es un envoltorio de CMake; sin él:
 
 ```bash
-cmake -S . -B build -DSF2_ROM_DIR=/ruta/a/sf2.zip
+cmake -S . -B build -DSF2_ROM_DIR=/ruta/a/sf2.zip          # y -DSF2_GAME=sf2ce o sf2hf para las otras variantes
 cmake --build build -j8
 ```
+
+Las instrucciones de Linux, Windows y Web de abajo son las de *The World Warrior*; las demás variantes se compilan igual añadiendo
+`-DSF2_GAME=` (o `GAME=` en `make web`), pero **solo se han probado en macOS**.
 
 ### Linux
 
@@ -109,6 +139,8 @@ selector).
 | Entrenamiento | **7** modo entrenamiento · **8** visor de entradas · **9** cajas de golpe (`docs/ENTRENAMIENTO.md`) | |
 | Otros | **P** pausa · **Tab** avance rápido · **F9** pantalla ancha · **F10** reinicio · **F11** o Alt+Intro pantalla completa · **F12** captura · **Esc** salir | |
 
+Los controles son los mismos en las tres variantes.
+
 La configuración (`sf2recomp.ini`, en la carpeta de preferencias; en el navegador, editable en la propia página) se crea la
 primera vez con todos los valores y comentarios: escala y proporción de la ventana, volumen y frecuencia de salida del
 audio, dipswitches con nombre (dificultad 0-7, precio por moneda, juego gratis, continuar, sonidos de la demostración...),
@@ -129,7 +161,9 @@ make compare-coverage      # las 14 secuencias contra MAME: resumen por cuadro, 
 ```
 
 Los `compare-*` exigen además `tools/mame.sh` (MAME 0.289 compilado solo con el driver CPS1 en `external/mame`, ver
-`docs/bitacora/2026-10-19-hito0-mame-local.md`) y `sf2.zip` en la raíz. `BFRAMES=N`, `INPUTS=archivo` y `VFRAMES=a,b,c`
+`docs/bitacora/2026-10-19-hito0-mame-local.md`) y el zip (o la carpeta) del set en la raíz. Con `GAME=sf2ce` o `GAME=sf2hf` (y su
+`BUILD` y `ROMDIR`) comparan esa variante: `make compare-mame compare-sound-cmds GAME=sf2ce BUILD=build-ce ROMDIR=sf2ce`.
+`coverage` y `compare-coverage` usan las secuencias de `tools/sequences/`, que son de *The World Warrior*. `BFRAMES=N`, `INPUTS=archivo` y `VFRAMES=a,b,c`
 cambian la partida y los cuadros. Más del hito 6: `python3 tools/coverage.py --roundtrip` (guardar y cargar a mitad de cada
 secuencia), `python3 tools/playgen.py --verify tools/sequences/*.txt` (CRC de los estados finales) y un árbol con sanitizadores
 (`cmake -S . -B build-asan -DSF2_SANITIZE=address,undefined`). Las secuencias nuevas se generan con `tools/playgen.py`
@@ -141,16 +175,21 @@ Además de correr el juego tal cual, el port trae mods que se activan desde el m
 Solo presentación: **pantalla ancha** real (512 px = 16:9 sin estirar, hasta 800), **HUD en los bordes** y **HFR** (120/144/240 Hz por interpolación, sin acelerar el juego). Cambian el juego: **lógica ancha**, **stage completo** para monitores ultraanchos
 (`mods/ultrawide-3440.ini`), las **herramientas de desarrollo de Capcom** (`--dev-tool`) y el **modo entrenamiento** (`--training`: sin límite de tiempo, barras que se recuperan, J2 como dummy con guion, visor de entradas y cajas de golpe; teclas `7`/`8`/`9`).
 Catálogo y cómo activar cada uno en `docs/MODS.md`; el menú en `docs/MENU.md`; detalle en `docs/WIDESCREEN.md`, `docs/ULTRAWIDE.md`, `docs/HFR.md`, `docs/ESTEREO.md` y `docs/ENTRENAMIENTO.md`.
+*Champion Edition* y *Hyper Fighting* tienen todos salvo las herramientas de desarrollo, que son propias de *The World Warrior*; sus
+límites están en `docs/VARIANTES.md`.
 
 ## Estructura
 
 ```
 CMakeLists.txt, cmake/     sistema de construcción (CMake en cada carpeta); cmake/toolchains/: Windows con llvm-mingw
-sf2/, sf2.zip              ROMs del usuario (no se versionan)
+sf2/, sf2ce/, sf2hf/, *.zip  ROMs del usuario (no se versionan)
 tools/                     intercalado de ROMs, análisis, MAME local, scripts Lua y comparadores, guiones de instalación y de Docker,
-                           jugador automático (playgen.py), cobertura (coverage.py) y las secuencias (tools/sequences/)
-recompiler/                generador de C (68000 → C) y su sub-proyecto nativo para compilaciones cruzadas
+                           jugador automático (playgen.py), cobertura (coverage.py), las secuencias (tools/sequences/), las variantes
+                           (games.py, mame_game.lua) y las pistas del análisis de cada una (hints.txt, hints_sf2ce.txt, hints_sf2hf.txt)
+recompiler/                generador de C (68000 → C), su sub-proyecto nativo para compilaciones cruzadas y los parches de los mods de
+                           cada variante (mod_patches.txt, mod_patches_sf2ce.txt, mod_patches_sf2hf.txt)
 runtime/                   el núcleo, sin llamadas al sistema: CPU, memoria, máquina, vídeo, sonido, ROMs, estados, mod de entrenamiento (sf2.h)
+                           y el descriptor de cada variante (game.c: reloj, CPS-B, mapeador, ROMs, RAM de los mods)
 platform/                  archivos, ROMs desde zip o carpeta, PNG, WAV y configuración (sin SDL)
 app/                       el juego: SDL3 (ventana, teclado, mandos, audio, menú y visores) y la página web (app/web)
 harness/                   arneses de validación con Musashi (sf2_lockstep, sf2_blind)
@@ -160,7 +199,7 @@ docker/                    imágenes de Linux y de Wine para las pruebas (sin c�
 external/                  herramientas locales: MAME, CMake, Emscripten, llvm-mingw (no se versiona)
 docs/                      plan, decisiones, mods, menú, referencias, revisiones y bitácora
 mods/                      perfiles .ini para monitores ultraanchos (--config mods/ultrawide-3440.ini)
-build/, build-web/, build-win/   árboles de compilación (no se versionan)
+build/, build-web/, build-win/, build-ce/, build-hf/   árboles de compilación (no se versionan)
 ```
 
 ## Rendimiento
@@ -174,15 +213,19 @@ web: hito 5 (`docs/bitacora/2026-10-19-hito5-rendimiento.md`), no se ha vuelto a
 | macOS arm64 (nativo, hito 6) | 13.761 | 3.669 | 1.875 |
 | WebAssembly (Chromium, hito 5) | 6.730 | 1.058 | 511 |
 
+Solo *The World Warrior*: *Champion Edition* y *Hyper Fighting* no se han medido (su 68000 va a 12 MHz, así que el núcleo ejecuta más
+instrucciones por cuadro).
+
 ## Documentación
 
-`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D60), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
+`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/VARIANTES.md` (*Champion Edition* y *Hyper Fighting*), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D68), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
 
 ## Contribuir
 
-- Antes de enviar cambios, corre `make test` (necesita tus ROMs en `ROMDIR`).
-- **Nunca subas ROMs, ni código generado a partir de ellas, ni capturas del juego** (`sf2/`, `generated/`, `*.bin`, `*.zip` y
-  `docs/capturas-*/` están en `.gitignore` por esto; ver `docs/DECISIONES.md`, D5).
+- Antes de enviar cambios, corre `make test` (necesita tus ROMs en `ROMDIR`); si tocas el núcleo, el recompilador o el análisis, en
+  cada variante que tengas (`GAME=`), y comprueba que *The World Warrior* sigue idéntico a MAME.
+- **Nunca subas ROMs, ni código generado a partir de ellas, ni capturas del juego** (`sf2/`, `sf2ce/`, `sf2hf/`, `generated/`,
+  `*.bin`, `*.zip` y `docs/capturas-*/` están en `.gitignore` por esto; ver `docs/DECISIONES.md`, D5).
 - Los mods deben poder apagarse y dejar el juego idéntico a MAME.
 - Cada paso importante se anota en `docs/bitacora/`.
 

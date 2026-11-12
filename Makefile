@@ -70,7 +70,7 @@ test: all
 # Web: el recompilador corre en la maquina anfitriona (sub-proyecto nativo) y el juego se compila con Emscripten
 web:
 	. $(EMSDK_ENV) >/dev/null 2>&1 && PATH="$(dir $(abspath $(CMAKE))):$$PATH" emcmake $(CMAKE) -S . -B $(WEBBUILD) \
-	    -DSF2_ROM_DIR=$(abspath $(ROMDIR)) -DSF2_BUILD_TESTS=OFF && $(CMAKE) --build $(WEBBUILD) -j$(JOBS)
+	    -DSF2_ROM_DIR=$(abspath $(ROMDIR)) -DSF2_GAME=$(GAME) -DSF2_BUILD_TESTS=OFF && $(CMAKE) --build $(WEBBUILD) -j$(JOBS)
 
 clean:
 	-$(CMAKE) --build $(BUILD) --target clean
