@@ -207,7 +207,8 @@ static void sound_latch_hook(void *ctx, int which, uint8_t val) {
             /* mod estéreo: 0x6264 saca de la cola la ranura 0x24(a5) y escribe el latch antes de avanzar el índice; la posición
              * la anotó el parche de 0x62AC al encolarla (solo lectura de la RAM, la partida no cambia) */
             const uint8_t *w = mc->mem.wram;
-            const unsigned slot = ((unsigned)(w[0x8024] << 8 | w[0x8025]) >> 1) & 63u;
+            const uint32_t ri = mc->mem.game->mod_ram->snd_read & 0xffffu;      /* índice de lectura de la cola (WW 0x24(a5), D68) */
+            const unsigned slot = ((unsigned)(w[ri] << 8 | w[(ri + 1) & 0xffffu]) >> 1) & 63u;
             sound_latch_pos(mc->sound, mc->cpu.snd_ok[slot], mc->cpu.snd_x[slot]);
         }
         sound_latch_write(mc->sound, which, val, mc->cpu.cycles);

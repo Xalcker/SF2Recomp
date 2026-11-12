@@ -25,7 +25,7 @@ GAMES = {
             ("sf2_36b.10f",  "sf2_36a.bin", 0xc02a13eb, 0x20000, 0xC0000, 1),
         ],
         "hints": "hints.txt",              # en tools/
-        "mods": True,                      # recompiler/mod_patches.txt es de este programa
+        "mods": True,                      # recompiler/mod_patches.txt
     },
     "sf2ce": {
         "title": "Street Fighter II': Champion Edition (World 920513)",
@@ -38,7 +38,7 @@ GAMES = {
             ("s92_21a.6f",  "s92_21a.6f",  0x925a7877, 0x80000, 0x100000, LANE_WORD),
         ],
         "hints": "hints_sf2ce.txt",
-        "mods": False,
+        "mods": True,                      # recompiler/mod_patches_sf2ce.txt (D68)
     },
     "sf2hf": {
         "title": "Street Fighter II': Hyper Fighting (World 921209)",
@@ -51,7 +51,7 @@ GAMES = {
             ("s2te_21.6f", "s2te_21.6f", 0xfd200288, 0x80000, 0x100000, LANE_WORD),
         ],
         "hints": "hints_sf2hf.txt",
-        "mods": False,
+        "mods": True,                      # recompiler/mod_patches_sf2hf.txt (D68)
     },
 }
 

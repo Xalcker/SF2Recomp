@@ -740,3 +740,13 @@ tomaba como punto de reconocimiento de una instrucción sin accesos antes de su 
 anterior acaba con ciclos internos (desplazamientos, multiplicaciones) y la IRQ llega en ellos. Ahora es el comienzo de la instrucción.
 Se vio en HF (12 cuadros con la IRQ una instrucción más tarde y uno con la RAM gráfica distinta); WW y CE no cambian (salida byte a byte,
 14 secuencias, comparaciones de CE).
+
+## D68 (2026-11-12): Mods por variante: RAM en el descriptor y un archivo de parches por juego
+
+Los mods de WW llevaban sus direcciones de RAM y de código fijas. Decisiones: (1) la RAM que usan va en una `ModRam` del descriptor
+(`GameDef.mod_ram`) y el núcleo la lee de ahí; (2) los parches de lógica, en un archivo por variante (`recompiler/mod_patches.txt`,
+`mod_patches_<set>.txt`), elegido por CMake; (3) las direcciones de CE/HF no se adivinan: el código se empareja por los bytes que lo rodean
+y la RAM se deduce por votación sobre las instrucciones equivalentes, y luego se comprueba jugando; `gen_c.py` rechaza cualquier parche que
+no encaje exactamente una vez en el C de su instrucción; (4) las herramientas de desarrollo, propias de WW, quedan en `has_dev_tools`; (5)
+`sf2_game_crc` separa la partida de la tabla de sprites latcheada que va en el estado guardado. Apagados, CE y HF siguen idénticas a MAME
+y WW byte a byte igual.

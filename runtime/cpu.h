@@ -467,11 +467,12 @@ static inline uint16_t mod_wram16(const M68K *c, uint32_t a) {
 }
 
 static inline void mod_sound_tag(M68K *c) {
+    const ModRam *r = c->mem->game->mod_ram;          /* RAM de la variante (D68): luchadores, objetos y cámara */
     const uint32_t slot = (c->d[1] >> 1) & 63u, obj = c->a[6] & 0xffffffu;
-    const int is_obj = obj == 0xff83c6u || obj == 0xff86c6u || (obj >= 0xff9000u && obj < 0xffe000u);
+    const int is_obj = obj == r->p1 + 6u || obj == r->p2 + 6u || (obj >= r->obj_lo && obj < r->obj_hi);
     c->snd_ok[slot] = 0;
     if (is_obj) {
-        c->snd_x[slot] = (int16_t)(mod_wram16(c, obj + 6u) - mod_wram16(c, 0xff8bd8u));
+        c->snd_x[slot] = (int16_t)(mod_wram16(c, obj + 6u) - mod_wram16(c, r->cam_x));
         c->snd_ok[slot] = 1;
     }
 }

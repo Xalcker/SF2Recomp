@@ -176,6 +176,10 @@ size_t sf2_state_size(Sf2 *s);                                   /* tamaño exac
 int sf2_state_save(Sf2 *s, uint8_t *buf, size_t cap);            /* bytes escritos, o -1 */
 /* CRC-32 del contenido del estado (sin cabecera): la misma partida da el mismo valor en cualquier plataforma */
 uint32_t sf2_state_crc(Sf2 *s);
+/* CRC-32 solo de la partida (la máquina: CPU, memoria, placa de sonido), sin la tabla de sprites latcheada que va en el estado para
+ * redibujar al cargar: con la pantalla ancha y la lógica original esa tabla la presta la máquina sombra (D62), así que dos partidas
+ * idénticas con anchos distintos tienen el mismo sf2_game_crc y distinto sf2_state_crc */
+uint32_t sf2_game_crc(Sf2 *s);
 /* carga un estado; si no es válido deja la máquina como estaba y devuelve -1 con el motivo en `err` */
 int sf2_state_load(Sf2 *s, const uint8_t *buf, size_t len, char *err, size_t errn);
 

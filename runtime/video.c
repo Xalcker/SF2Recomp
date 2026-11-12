@@ -38,8 +38,11 @@ static int hud_side(int idx, int cx, int y, int code) {
 }
 
 int video_scene_wide(const Mem *m) {
+    const ModRam *r = m->game->mod_ram;               /* RAM de la variante (D68); sin ella no hay escenas anchas */
+    if (!r)
+        return 0;
     const uint8_t *ram = m->wram;
-    const int mode = ram[0x8001], phase = ram[0x8005], sub = ram[0x8009];
+    const int mode = ram[r->mode & 0xffffu], phase = ram[r->phase & 0xffffu], sub = ram[r->subphase & 0xffffu];
     int fight;
     if (mode == 2 && phase == 4) {
         /* partida: subfase 0x08 presentación de la ronda, 0x0A pelea, 0x0C victoria, 0x0E paso de un cuadro hacia el recuento (con el
@@ -51,7 +54,7 @@ int video_scene_wide(const Mem *m) {
          * 0x0C con fase 2 es su victoria, a la que se llega por un cuadro de fase 0 con el combate aún en pantalla (D62; la fase 0 del
          * modo 0x0C también es la intro del atracción, que se distingue porque no hay luchadores: 0xFF86C6 = 0); el ranking y el título
          * tienen otras fases */
-        fight = (mode == 0x0a && phase == 2 && sub == 2) || (mode == 0x0c && (phase == 2 || (phase == 0 && ram[0x86c6] != 0)));
+        fight = (mode == 0x0a && phase == 2 && sub == 2) || (mode == 0x0c && (phase == 2 || (phase == 0 && ram[(r->p2 + 6u) & 0xffffu] != 0)));
     }
     return fight;
 }
@@ -624,8 +627,10 @@ void video_render_snap(Video *v, const VideoSnap *st) {
     /* stage completo contra Dhalsim (personaje 7 en 0xFF8668): SCROLL3 trae el cuerpo de los dos elefantes de primer plano y SCROLL1 su cabeza y
      * trompa; con la cámara fija quedan cortados contra el borde del arte y se quitan (los elefantes del fondo siguen en SCROLL2) */
     memset(v->dk_key, 0, sizeof v->dk_key);              /* la paleta puede haber cambiado */
-    v->stage_id = m->wram[0x8668];                      /* personaje del oponente = escenario (0 Ryu, 1 Honda, 2 Blanka, 3 Guile, 4 Ken, 5 Chun-Li, 6 Zangief, 7 Dhalsim, 8 Bison, 9 Sagat, 10 Balrog, 11 Vega) */
-    v->hide_far = v->w > VIDEO_W && video_scene_wide(m) && m->wram[0x8668] == STAGE_DHALSIM;
+    /* personaje del oponente = escenario (0 Ryu, 1 Honda, 2 Blanka, 3 Guile, 4 Ken, 5 Chun-Li, 6 Zangief, 7 Dhalsim, 8 Bison, 9 Sagat, 10 Balrog,
+     * 11 Vega); en WW 0xFF8668, en otra variante el de su mod_ram (D68); -1 si no la tiene */
+    v->stage_id = m->game->mod_ram ? m->wram[m->game->mod_ram->opponent & 0xffffu] : -1;
+    v->hide_far = v->w > VIDEO_W && video_scene_wide(m) && v->stage_id == STAGE_DHALSIM;
     for (int k = 0; k < 4; k++) v->order[k] = (lc >> (6 + 2 * k)) & 3;
 
     /* geometría de este cuadro: ensanchado solo si el anfitrión lo pidió y la pantalla lo admite */

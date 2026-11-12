@@ -1,0 +1,84 @@
+# recompiler/mod_patches_sf2hf.txt - parches de los mods de lógica de Street Fighter II': Hyper Fighting (D58, D68).
+# Generado a mano a partir de recompiler/mod_patches.txt (WW) con el mapa de direcciones de la fase 3 de las variantes
+# (bitácora 2026-11-12-variantes-fase-3): cada instrucción de WW se localizó por el código que la rodea; gen_c.py comprueba que
+# el texto a sustituir aparece exactamente una vez en el C de esa instrucción.  RAM de CE/HF: topes de la cámara 0x9C4/0x9C6(a5)
+# (WW 0x9D0/0x9D2), cola de sonido 0x19E(a5) (WW 0x1A2).  Mismo formato que mod_patches.txt; los comentarios dan la dirección de WW.
+#
+#   WW 0x2da0
+0x702e | uint32_t s = rd16(c, ea0); | uint32_t s = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+#   WW 0x2dc8
+0x7056 | uint32_t v = 0x180u; | uint32_t v = 0x180u + (uint32_t)c->mod_wide;
+#   WW 0x836a6
+0xa51b2 | uint32_t s = 0x180u; | uint32_t s = 0x180u + 2u * (uint32_t)c->mod_wide;
+#   WW 0x836e4
+0xa51f0 | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+#   WW 0x836ee
+0xa51fa | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+#   WW 0x83726
+0xa5232 | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) + (uint32_t)c->mod_wide) & 0xffffu;
+#   WW 0x83730
+0xa523c | uint32_t v = rd16(c, ea0); | uint32_t v = (rd16(c, ea0) + (uint32_t)c->mod_wide) & 0xffffu;
+#   WW 0x8365e
+0xa516a | { | { if (c->mod_fixcam) { wr16(c, c->a[6] + 6u, (rd16(c, c->a[5] + 2500u) + rd16(c, c->a[5] + 2502u)) >> 1); goto L_0A51B0; }
+#   WW 0x2816
+0x4194 | uint32_t s = 0x60u; | uint32_t s = 0x60u + (uint32_t)c->mod_wide;
+#   WW 0x281a
+0x4198 | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_wide;
+#   WW 0x28d6
+0x4254 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+#   WW 0x28da
+0x4258 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_view;
+#   WW 0x290e
+0x428c | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+#   WW 0x2912
+0x4290 | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_view;
+#   WW 0x2944
+0x42c2 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+#   WW 0x2948
+0x42c6 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_view;
+#   WW 0x47dc
+0x3724 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+#   WW 0x47e0
+0x3728 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_view;
+#   WW 0x4804
+0x374c | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_view;
+#   WW 0x4808
+0x3750 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_view;
+#   WW 0x482c
+0x3774 | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_view;
+#   WW 0x4830
+0x3778 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_view;
+#   0x2d46e (WW): la comprobación de la ventana de los proyectiles no existe en esta variante (pendiente)
+#   0x2d472 (WW): la comprobación de la ventana de los proyectiles no existe en esta variante (pendiente)
+#   0x33218 (WW): la comprobación de la ventana de los proyectiles no existe en esta variante (pendiente)
+#   0x3321c (WW): la comprobación de la ventana de los proyectiles no existe en esta variante (pendiente)
+#   0x33296 (WW): la comprobación de la ventana de los proyectiles no existe en esta variante (pendiente)
+#   0x3329a (WW): la comprobación de la ventana de los proyectiles no existe en esta variante (pendiente)
+#   WW 0x7f256
+0x5122e | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x7f33a
+0x51324 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x7f388
+0x51372 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x7f3e0
+0x513ca | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x7f6c6
+0x51692 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x7f7a8
+0x51774 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x7f7f0
+0x517bc | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x7f844
+0x51810 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+#   WW 0x62ac
+0xdb2 | { uint32_t v = (c->d[0] & 0xffffu); | { if (c->mod_stereo) mod_sound_tag(c); uint32_t v = (c->d[0] & 0xffffu);
+#
+# Segundo constructor de sprites (no existe en WW): las mismas ocho comprobaciones `cmpi.w #$200,d4`, el mismo parche (D62).
+0x9ebf4 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x9ec50 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x9ec9e | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x9ecf6 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x9edb2 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x9ee12 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x9ee64 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);
+0x9eec2 | uint32_t s = 0x200u; uint32_t d = (c->d[4] & 0xffffu); | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_bx; uint32_t d = ((c->d[4] + (uint32_t)c->mod_bx) & 0xffffu);

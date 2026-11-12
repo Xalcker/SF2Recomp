@@ -243,7 +243,7 @@ int sf2_has_mods(void) {
 /* Los mods (pantalla ancha y su lógica, stage completo, entrenamiento y cajas, posición del estéreo, herramientas de desarrollo)
  * leen y escriben RAM y ROM de WW: en otra variante se rechazan y el juego queda original (D65). */
 void sf2_set_dev_tool(Sf2 *s, int tool) {
-    if (!s->game->has_mods) tool = 0;
+    if (!s->game->has_dev_tools) tool = 0;
     s->dev_tool = tool < 0 || tool > 2 ? 0 : tool;
     sf2_reset(s);
 }
@@ -523,6 +523,22 @@ uint32_t sf2_state_crc(Sf2 *s) {
     }
     int w = sf2_state_save(s, s->scratch, s->scratch_cap);
     return w > (int)STATE_HEADER ? sf2_crc32(0, s->scratch + STATE_HEADER, (size_t)w - STATE_HEADER) : 0;
+}
+
+uint32_t sf2_game_crc(Sf2 *s) {
+    StateStream st;
+    state_begin_save(&st, NULL, 0);
+    machine_state(&s->mc, &st);
+    if (st.pos > s->scratch_cap) {
+        uint8_t *b = realloc(s->scratch, st.pos);
+        if (!b)
+            return 0;
+        s->scratch = b;
+        s->scratch_cap = st.pos;
+    }
+    state_begin_save(&st, s->scratch, s->scratch_cap);
+    machine_state(&s->mc, &st);
+    return st.error ? 0 : sf2_crc32(0, s->scratch, st.pos);
 }
 
 static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }

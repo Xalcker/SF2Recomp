@@ -55,8 +55,14 @@ function(sf2_generation_pipeline OUTDIR)
   # SF2_USE_MODS: con ON se aplican los parches de recompiler/mod_patches.txt; con OFF, --no-mods (gen_c.py los aplicaría por omisión).
   # Va como lista para que --mods y la ruta sean dos argumentos.  El generador de Makefiles no vuelve a ejecutar una regla porque cambie
   # su orden: la opción se escribe en un archivo (solo si cambia) del que depende la regeneración.
+  # parches de los mods de cada variante (D68): recompiler/mod_patches.txt (sf2) o recompiler/mod_patches_<juego>.txt
+  if(SF2_GAME STREQUAL "sf2")
+    set(mods_file "${SF2_ROOT}/recompiler/mod_patches.txt")
+  else()
+    set(mods_file "${SF2_ROOT}/recompiler/mod_patches_${SF2_GAME}.txt")
+  endif()
   if(SF2_USE_MODS)
-    set(mods_args --mods "${SF2_ROOT}/recompiler/mod_patches.txt")
+    set(mods_args --mods "${mods_file}")
     set(mods_value ON)
   else()
     set(mods_args --no-mods)
@@ -70,7 +76,7 @@ function(sf2_generation_pipeline OUTDIR)
     COMMAND "${Python3_EXECUTABLE}" "${SF2_ROOT}/recompiler/gen_c.py" "${rom_bin}" "${gen}" --game ${SF2_GAME}
             --hints "${hints}" ${mods_args} --cycles "${cycles_bin}" --parts ${SF2_PARTS}
             --report "${OUTDIR}/coverage.txt"
-    DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/games.py" "${SF2_ROOT}/recompiler/mod_patches.txt"
+    DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/games.py" "${mods_file}"
             ${hints_dep}
             "${rom_bin}" "${cycles_bin}" "${mods_stamp}"
     COMMENT "Recompilando el 68000 a C (gen_c.py, 16 partes)"

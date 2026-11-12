@@ -71,6 +71,21 @@ typedef struct GfxMapper {
     GfxRange ranges[GAME_MAPPER_MAX];
 } GfxMapper;
 
+/* RAM del juego que leen y escriben los mods (D68).  Todo direcciones absolutas de la RAM de trabajo (0xFF0000-0xFFFFFF); los
+ * luchadores tienen su objeto en base + 6 (X de mundo en base + 0xC) y la vida en base + 0x30. */
+typedef struct ModRam {
+    uint32_t mode, phase, subphase;     /* bytes bajos de 0x0(a5), 0x4(a5), 0x8(a5): partida 2/4/0x0A en combate */
+    uint32_t credits;
+    uint32_t p1, p2;                    /* estructura de cada jugador */
+    uint32_t timer, timer_sub;          /* temporizador del asalto (BCD) y cuadros hasta el siguiente segundo (30 -> 1) */
+    uint32_t cam_x, cam_y;              /* cámara principal */
+    uint32_t cam_lo, cam_hi;            /* topes izquierdo y derecho de la cámara del escenario */
+    uint32_t opponent;                  /* personaje del oponente = escenario */
+    uint32_t proj;                      /* reserva de proyectiles: 8 objetos de 0xC0 bytes */
+    uint32_t snd_queue, snd_read;       /* cola de comandos de sonido (64 palabras) e índice de lectura */
+    uint32_t obj_lo, obj_hi;            /* objetos del combate (proyectiles, chispas): [obj_lo, obj_hi) */
+} ModRam;
+
 typedef struct GameDef {
     const char *id;                 /* nombre del set de MAME: "sf2", "sf2ce" */
     const char *title;              /* para los mensajes */
@@ -87,7 +102,9 @@ typedef struct GameDef {
     uint32_t irq2_handler;          /* manejador de la IRQ2 (VBlank) */
     uint32_t sample_pc;             /* primera lectura de E/S del manejador: punto de muestra comparable con MAME */
     uint32_t frame_counter;         /* byte de la RAM de trabajo que el manejador incrementa en cada cuadro */
-    int has_mods;                   /* 1 si los mods (direcciones de recompiler/mod_patches.txt, training.c...) son de este programa */
+    int has_mods;                   /* 1 si los mods existen en esta variante (parches de recompiler/mod_patches*.txt y mod_ram) */
+    const ModRam *mod_ram;          /* RAM que usan los mods (NULL sin mods) */
+    int has_dev_tools;              /* herramientas de desarrollo de Capcom (docs/HERRAMIENTAS_DEV.md): solo WW */
 } GameDef;
 
 extern const GameDef game_sf2;      /* The World Warrior (World 910522) */

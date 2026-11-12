@@ -81,7 +81,25 @@ SF2PY_API int sf2py_state_load(Sf2 *s, const uint8_t *buf, int len, char *err, i
 SF2PY_API unsigned sf2py_state_crc(Sf2 *s) { return sf2_state_crc(s); }
 
 SF2PY_API int sf2py_png(Sf2 *s, const char *path) {
-    return hostio_write_png(path, sf2_frame(s), SF2_SCREEN_W, SF2_SCREEN_H);
+    return hostio_write_png(path, sf2_frame(s), sf2_frame_width(s), SF2_SCREEN_H);
+}
+
+/* pantalla ancha, lógica ancha, stage completo y estéreo (docs/MODS.md; pruebas de los mods en cada variante, D68) */
+SF2PY_API int sf2py_set_video_width(Sf2 *s, int w) { return sf2_set_video_width(s, w); }
+SF2PY_API int sf2py_frame_width(Sf2 *s) { return sf2_frame_width(s); }
+SF2PY_API void sf2py_set_wide_logic(Sf2 *s, int on) { sf2_set_wide_logic(s, on); }
+SF2PY_API void sf2py_set_stage_full(Sf2 *s, int on) { sf2_set_stage_full(s, on); }
+SF2PY_API int sf2py_wide_logic_extra(Sf2 *s) { return sf2_wide_logic_extra(s); }
+SF2PY_API void sf2py_set_stereo(Sf2 *s, int on) { sf2_set_stereo(s, on); }
+/* cajas de golpe del cuadro (docs/HITBOXES.md): 6 enteros por caja (x, y, ancho, alto, tipo, dueño); devuelve cuántas */
+SF2PY_API int sf2py_boxes(Sf2 *s, int *out, int max) {
+    Sf2Box b[64];
+    int n = sf2_training_boxes(s, b, max < 64 ? max : 64);
+    for (int i = 0; i < n; i++) {
+        out[6 * i] = b[i].x; out[6 * i + 1] = b[i].y; out[6 * i + 2] = b[i].w; out[6 * i + 3] = b[i].h;
+        out[6 * i + 4] = b[i].kind; out[6 * i + 5] = b[i].owner;
+    }
+    return n;
 }
 
 /* mod de entrenamiento (runtime/training.h): devuelve 0 o -1 con el motivo en err */

@@ -4,16 +4,11 @@
 #include <string.h>
 #include "training_priv.h"
 
-/* RAM de trabajo del juego (docs/bitacora/2026-10-19-hito6-secuencias.md y docs/ENTRENAMIENTO.md) */
-#define RAM_MODE      0xFF8001u      /* 2 = partida */
-#define RAM_PHASE     0xFF8005u      /* 0 selección, 4 combate */
-#define RAM_SUBPHASE  0xFF8009u      /* 0x0A = combate en juego */
-#define RAM_CREDITS   0xFF82DDu
-#define RAM_TIMER     0xFF8ACEu      /* temporizador del asalto en BCD (0x99 = 99) */
-#define RAM_TIMER_SUB 0xFF8ACFu      /* cuadros hasta el siguiente segundo: baja de 30 a 1 y entonces el temporizador baja uno */
+/* RAM de trabajo del juego (docs/bitacora/2026-10-19-hito6-secuencias.md y docs/ENTRENAMIENTO.md): la de la variante, en
+ * m->game->mod_ram (D68; en WW: modo 0xFF8001, fase 0xFF8005, subfase 0xFF8009, créditos 0xFF82DD, temporizador 0xFF8ACE en BCD y
+ * su subcontador 0xFF8ACF de 30 a 1, jugadores 0xFF83C0 y 0xFF86C0, cámara 0xFF8BD8/DC, proyectiles 0xFF938A) */
+#define RAM(m)        ((m)->game->mod_ram)
 #define TIMER_SUB_MAX 30
-#define RAM_P1        0xFF83C0u
-#define RAM_P2        0xFF86C0u
 #define OFF_X         0x0Cu
 #define OFF_LIFE      0x30u
 #define LIFE_MAX      0x90
@@ -224,7 +219,7 @@ static uint16_t dummy_step(Training *t, int face_right) {
 }
 
 static void refill(Training *t, Mem *m) {
-    static const uint32_t base[2] = { RAM_P1, RAM_P2 };
+    const uint32_t base[2] = { RAM(m)->p1, RAM(m)->p2 };
     for (int p = 0; p < 2; p++) {
         int life = (int16_t)rd16(m, base[p] + OFF_LIFE);
         if (life <= 0 || life >= LIFE_MAX) {          /* KO o llena: nada que hacer */
@@ -255,24 +250,28 @@ static void auto_versus(Training *t, const Mem *m, int in_game) {
     /* ciclo de 48 cuadros: 4 con la tecla pulsada; monedas hasta tener 2 créditos y luego start de los dos */
     int on = (t->auto_wait % 48) < 4;
     if (!on) return;
-    if (rd8(m, RAM_CREDITS) < 2) t->pulse = 0x0001;                 /* COIN1 */
+    if (rd8(m, RAM(m)->credits) < 2) t->pulse = 0x0001;                 /* COIN1 */
     else t->pulse = 0x0010 | 0x0020;                                  /* START1 y START2 */
 }
 
 void training_vblank(Training *t, Mem *m, const uint16_t host[3], uint16_t out[3]) {
     t->tick++;
-    const int mode = rd8(m, RAM_MODE), phase = rd8(m, RAM_PHASE), sub = rd8(m, RAM_SUBPHASE);
+    if (!RAM(m)) {                                      /* variante sin mods: entradas tal cual */
+        training_inputs(t, host[0], host[1], host[2], &out[0], &out[1], &out[2]);
+        return;
+    }
+    const int mode = rd8(m, RAM(m)->mode), phase = rd8(m, RAM(m)->phase), sub = rd8(m, RAM(m)->subphase);
     const int in_game = mode == 2;
     const int fight = in_game && phase == 4 && sub == 0x0A;
-    const int p1_x = (int16_t)rd16(m, RAM_P1 + OFF_X), p2_x = (int16_t)rd16(m, RAM_P2 + OFF_X);
+    const int p1_x = (int16_t)rd16(m, RAM(m)->p1 + OFF_X), p2_x = (int16_t)rd16(m, RAM(m)->p2 + OFF_X);
     if (p2_x < p1_x) t->p2_right = 1;
     else if (p2_x > p1_x) t->p2_right = 0;
 
     if (t->cfg.enabled) {
         auto_versus(t, m, in_game);
         if (t->cfg.infinite_time && fight) {
-            wr8(m, RAM_TIMER, 0x99);
-            wr8(m, RAM_TIMER_SUB, TIMER_SUB_MAX);    /* sin esto el segundo se cumple igual y el marcador se queda en 98 */
+            wr8(m, RAM(m)->timer, 0x99);
+            wr8(m, RAM(m)->timer_sub, TIMER_SUB_MAX);    /* sin esto el segundo se cumple igual y el marcador se queda en 98 */
         }
         if (t->cfg.refill && fight)
             refill(t, m);
@@ -301,10 +300,7 @@ void training_vblank(Training *t, Mem *m, const uint16_t host[3], uint16_t out[3
 }
 
 /* ---- cajas de golpe y de daño (docs/HITBOXES.md) ------------------------------------------------------------------------ */
-#define RAM_CAM_X   0xFF8BD8u
-#define RAM_CAM_Y   0xFF8BDCu
-#define RAM_PROJ    0xFF938Au      /* reserva «C»: 8 objetos de 0xC0 bytes */
-#define PROJ_COUNT  8
+#define PROJ_COUNT  8                  /* reserva «C» (RAM(m)->proj): 8 objetos de 0xC0 bytes */
 #define PROJ_SIZE   0xC0u
 
 static uint32_t rom8(const Mem *m, uint32_t a) { return a < m->rom_size ? m->rom[a] : 0; }
@@ -316,7 +312,7 @@ static int add_box(const Mem *m, Sf2Box *out, int n, int max, uint32_t rec, uint
         return n;
     const int xo = (int8_t)rom8(m, rec), yo = (int8_t)rom8(m, rec + 1), rx = (int)rom8(m, rec + 2), ry = (int)rom8(m, rec + 3);
     const int cx = x + (mirror ? -xo : xo), cy = y + yo;
-    const int cam_x = (int16_t)rd16(m, RAM_CAM_X), cam_y = (int16_t)rd16(m, RAM_CAM_Y);
+    const int cam_x = (int16_t)rd16(m, RAM(m)->cam_x), cam_y = (int16_t)rd16(m, RAM(m)->cam_y);
     const int sx = cx - cam_x, sy = 240 - (cy - cam_y);
     out[n].x = (int16_t)(sx - rx);
     out[n].y = (int16_t)(sy - ry);
@@ -351,11 +347,11 @@ static int object_boxes(const Mem *m, Sf2Box *out, int n, int max, uint32_t obj,
 }
 
 int training_boxes(const Mem *m, Sf2Box *out, int max) {
-    if (rd8(m, RAM_MODE) != 2 || rd8(m, RAM_PHASE) != 4)
+    if (!RAM(m) || rd8(m, RAM(m)->mode) != 2 || rd8(m, RAM(m)->phase) != 4)
         return 0;
-    int n = object_boxes(m, out, 0, max, RAM_P1 + 6, 0, 0);
-    n = object_boxes(m, out, n, max, RAM_P2 + 6, 1, 0);
+    int n = object_boxes(m, out, 0, max, RAM(m)->p1 + 6, 0, 0);
+    n = object_boxes(m, out, n, max, RAM(m)->p2 + 6, 1, 0);
     for (int i = 0; i < PROJ_COUNT; i++)
-        n = object_boxes(m, out, n, max, RAM_PROJ + (uint32_t)i * PROJ_SIZE, 2, 1);
+        n = object_boxes(m, out, n, max, RAM(m)->proj + (uint32_t)i * PROJ_SIZE, 2, 1);
     return n;
 }
