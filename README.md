@@ -25,6 +25,9 @@ sin un solo salto a código no recompilado. Sin avisos de ASan/UBSan, sin fugas 
 con estados que reproducen la partida exacta. Hoja de ruta y estado del proyecto en `docs/PLAN.md`; cada paso tiene su entrada
 en `docs/bitacora/`.
 Después del hito 6 se añadieron los mods (pantalla ancha, ultraancho, HFR, entrenamiento): ver «Mods y mejoras» y `docs/MODS.md`.
+*Champion Edition* y *Hyper Fighting* ya se juegan, idénticas a MAME en las partidas probadas y con los mods salvo las herramientas de
+desarrollo (`docs/VARIANTES.md`):
+`make GAME=sf2ce BUILD=build-ce ROMDIR=/ruta/a/sf2ce.zip` y `build-ce/sf2 /ruta/a/sf2ce.zip` (o `sf2hf` y `build-hf`).
 
 ## Qué necesitas
 

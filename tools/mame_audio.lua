@@ -40,9 +40,10 @@ local audiocpu = manager.machine.devices[":audiocpu"]
 local aspace = audiocpu.spaces["program"]
 local ioport = manager.machine.ioport
 
-local SAMPLE_PC = 0xad0
+local G = dofile((debug.getinfo(1, "S").source:match("^@(.*[/\\])") or "./") .. "mame_game.lua")   -- variante (SF2_GAME)
+local SAMPLE_PC = G.sample_pc
 local Z80_HZ = 3579545
-local M68K_HZ = 10000000
+local M68K_HZ = G.cpu_hz
 
 local out_dir = assert(os.getenv("SF2_AUDIO_DIR"), "falta SF2_AUDIO_DIR")
 local inputs_path = os.getenv("SF2_INPUTS")
@@ -128,8 +129,8 @@ local function guarded(fn)
 end
 
 -- cuadros: mismo criterio que mame_blind.lua
-A.tap_frame = space:install_read_tap(0x800172, 0x800173, "sf2_audio_irq2", guarded(function(offset, data, mask)
-  if A.done or cpu.state["CURPC"].value ~= SAMPLE_PC then return end
+A.tap_frame = G.install_sample_tap(space, "sf2_audio_irq2", guarded(function(at_sample)
+  if A.done or not at_sample then return end
   A.frame = A.frame + 1
   ev:write(string.format("F %d %d\n", A.frame, ticks(M68K_HZ)))
   apply_inputs(A.frame + 1)

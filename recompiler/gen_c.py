@@ -20,6 +20,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
 from analyze import analyze, Analysis
+from games import game
 from m68k import (Insn, Op, DN, AN, IND, POSTINC, PREDEC, D16AN, D8ANXN, ABSW, ABSL, D16PC, D8PCXN, IMM,
                   MEM_MODES)
 
@@ -798,7 +799,14 @@ class Gen:
                 labels.add(self.successor(ins))
         ctx = FuncCtx(entry, body, labels)
         out = []
+        ovl = an.overlay_bytes(entry)
+        if ovl:
+            # código en RAM (hint ram_code, D64): los bytes con los que se genera, para comprobarlos al entrar
+            lo, data = ovl
+            out.append("static const uint8_t ram_code_%06X[%d] = {%s};" % (lo, len(data), ", ".join("0x%02x" % b for b in data)))
         out.append("void %s(M68K *c)\n{" % self.fname(entry))
+        if ovl:
+            out.append("    rt_check_ram_code(c, %s, ram_code_%06X, %du);" % (hx(lo), lo, len(data)))
         out.append("    switch (c->pc) {")
         for a in sorted(labels):
             if a in an.labels or a == entry:
@@ -883,10 +891,21 @@ def main():
                     help="no aplicar ningún parche de mods (build vanilla, SF2_USE_MODS=OFF): los mods de lógica y el estéreo no tienen efecto")
     ap.add_argument("--ack", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "m68000_ack.txt"),
                     help="punto de muestreo de interrupciones por instrucción (tools/mame_m68000_ack.py)")
+    ap.add_argument("--game", default="sf2",
+                    help="variante (set de MAME, tools/games.py y runtime/game.c): queda en recomp_game_id del C generado (D63)")
     ap.add_argument("--clock", choices=["mame", "musashi"], default="mame",
                     help="modelo de ciclos: el del 68000 de MAME 0.289 (por omisión, D47) o el de Musashi (D16)")
     args = ap.parse_args()
 
+    g = game(args.game)
+    rom_size = os.path.getsize(args.rom)
+    if rom_size != g["prog_size"]:
+        raise SystemExit("gen_c.py: la imagen %s mide %#x bytes y el programa de %s mide %#x (¿--game equivocado?)"
+                         % (args.rom, rom_size, args.game, g["prog_size"]))
+    no_mods_reason = "--no-mods"
+    if not g["mods"] and not args.no_mods:
+        no_mods_reason = "los de %s son de otro programa" % os.path.basename(args.mods)
+        args.no_mods = True
     an = analyze(args.rom, args.hints)
     if args.report:
         with open(args.report, "w") as f:
@@ -896,7 +915,7 @@ def main():
         raise SystemExit("gen_c.py: --clock mame necesita la tabla --ack (recompiler/m68000_ack.txt)")
     mods = {} if args.no_mods else load_mod_patches(args.mods)
     if args.no_mods:
-        print("parches de mods: ninguno (--no-mods)")
+        print("parches de mods: ninguno (%s)" % no_mods_reason)
     gen = Gen(an, load_cycles(args.cycles), args.clock, ack, mods)
     os.makedirs(args.outdir, exist_ok=True)
 
@@ -912,8 +931,10 @@ def main():
         f.write("extern const DispatchEntry recomp_table[];\nextern const unsigned recomp_table_len;\n")
         f.write("extern const uint32_t recomp_reset_pc;\nextern const unsigned recomp_insn_count;\n")
         f.write("extern const int recomp_clock_mame;\n")
-        f.write("/* CRC-32 de la imagen de programa de 1 MiB con la que se generó este código (lo comprueba el juego al cargar las ROMs) */\n")
-        f.write("extern const uint32_t recomp_rom_crc32;\n#endif\n")
+        f.write("/* CRC-32 de la imagen de programa con la que se generó este código (lo comprueba el juego al cargar las ROMs) */\n")
+        f.write("extern const uint32_t recomp_rom_crc32;\n")
+        f.write("/* variante (set de MAME) de ese programa: el núcleo toma su descriptor con recomp_game() (runtime/game.h, D63) */\n")
+        f.write("extern const char recomp_game_id[];\n#endif\n")
 
     # reparto de funciones en N archivos equilibrados por tamaño de cuerpo
     parts = [[] for _ in range(args.parts)]
@@ -950,6 +971,7 @@ def main():
         f.write("const int recomp_clock_mame = %d;\n" % (1 if args.clock == "mame" else 0))
         with open(args.rom, "rb") as rf:
             f.write("const uint32_t recomp_rom_crc32 = 0x%08xu;\n" % (zlib.crc32(rf.read()) & 0xffffffff))
+        f.write('const char recomp_game_id[] = "%s";\n' % args.game)
 
     missing = sorted(set(gen.mods) - gen.mods_used)
     if missing:

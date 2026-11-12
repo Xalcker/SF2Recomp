@@ -1,0 +1,31 @@
+# tools/hints_sf2hf.txt - correcciones manuales del análisis estático de Street Fighter II': Hyper Fighting (World 921209).
+# Mismo formato que tools/hints.txt.  El programa es una revisión del de CE: muchas pistas son las de tools/hints_sf2ce.txt con
+# otras direcciones (fase 2, bitácora 2026-11-12-variantes-fase-2.md).
+#
+# Arranque del sistema de tareas: el arranque termina con trap #14 (0xB9370), cuyo manejador (0xB993C) deja como PC de retorno 0x40378
+# (`movea.l #$40378,a0 ; move.l a0,2(a7) ; rte`).  Es la 0xC0 de CE.
+entry 040378
+#
+# 0xC0-0xFF es código (como en CE), no los vectores 48-63: dos de sus palabras largas caen en la ROM y se tomaban por manejadores.
+not_vector 51               # 0x000800BA
+not_vector 56               # 0x00143B7C
+#
+# Tablas de saltos .w sobreextendidas: las mismas familias que en CE (hints_sf2ce.txt).
+table_end 044770 044774     # 2 entradas (la 0x282B6 de CE)
+table_end 0447fc 044800     # 2 entradas; 0x290 -> 0x44A8C, 0x7F38 inválido (la 0x28342 de CE)
+table_end 044882 044886     # 2 entradas; 0x290 -> 0x44B12, 0x7F14 inválido (la 0x283C8 de CE)
+table_end 05786c 057878     # 6 entradas; 0x600/0x800/0xA00 (la 0x3E860 de CE)
+table_end 0659a2 0659aa     # 4 entradas; 0x600/0x800/0xA00 (la 0x471CE de CE)
+table_end 08ced6 08cee2     # 6 entradas; 0x600/0x800/0xA00 (la 0x46DCE de CE)
+table_end 08d0a6 08d0b2     # 6 entradas; en 0x8D0B2 empieza código (0x102E, move.b)
+table_end 0aa9ce 0aa9da     # 6 entradas; la 7.ª (0xA8) caería a mitad de bsr.w 0xAAA74 (la 0xA126E de CE)
+table_end 057bc4 057bd4     # 8 entradas; la 9.ª (0x88) caería a mitad de move.b 0x57C4A (la 0x2B4FC de CE)
+table_end 09f072 09f076     # 2 entradas; en 0x9F076 hay una tabla de bytes (la lee 0x9F08A)
+#
+# Planificador (el 0x1EA de CE): `movea.l $b91a4(pc,d1.w),a1 ; jmp (a1)` con d1 = 4, 8, 12 lee los punteros de 0xB91A8-0xB91B3.
+entry 0b91ca
+entry 0b9198
+entry 0b91b4
+#
+# Tabla intercalada (desplazamiento .w, bandera .w) de 0x840E0 (la 0x3C9CC de CE, con 4 elementos más): 36 hasta el primer destino.
+offset_table 0840e0 36 4

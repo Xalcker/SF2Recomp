@@ -39,7 +39,8 @@ local cps_a = shares[":cps_a_regs"]
 local cps_b = shares[":cps_b_regs"]
 local palette = screen.palette
 
-local SAMPLE_PC = 0xad0
+local G = dofile((debug.getinfo(1, "S").source:match("^@(.*[/\\])") or "./") .. "mame_game.lua")   -- variante (SF2_GAME)
+local SAMPLE_PC = G.sample_pc
 local inputs_path = os.getenv("SF2_INPUTS")
 local max_frames = tonumber(os.getenv("SF2_FRAMES") or "0")
 local dump_dir = os.getenv("SF2_DUMP_DIR")
@@ -138,9 +139,9 @@ local function dump(frame)
   save("pal", read_pal())
 end
 
-S.tap = space:install_read_tap(0x800172, 0x800173, "sf2_irq2", function(offset, data, mask)
+S.tap = G.install_sample_tap(space, "sf2_irq2", function(at_sample)
   local ok, err = pcall(function()
-    if cpu.state["CURPC"].value ~= SAMPLE_PC then S.other = S.other + 1; return end
+    if not at_sample then S.other = S.other + 1; return end
     if S.done then return end
     S.frame = S.frame + 1
     if snap_frames[S.frame] then

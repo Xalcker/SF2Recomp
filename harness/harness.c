@@ -146,7 +146,7 @@ static int on_unknown(Machine *mc) {
     musashi_load(c);
     for (;;) {
         uint32_t pc = m68k_get_reg(NULL, M68K_REG_PC);
-        if (pc >= ROM_SIZE)
+        if (pc >= mc->mem.rom_size)
             rt_fatal(c, "Musashi fuera de la ROM en %06x (entrada %06x)", pc, entry);
         ring_push(pc);
         int used = m68k_execute(1);

@@ -3,6 +3,9 @@
 Catálogo de lo que el port añade al juego original. Todo está implementado y se maneja desde el menú del juego (**M**, `docs/MENU.md`), con teclas,
 con opciones de línea de comandos o desde `sf2recomp.ini`. Última revisión: 2026-10-21.
 
+**Variantes (D68):** en *Champion Edition* y *Hyper Fighting* están todos menos las herramientas de desarrollo (propias de WW); límites en
+`docs/VARIANTES.md` y en la bitácora `2026-11-12-variantes-fase-3`.
+
 **Regla de todos los mods:** son interruptores y, **apagados, el juego es idéntico a MAME** (`make compare-video` 17/17, las 14 secuencias con el mismo CRC de
 estado, `make test`). Se distinguen dos clases:
 

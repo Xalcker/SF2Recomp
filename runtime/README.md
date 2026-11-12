@@ -34,7 +34,8 @@ plataforma está en `sf2_port.h` con un `_Static_assert` por supuesto.
 | `sf2_port.h` | supuestos de portabilidad comprobados al compilar: bytes de 8 bits, `int` de 32, IEEE-754, complemento a dos, desplazamiento aritmético, orden de bytes (`SF2_LITTLE_ENDIAN`, que fija el orden de `Z80Pair`), compilador con `musttail` (clang ≥ 13, GCC ≥ 15) |
 | `crc32.c` | CRC-32 por nibbles, sin tabla global |
 | `zipread.c` | lector de zip en memoria (stored y deflate) con inflate propio; valida todos los desplazamientos y el CRC del directorio central |
-| `romset.c` | catálogo de las 23 ROMs (CRC, tamaño, destino), carga desde un `RomSource` (zip en memoria, carpeta, navegador) por CRC y no por nombre, informe en español de lo que falta |
+| `romset.c` | carga del catálogo de ROMs de una variante (`RomSet.game`; las 23 de `sf2` hasta D63) desde un `RomSource` (zip en memoria, carpeta, navegador) por CRC y no por nombre, informe en español de lo que falta |
+| `game.c` | (D63) descriptor de cada variante (`GameDef`): reloj, ciclos por cuadro, tamaño del programa, CPS-B (`CpsbConfig`), mapeador gráfico, catálogo de ROMs y hechos del programa; `game_sf2` y `game_sf2ce`. El ejecutable usa el de su C generado (`recomp_game()`, en `dispatch.c`) |
 | `png.c` | codificador PNG en memoria (el escritor a archivo está en `platform/hostio.c`) |
 | `state.c` | `StateStream`: un solo recorrido de campos para guardar y cargar, little-endian |
 | `machine.c` | la máquina (antes en `harness/`): planificador de la IRQ2, ganchos, **`machine_step`** (ejecución por cuadros con cesión por `longjmp`, D39), estado guardable; sin instancia global, el `M68K` es el primer miembro de `Machine` |

@@ -28,7 +28,7 @@ extern "C" {
 #define SF2_SCREEN_H   224
 #define SF2_SCREEN_W_MAX 800                  /* techo de la pantalla ancha (16:9 con la forma de píxel de la recreativa) */
 #define SF2_AUDIO_RATE 48000u                 /* frecuencia de la mezcla validada contra MAME (D31) */
-#define SF2_FRAME_HZ   (10000000.0 / 167680.0)   /* 59,637 Hz */
+#define SF2_FRAME_HZ   (sf2_frame_hz())          /* reloj del 68000 / ciclos por cuadro: 59,637 Hz en todas las variantes */
 
 /* bits de las entradas (1 = pulsado) para sf2_set_input; los mismos nombres que tools/inputs_sf2.txt */
 #define SF2_IN0_COIN1   0x0001
@@ -57,6 +57,15 @@ typedef struct Sf2Options {
 } Sf2Options;
 
 typedef struct Sf2 Sf2;
+
+/* variante de SF2 que mueve este ejecutable (la del código generado, D63): su catálogo de ROMs es el que hay que cargar
+ * (romset_init(&rs, sf2_game())) */
+const GameDef *sf2_game(void);
+/* cuadros por segundo de esa variante */
+double sf2_frame_hz(void);
+/* 1 si los mods existen en esa variante (solo en sf2): en las demás se rechazan la pantalla ancha, la lógica ancha, el stage
+ * completo, el entrenamiento y sus cajas, el estéreo y las herramientas de desarrollo, y el juego queda original */
+int sf2_has_mods(void);
 
 /* opciones por omisión: vídeo y sonido activados, dipswitches de MAME */
 void sf2_options_default(Sf2Options *o);
@@ -167,6 +176,10 @@ size_t sf2_state_size(Sf2 *s);                                   /* tamaño exac
 int sf2_state_save(Sf2 *s, uint8_t *buf, size_t cap);            /* bytes escritos, o -1 */
 /* CRC-32 del contenido del estado (sin cabecera): la misma partida da el mismo valor en cualquier plataforma */
 uint32_t sf2_state_crc(Sf2 *s);
+/* CRC-32 solo de la partida (la máquina: CPU, memoria, placa de sonido), sin la tabla de sprites latcheada que va en el estado para
+ * redibujar al cargar: con la pantalla ancha y la lógica original esa tabla la presta la máquina sombra (D62), así que dos partidas
+ * idénticas con anchos distintos tienen el mismo sf2_game_crc y distinto sf2_state_crc */
+uint32_t sf2_game_crc(Sf2 *s);
 /* carga un estado; si no es válido deja la máquina como estaba y devuelve -1 con el motivo en `err` */
 int sf2_state_load(Sf2 *s, const uint8_t *buf, size_t len, char *err, size_t errn);
 

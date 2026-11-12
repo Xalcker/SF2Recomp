@@ -38,8 +38,11 @@ static int hud_side(int idx, int cx, int y, int code) {
 }
 
 int video_scene_wide(const Mem *m) {
+    const ModRam *r = m->game->mod_ram;               /* RAM de la variante (D68); sin ella no hay escenas anchas */
+    if (!r)
+        return 0;
     const uint8_t *ram = m->wram;
-    const int mode = ram[0x8001], phase = ram[0x8005], sub = ram[0x8009];
+    const int mode = ram[r->mode & 0xffffu], phase = ram[r->phase & 0xffffu], sub = ram[r->subphase & 0xffffu];
     int fight;
     if (mode == 2 && phase == 4) {
         /* partida: subfase 0x08 presentación de la ronda, 0x0A pelea, 0x0C victoria, 0x0E paso de un cuadro hacia el recuento (con el
@@ -51,7 +54,7 @@ int video_scene_wide(const Mem *m) {
          * 0x0C con fase 2 es su victoria, a la que se llega por un cuadro de fase 0 con el combate aún en pantalla (D62; la fase 0 del
          * modo 0x0C también es la intro del atracción, que se distingue porque no hay luchadores: 0xFF86C6 = 0); el ranking y el título
          * tienen otras fases */
-        fight = (mode == 0x0a && phase == 2 && sub == 2) || (mode == 0x0c && (phase == 2 || (phase == 0 && ram[0x86c6] != 0)));
+        fight = (mode == 0x0a && phase == 2 && sub == 2) || (mode == 0x0c && (phase == 2 || (phase == 0 && ram[(r->p2 + 6u) & 0xffffu] != 0)));
     }
     return fight;
 }
@@ -278,7 +281,7 @@ static SF2_ALWAYS_INLINE void tilemap_impl(Video *v, const Mem *m, const int lay
     const int rowscroll = layer == 2 && v->rowscroll;
     const int otheroffs = v->st->rowoffs;
     uint16_t pmask[4];
-    for (int g = 0; g < 4; g++) pmask[g] = m->cps_b[CPSB11_PRIORITY0 + g];
+    for (int g = 0; g < 4; g++) pmask[g] = mem_cpsb_reg(m, m->game->cpsb->priority[g]);
     TileInfo info[64];
     int info_row = -1;
     const int rw = v->rw, rx0 = v->rx0;
@@ -610,21 +613,24 @@ void video_render_snap(Video *v, const VideoSnap *st) {
     if (!v->rgb_fixed)
         build_rgb(v, m);
     const uint16_t vc = m->cps_a[CPSA_VIDEOCONTROL];
-    const uint16_t lc = m->cps_b[CPSB11_LAYER_CONTROL];
+    const CpsbConfig *cb = m->game->cpsb;
+    const uint16_t lc = mem_cpsb_reg(m, cb->layer_control);
     if (vc & 0x8000)
         v->flip_warned = 1;            /* volteo de pantalla pedido por el juego, no implementado (D24): lo informa el anfitrión */
     v->enabled[0] = 1;
-    v->enabled[1] = (lc & CPSB11_LAYER1_ENABLE) != 0;
-    v->enabled[2] = (lc & CPSB11_LAYER2_ENABLE) && (vc & 0x04);
-    v->enabled[3] = (lc & CPSB11_LAYER3_ENABLE) && (vc & 0x08);
+    v->enabled[1] = (lc & cb->layer_enable[0]) != 0;
+    v->enabled[2] = (lc & cb->layer_enable[1]) && (vc & 0x04);
+    v->enabled[3] = (lc & cb->layer_enable[2]) && (vc & 0x08);
     if (v->layer_mask != 0xf)              /* depuración: solo las capas pedidas (SF2_VIDEO_LAYERS) */
         for (int k = 0; k < 4; k++) if (!((v->layer_mask >> k) & 1)) v->enabled[k] = 0;
     v->rowscroll = vc & 1;
     /* stage completo contra Dhalsim (personaje 7 en 0xFF8668): SCROLL3 trae el cuerpo de los dos elefantes de primer plano y SCROLL1 su cabeza y
      * trompa; con la cámara fija quedan cortados contra el borde del arte y se quitan (los elefantes del fondo siguen en SCROLL2) */
     memset(v->dk_key, 0, sizeof v->dk_key);              /* la paleta puede haber cambiado */
-    v->stage_id = m->wram[0x8668];                      /* personaje del oponente = escenario (0 Ryu, 1 Honda, 2 Blanka, 3 Guile, 4 Ken, 5 Chun-Li, 6 Zangief, 7 Dhalsim, 8 Bison, 9 Sagat, 10 Balrog, 11 Vega) */
-    v->hide_far = v->w > VIDEO_W && video_scene_wide(m) && m->wram[0x8668] == STAGE_DHALSIM;
+    /* personaje del oponente = escenario (0 Ryu, 1 Honda, 2 Blanka, 3 Guile, 4 Ken, 5 Chun-Li, 6 Zangief, 7 Dhalsim, 8 Bison, 9 Sagat, 10 Balrog,
+     * 11 Vega); en WW 0xFF8668, en otra variante el de su mod_ram (D68); -1 si no la tiene */
+    v->stage_id = m->game->mod_ram ? m->wram[m->game->mod_ram->opponent & 0xffffu] : -1;
+    v->hide_far = v->w > VIDEO_W && video_scene_wide(m) && v->stage_id == STAGE_DHALSIM;
     for (int k = 0; k < 4; k++) v->order[k] = (lc >> (6 + 2 * k)) & 3;
 
     /* geometría de este cuadro: ensanchado solo si el anfitrión lo pidió y la pantalla lo admite */

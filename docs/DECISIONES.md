@@ -689,3 +689,64 @@ la X del rival divergía en el cuadro 30.728 de `ryu.txt`), así que se aplican 
 ensanchados los tiles de un bloque que pasan de la X 511 se recortan en vez de dar la vuelta. (4) El criterio de escena ancha añade la subfase 0x0E y el modo 0x0C
 fase 0 con luchadores (`0xFF86C6`), que vaciaban las bandas un cuadro; la fase 0 del modo 0x0C sin luchadores es la intro del atracción. Comprobado: `make test` 8/8
 (centro del cuadro ancho idéntico al de 384), `compare-video` 17/17.
+
+## D63 (2026-11-12): Variantes de SF2 con un descriptor por juego; una variante por árbol de compilación
+
+Para dar cabida a *Champion Edition* y *Hyper Fighting* (`docs/VARIANTES.md`). Decisiones: (1) todo lo que distingue una variante vive en
+un `GameDef` (`runtime/game.h`): reloj del 68000 y ciclos por cuadro, tamaño del programa, configuración del CPS-B, mapeador gráfico,
+catálogo de ROMs y los hechos del programa que usa la validación (manejador de la IRQ2, punto de muestra, contador de cuadros); nada de
+macros sueltas por el núcleo. (2) El CPS-B se describe con los valores crudos de la tabla de MAME y se lee con la misma aritmética que
+`cps1_cps_b_r` (incluida la división entera de -1, que da en el CPS-B-11 la lectura `reg0 * reg0` de 0x800140), en vez de un caso por
+chip. (3) Un árbol de compilación mueve una sola variante: el C generado es de un programa concreto y sus símbolos (`f_XXXXXX`, la tabla)
+chocarían con los de otro. La variante la elige `SF2_GAME` en CMake y queda escrita en el C generado (`recomp_game_id`), de donde la toma
+el núcleo (`recomp_game()`); así el ejecutable no puede emparejarse con otro descriptor, y las piezas sin código generado (`romset`,
+`mem`, `cps1`) reciben el descriptor como parámetro. (4) Una variante cuyo programa no está analizado (`program_known = 0`) no arranca: el
+núcleo lo dice en vez de correr sin punto de muestra ni pistas. (5) Los mods son de WW (`has_mods`): con otra variante `gen_c.py` no
+aplica `mod_patches.txt`. (6) `tools/games.py` repite en Python lo que necesitan las herramientas; `runtime/game.c` es la referencia.
+Comprobado: con `sf2` la salida es idéntica byte a byte a la de antes (resumen, audio, comandos de sonido, capturas, traza de estado),
+`make test` 8/8 y las 14 secuencias reproducen su CRC.
+
+## D64 (2026-11-12): Código que el juego construye en RAM, recompilado en su dirección y comprobado al entrar
+
+*Champion Edition* monta dos rutinas en la RAM gráfica a partir de bytes codificados de la ROM (byte + 3, palabra + 0x18) y las llama con
+direcciones ofuscadas (una protección). Opciones: un intérprete de respaldo (Musashi solo existe en los arneses, D46), escribirlas a mano
+(perdería el reloj de MAME, D47) o recompilarlas. Decisión: pista `ram_code DEST ORIGEN LON SUMA [w]`; el análisis decodifica esos bytes en
+una imagen ampliada que los pone en DEST, `gen_c.py` genera la función con su dirección de RAM (entra en la tabla de despacho como cualquier
+otra) y al entrar comprueba (`rt_check_ram_code`) que la memoria contiene exactamente esos bytes: si el juego los cambiara, error fatal con
+la dirección, nunca una ejecución distinta en silencio. Junto a ella, `offset_table BASE N PASO` para tablas de desplazamientos que el
+análisis no reconoce (intercaladas con otros datos).
+
+## D65 (2026-11-12): La IRQ empieza en el primer ciclo ≥ fin + 49 que es 5 mod 10 (no fin + 50)
+
+La regla de D47 se midió en WW. Leyendo `state_interrupt` de MAME (6 ciclos internos y una escritura antes del IACK, `vpa_sync` al primer
+múltiplo de 10 ≥ IACK + 4, manejador 35 ciclos después) sale fin + 49. Las dos solo difieren si el fin de la instrucción interrumpida es 6
+mod 10; en WW no pasa en ninguna IRQ porque el cuadro (167.680 ciclos) es múltiplo de 10 y la fase con el reloj E no se mueve, pero a 12 MHz
+(201.216 ciclos por cuadro) sí: daba un cuadro de CE con otro PC interrumpido. Con fin + 49, CE es idéntica en registros y WW no cambia
+(salida byte a byte, 14 secuencias).
+
+## D66 (2026-11-12): En una variante sin mods la fachada los rechaza; punto de muestra por variante en MAME
+
+Los mods leen y escriben RAM y ROM de WW (escena de la pantalla ancha, entrenamiento, cajas, cola de sonido del estéreo, herramientas de
+desarrollo): en CE romperían la partida. Con `has_mods = 0`, `sf2_set_video_width` (salvo 384), la lógica ancha, el stage completo, el
+estéreo, `sf2_training_set` y las herramientas de desarrollo se rechazan o no hacen nada, y `sf2_has_mods()` lo dice a la aplicación; el
+HFR, que solo interpola el dibujo, sigue. El manejador de la IRQ2 de CE no lee el CPS-B: el punto de muestra es su primer acceso de E/S, una
+escritura, y `tools/mame_game.lua` pone en MAME un tap de lectura o de escritura según `SF2_GAME`.
+
+## D67 (2026-11-12): La IRQ se ve desde el primer acceso al bus o fin de instrucción que alcanza su instante
+
+`execute_run` del 68000 de MAME deja de ejecutar cuando se acaba la porción de tiempo tanto tras un acceso al bus como al terminar una
+instrucción (`while (m_icount > 0)`); el temporizador del VBlank se atiende ahí y su IRQ la ven los latches posteriores. La regla de D47
+tomaba como punto de reconocimiento de una instrucción sin accesos antes de su latch el último acceso de la anterior: falla cuando la
+anterior acaba con ciclos internos (desplazamientos, multiplicaciones) y la IRQ llega en ellos. Ahora es el comienzo de la instrucción.
+Se vio en HF (12 cuadros con la IRQ una instrucción más tarde y uno con la RAM gráfica distinta); WW y CE no cambian (salida byte a byte,
+14 secuencias, comparaciones de CE).
+
+## D68 (2026-11-12): Mods por variante: RAM en el descriptor y un archivo de parches por juego
+
+Los mods de WW llevaban sus direcciones de RAM y de código fijas. Decisiones: (1) la RAM que usan va en una `ModRam` del descriptor
+(`GameDef.mod_ram`) y el núcleo la lee de ahí; (2) los parches de lógica, en un archivo por variante (`recompiler/mod_patches.txt`,
+`mod_patches_<set>.txt`), elegido por CMake; (3) las direcciones de CE/HF no se adivinan: el código se empareja por los bytes que lo rodean
+y la RAM se deduce por votación sobre las instrucciones equivalentes, y luego se comprueba jugando; `gen_c.py` rechaza cualquier parche que
+no encaje exactamente una vez en el C de su instrucción; (4) las herramientas de desarrollo, propias de WW, quedan en `has_dev_tools`; (5)
+`sf2_game_crc` separa la partida de la tabla de sprites latcheada que va en el estado guardado. Apagados, CE y HF siguen idénticas a MAME
+y WW byte a byte igual.

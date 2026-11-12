@@ -2,6 +2,12 @@
 #   entry ADDR        punto de entrada de función que el análisis no ve (puntero a código en RAM, por ejemplo)
 #   label ADDR        etiqueta despachable dentro de una función
 #   table_end BASE FIN  la tabla de salto que empieza en BASE termina en FIN (primera dirección fuera de ella)
+#   ram_code DEST ORIGEN LON SUMA [w]  código que el juego escribe en RAM: LON bytes (hex) de la ROM en ORIGEN, a cada byte (o a cada
+#                       palabra con `w`) se le suma SUMA, copiados en DEST; se recompila en DEST y el código generado comprueba al entrar que
+#                       la RAM contiene esos bytes (D64)
+#   not_vector N        la palabra larga del vector N (decimal) no es un puntero a código (sf2hf: código en 0xC0-0xFF)
+#   offset_table BASE N PASO  N desplazamientos de 16 bits relativos a BASE, uno cada PASO bytes: cada destino es una entrada
+#                       (tablas que el análisis no reconoce solo, como las intercaladas con otros datos; D63, fase 1 de CE)
 #
 # Hito 6 (bitácora 2026-10-19-hito6-correcciones.md): tablas de saltos .w sobreextendidas, encontradas al recorrer
 # el juego entero y con el listado de conflictos de tools/coverage.py.  Cada una tiene una "entrada" que cae a mitad

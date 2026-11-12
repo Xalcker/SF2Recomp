@@ -15,16 +15,19 @@ static void decode_unit(const uint8_t *b, uint8_t *out) {
 }
 
 int gfx_init(Gfx *g, const RomSet *rs) {
+    const GameDef *game = rs->game;
     memset(g, 0, sizeof *g);
+    if (game->gfx_size > GFX_ROM_SIZE) return -1;
+    g->mapper = game->mapper;
     g->rom = calloc(GFX_ROM_SIZE, 1);
     g->pens = malloc((size_t)GFX_UNITS * 16);
     if (!g->rom || !g->pens) { gfx_free(g); return -1; }
-    /* ROM_LOAD64_WORD de ROM_START( sf2 ): la palabra w de cada ROM va al offset `dest + 8 * w` de la región */
-    for (int i = 0; i < ROMSET_COUNT; i++) {
-        const RomInfo *ri = &romset_catalogue[i];
+    /* ROM_LOAD64_WORD del ROM_START: la palabra w de cada ROM va al offset `dest + 8 * w` de la región */
+    for (int i = 0; i < game->nroms; i++) {
+        const RomInfo *ri = &game->roms[i];
         if (ri->kind != ROMKIND_GFX)
             continue;
-        if (!rs->data[i]) { gfx_free(g); return -1; }
+        if (!rs->data[i] || ri->dest + 4u * ri->size - 6u > GFX_ROM_SIZE) { gfx_free(g); return -1; }
         const uint8_t *chip = rs->data[i];
         uint8_t *dst = g->rom + ri->dest;
         for (uint32_t w = 0; w < GFX_ROM_CHIP / 2; w++) {
@@ -41,14 +44,14 @@ int gfx_init(Gfx *g, const RomSet *rs) {
         g->map[t] = malloc(0x10000 * sizeof *g->map[t]);
         if (!g->map[t]) { gfx_free(g); return -1; }
         for (int code = 0; code < 0x10000; code++)
-            g->map[t][code] = gfx_map(types[t], code);
+            g->map[t][code] = gfx_map(g->mapper, types[t], code);
     }
     for (int l = 0; l < 2; l++) {
         const int type = l == 0 ? GFXTYPE_SCROLL2 : GFXTYPE_SCROLL3, bytes = l == 0 ? 16 : 32, rows = bytes;
         g->blank[l] = malloc(0x10000);
         if (!g->blank[l]) { gfx_free(g); return -1; }
         for (int code = 0; code < 0x10000; code++) {
-            int tile = gfx_map(type, code), blank = 1;
+            int tile = gfx_map(g->mapper, type, code), blank = 1;
             for (int y = 0; tile >= 0 && blank && y < rows; y++) {
                 const uint8_t *r = l == 0 ? gfx_row16(g, tile, y) : gfx_row32(g, tile, y);
                 for (int x = 0; x < bytes; x++)
@@ -88,19 +91,9 @@ uint32_t gfx_palette_rgb(uint16_t p) {
     return ((uint32_t)r << 16) | ((uint32_t)gg << 8) | (uint32_t)b;
 }
 
-/* mapper_STF29 de cps1_v.cpp: tamaños de banco {0x8000, 0x8000, 0x8000, 0} en unidades de 8x8 y rangos
- * (tipo, inicio, fin, banco) con los códigos ya desplazados a esa escala */
-static const int bank_sizes[4] = { 0x8000, 0x8000, 0x8000, 0 };
-static const struct { int type, start, end, bank; } stf29[] = {
-    { GFXTYPE_SPRITES, 0x00000, 0x07fff, 0 },
-    { GFXTYPE_SPRITES, 0x08000, 0x0ffff, 1 },
-    { GFXTYPE_SPRITES, 0x10000, 0x11fff, 2 },
-    { GFXTYPE_SCROLL3, 0x02000, 0x03fff, 2 },
-    { GFXTYPE_SCROLL1, 0x04000, 0x04fff, 2 },
-    { GFXTYPE_SCROLL2, 0x05000, 0x07fff, 2 },
-};
-
-int gfx_map(int type, int code) {
+/* gfx_range de cps1_v.cpp (mapper_STF29, mapper_S9263B... en game.c): el código se lleva a unidades de 8x8, se busca su
+ * rango y se traduce a la posición dentro de la región */
+int gfx_map(const GfxMapper *mp, int type, int code) {
     int shift;
     switch (type) {
     case GFXTYPE_SPRITES: shift = 1; break;
@@ -110,11 +103,12 @@ int gfx_map(int type, int code) {
     default: return -1;
     }
     code <<= shift;
-    for (size_t i = 0; i < sizeof stf29 / sizeof stf29[0]; i++) {
-        if (code >= stf29[i].start && code <= stf29[i].end && (stf29[i].type & type)) {
+    for (int i = 0; i < mp->nranges; i++) {
+        const GfxRange *r = &mp->ranges[i];
+        if (code >= r->start && code <= r->end && (r->type & type)) {
             int base = 0;
-            for (int b = 0; b < stf29[i].bank; b++) base += bank_sizes[b];
-            return (base + (code & (bank_sizes[stf29[i].bank] - 1))) >> shift;
+            for (int b = 0; b < r->bank; b++) base += mp->bank_sizes[b];
+            return (base + (code & (mp->bank_sizes[r->bank] - 1))) >> shift;
         }
     }
     return -1;

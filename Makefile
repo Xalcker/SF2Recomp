@@ -19,11 +19,13 @@
 #   make compare-coverage -> hito 6: lo mismo y cada secuencia contra MAME (resumen, sonido y video)
 #   make web          -> compilacion para navegador con el Emscripten local (external/emsdk): build-web/index.html
 #
-# Variables: ROMDIR (sf2.zip o carpeta con las ROMs; por omision sf2), BFRAMES, FRAMES, INPUTS, VFRAMES, BUILD, CMAKE.
+# Variables: ROMDIR (sf2.zip o carpeta con las ROMs; por omision sf2), GAME (variante: sf2 o sf2ce, D63), BFRAMES, FRAMES,
+# INPUTS, VFRAMES, BUILD, CMAKE.
 # Requiere clang, python3 y las ROMs; CMake se toma de external/cmake si existe y si no del sistema (ver README.md).
 # compare-* requieren ademas el MAME local (external/mame/cps1, ver tools/mame.sh) y sf2.zip en la raiz.
 
 ROMDIR  ?= sf2
+GAME    ?= sf2
 BUILD   ?= build
 BFRAMES ?= 12000
 FRAMES  ?= 600
@@ -36,7 +38,7 @@ JOBS    ?= $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
 EMSDK_ENV := external/emsdk/emsdk_env.sh
 WEBBUILD ?= build-web
 
-CONFIGURE_ARGS = -S . -B $(BUILD) -DSF2_ROM_DIR=$(abspath $(ROMDIR)) -DSF2_BFRAMES=$(BFRAMES) -DSF2_FRAMES=$(FRAMES) \
+CONFIGURE_ARGS = -S . -B $(BUILD) -DSF2_ROM_DIR=$(abspath $(ROMDIR)) -DSF2_GAME=$(GAME) -DSF2_BFRAMES=$(BFRAMES) -DSF2_FRAMES=$(FRAMES) \
                  -DSF2_INPUTS=$(abspath $(INPUTS)) "-DSF2_VFRAMES=$(VFRAMES)"
 
 TARGETS := check check-blind run-blind compare-mame analyze dasmcheck png-video mame-video compare-video \

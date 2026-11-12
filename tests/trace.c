@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
     unsigned long frames = strtoul(argv[3], NULL, 0), every = argc > 4 ? strtoul(argv[4], NULL, 0) : 500;
     RomSet rs;
     char report[2048], err[512];
-    romset_init(&rs);
+    romset_init(&rs, sf2_game());
     if (hostio_load_romset(argv[1], &rs, report, sizeof report) != 0) { fprintf(stderr, "%s", report); return 1; }
     Sf2 *s;
     if (sf2_create(&s, &rs, NULL, err, sizeof err) != 0) { fprintf(stderr, "%s\n", err); return 1; }

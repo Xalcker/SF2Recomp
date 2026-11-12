@@ -24,7 +24,8 @@ struct Sf2 {
     Video video;
     Cps1Sound snd;
     int has_video, has_sound;
-    uint8_t *prog;                   /* imagen de programa de 1 MiB (la máquina la lee, no la copia) */
+    const GameDef *game;             /* variante del código generado (recomp_game) */
+    uint8_t *prog;                   /* imagen de programa (game->prog_size bytes; la máquina la lee, no la copia) */
     float *audio;
     size_t audio_len, audio_cap;     /* en floats: muestras por canales */
     unsigned audio_channels;         /* 1 = mono (el original), 2 = estéreo (mod de sonido estéreo) */
@@ -57,6 +58,13 @@ static void set_err(char *err, size_t n, const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(err, n, fmt, ap);
     va_end(ap);
+}
+
+const GameDef *sf2_game(void) { return recomp_game(); }
+
+double sf2_frame_hz(void) {
+    const GameDef *g = recomp_game();
+    return game_frame_hz(g ? g : &game_sf2);
 }
 
 void sf2_options_default(Sf2Options *o) {
@@ -140,9 +148,23 @@ void sf2_destroy(Sf2 *s) {
 
 int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, size_t errn) {
     *out = NULL;
-    for (int i = 0; i < ROMSET_COUNT; i++)
+    const GameDef *game = recomp_game();
+    if (!game) {
+        set_err(err, errn, "el codigo generado es de un juego desconocido (\"%s\")", recomp_game_id);
+        return -1;
+    }
+    if (roms->game != game) {
+        set_err(err, errn, "las ROMs son de %s (set \"%s\") y este ejecutable es de %s (set \"%s\")",
+                roms->game ? roms->game->title : "?", roms->game ? roms->game->id : "?", game->title, game->id);
+        return -1;
+    }
+    if (!game->program_known) {
+        set_err(err, errn, "%s (set \"%s\") todavia no se puede jugar: falta analizar su programa (docs/VARIANTES.md)", game->title, game->id);
+        return -1;
+    }
+    for (int i = 0; i < game->nroms; i++)
         if (!roms->data[i]) {
-            set_err(err, errn, "faltan ROMs (%s)", romset_catalogue[i].name);
+            set_err(err, errn, "faltan ROMs (%s)", game->roms[i].name);
             return -1;
         }
     Sf2Options def;
@@ -152,10 +174,11 @@ int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, 
     }
     Sf2 *s = calloc(1, sizeof *s);
     if (!s) { set_err(err, errn, "sin memoria"); return -1; }
-    s->prog = calloc(ROM_SIZE, 1);
+    s->game = game;
+    s->prog = calloc(game->prog_size, 1);
     if (!s->prog) { set_err(err, errn, "sin memoria"); free(s); return -1; }
     romset_build_program(roms, s->prog);
-    uint32_t crc = sf2_crc32(0, s->prog, ROM_SIZE);
+    uint32_t crc = sf2_crc32(0, s->prog, game->prog_size);
     if (crc != recomp_rom_crc32) {
         set_err(err, errn, "las ROMs de programa no son las que se usaron al generar el codigo (CRC de la imagen %08x, "
                            "esperado %08x): regenera el ejecutable con estas ROMs (SF2_ROM_DIR)", crc, recomp_rom_crc32);
@@ -171,7 +194,7 @@ int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, 
         free(s);
         return -1;
     }
-    machine_init(&s->mc, s->prog, CPS1_FRAME_CYCLES);
+    machine_init(&s->mc, game, s->prog, game->frame_cycles);
     s->mc.user = s;
     s->mc.quiet = 1;
     s->mc.on_sample = on_sample;
@@ -212,7 +235,15 @@ static void apply_dev_tool(Sf2 *s) {
     s->mc.mem.dswc = s->dev_tool ? (uint8_t)(s->user_dswc & 0x7f) : s->user_dswc;
 }
 
+int sf2_has_mods(void) {
+    const GameDef *g = recomp_game();
+    return g && g->has_mods;
+}
+
+/* Los mods (pantalla ancha y su lógica, stage completo, entrenamiento y cajas, posición del estéreo, herramientas de desarrollo)
+ * leen y escriben RAM y ROM de WW: en otra variante se rechazan y el juego queda original (D65). */
 void sf2_set_dev_tool(Sf2 *s, int tool) {
+    if (!s->game->has_dev_tools) tool = 0;
     s->dev_tool = tool < 0 || tool > 2 ? 0 : tool;
     sf2_reset(s);
 }
@@ -238,6 +269,11 @@ void sf2_set_input(Sf2 *s, uint16_t in0, uint16_t in1, uint16_t in2) {
 }
 
 int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn) {
+    if (!s->game->has_mods && (t->enabled || t->track_inputs)) {
+        if (err && errn)
+            snprintf(err, errn, "el modo entrenamiento solo existe en Street Fighter II: The World Warrior");
+        return -1;
+    }
     int was = s->train.cfg.enabled || s->train.cfg.track_inputs;
     if (training_configure(&s->train, t, err, errn) != 0)
         return -1;
@@ -249,7 +285,7 @@ int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn) {
 
 void sf2_training_get(const Sf2 *s, Sf2Training *t) { *t = s->train.cfg; }
 int sf2_training_history(const Sf2 *s, int player, Sf2InputEvent *out, int max) { return training_history(&s->train, player, out, max); }
-int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max) { return training_boxes(&s->mc.mem, out, max); }
+int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max) { return s->game->has_mods ? training_boxes(&s->mc.mem, out, max) : 0; }
 uint16_t sf2_training_pad(const Sf2 *s, int player) { return player >= 0 && player <= 1 ? s->train.now[player] : 0; }
 
 int sf2_load_input_script(Sf2 *s, const char *text, const char *name, char *err, size_t errn) {
@@ -294,7 +330,7 @@ static void shadow_frame(Sf2 *s) {
     if (s->shadow_failed || !s->has_video || s->wide_logic || s->stage_full || s->video.w <= SF2_SCREEN_W || s->video.rw <= SF2_SCREEN_W)
         return;
     if (!s->shadow_init) {
-        machine_init(&s->shadow, s->prog, CPS1_FRAME_CYCLES);
+        machine_init(&s->shadow, s->game, s->prog, s->game->frame_cycles);
         s->shadow.quiet = 1;
         s->shadow.user = s;
         s->shadow.on_vblank = shadow_vblank;
@@ -404,7 +440,7 @@ static void apply_wide_logic(Sf2 *s) {
 }
 
 void sf2_set_stereo(Sf2 *s, int on) {
-    if (!s->has_sound)
+    if (!s->has_sound || !s->game->has_mods)
         return;
     s->mc.cpu.mod_stereo = on != 0;
     sound_set_stereo(&s->snd, on);
@@ -420,18 +456,20 @@ void sf2_set_stereo_width(Sf2 *s, int percent) {
 unsigned sf2_audio_channels(const Sf2 *s) { return s->audio_channels ? s->audio_channels : 1; }
 
 void sf2_set_wide_logic(Sf2 *s, int on) {
-    s->wide_logic = on != 0;
+    s->wide_logic = on != 0 && s->game->has_mods;
     apply_wide_logic(s);
 }
 
 void sf2_set_stage_full(Sf2 *s, int on) {
-    s->stage_full = on != 0;
+    s->stage_full = on != 0 && s->game->has_mods;
     apply_wide_logic(s);
 }
 
 int sf2_wide_logic_extra(const Sf2 *s) { return s->mc.cpu.mod_wide; }
 
 int sf2_set_video_width(Sf2 *s, int width) {
+    if (width != SF2_SCREEN_W && !s->game->has_mods)
+        return -1;                                   /* la pantalla ancha reconoce las escenas por la RAM de WW */
     if (video_set_width(&s->video, width) != 0)
         return -1;
     apply_wide_logic(s);
@@ -485,6 +523,22 @@ uint32_t sf2_state_crc(Sf2 *s) {
     }
     int w = sf2_state_save(s, s->scratch, s->scratch_cap);
     return w > (int)STATE_HEADER ? sf2_crc32(0, s->scratch + STATE_HEADER, (size_t)w - STATE_HEADER) : 0;
+}
+
+uint32_t sf2_game_crc(Sf2 *s) {
+    StateStream st;
+    state_begin_save(&st, NULL, 0);
+    machine_state(&s->mc, &st);
+    if (st.pos > s->scratch_cap) {
+        uint8_t *b = realloc(s->scratch, st.pos);
+        if (!b)
+            return 0;
+        s->scratch = b;
+        s->scratch_cap = st.pos;
+    }
+    state_begin_save(&st, s->scratch, s->scratch_cap);
+    machine_state(&s->mc, &st);
+    return st.error ? 0 : sf2_crc32(0, s->scratch, st.pos);
 }
 
 static void put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24); }

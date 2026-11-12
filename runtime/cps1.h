@@ -2,8 +2,8 @@
  * cps1.h - máquina CPS1 mínima sobre el código recompilado (hito 2): reloj de cuadro, entradas por
  * cuadro y resumen por cuadro comparable con el que produce tools/mame_blind.lua en MAME.
  *
- * Reloj: el 68000 va a 10 MHz y la pantalla CPS1 a 8 MHz de píxel con 512 x 262 ciclos por cuadro
- * (cps1.h de MAME), es decir 59,637 Hz: 167.680 ciclos de CPU por cuadro, no 166.666.
+ * Reloj: el 68000 va a 10 MHz (sf2) o 12 MHz (sf2ce) y la pantalla CPS1 a 8 MHz de píxel con 512 x 262 ciclos por
+ * cuadro (cps1.h de MAME), es decir 59,637 Hz: 167.680 ciclos de CPU por cuadro a 10 MHz (no 166.666) y 201.216 a 12 MHz.
  *
  * Cuadro: se cuenta cada entrega de la IRQ2 (VBlank).  Durante el test de RAM del arranque la IRQ2
  * está enmascarada y los VBlank solapados se funden en una sola entrega, igual que en MAME (la línea
@@ -33,12 +33,9 @@
 
 struct M68K;
 
-#define CPS1_CPU_HZ        10000000u
-#define CPS1_FRAME_CYCLES  167680u       /* 10 MHz * 512 * 262 / 8 MHz */
-#define CPS1_IRQ2_HANDLER  0x000AB8u
-#define CPS1_SAMPLE_PC     0x000AD0u
-#define CPS1_FRAME_COUNTER 0xFF801Cu     /* byte 0x1C(a5) incrementado por el manejador de IRQ2 en 0xAF4 (a5 = 0xFFFF8000) */
-#define CPS1_VBLANK_FLAG   0xFF020Eu     /* byte puesto a 0xFF por la IRQ2 (0xAF8) y borrado por el planificador (0xA30) */
+/* Reloj y direcciones del programa: vienen del descriptor del juego (game.h, D63).  En sf2: 10 MHz, 167.680 ciclos por cuadro,
+ * manejador de la IRQ2 en 0xAB8, punto de muestra 0xAD0, contador de cuadros en el byte 0xFF801C (0x1C(a5), incrementado en 0xAF4)
+ * y bandera de VBlank en 0xFF020E (puesta a 0xFF por la IRQ2 en 0xAF8 y borrada por el planificador en 0xA30). */
 
 /* zonas volátiles de la RAM de trabajo (ver arriba) */
 #define CPS1_VOLATILE1_LO  0xFF0000u

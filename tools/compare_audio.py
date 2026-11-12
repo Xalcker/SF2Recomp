@@ -50,8 +50,8 @@ from array import array
 
 RATES = {"ym": 55930, "oki": 7575, "mono": 48000}
 Z80_HZ = 3579545
-M68K_HZ = 10000000
-FRAME_CYCLES = 167680            # ciclos del 68000 por cuadro (runtime/cps1.h)
+M68K_HZ = 10000000               # reloj del 68000 y ciclos por cuadro de la variante (runtime/game.c); --game los cambia
+FRAME_CYCLES = 167680
 FFT_N = 2048
 BANDS_HZ = [0, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 24000]
 FLOOR_DB = 60.0                  # por debajo de esto respecto al máximo del tramo no se exige coincidencia
@@ -488,6 +488,7 @@ def main():
     ap.add_argument("--name-a", default="recomp")
     ap.add_argument("--name-b", default="mame")
     ap.add_argument("--context", type=int, default=4)
+    ap.add_argument("--game", default="sf2", help="variante (tools/games.py): fija el reloj del 68000 y los ciclos por cuadro")
     ap.add_argument("--sections", action="store_true", help="resultado por tramos de la partida de inputs_sf2.txt")
     ap.add_argument("--report", metavar="ARCHIVO", help="escribe el informe en Markdown")
     ap.add_argument("--no-wav", action="store_true", help="no comparar los WAV de los directorios")
@@ -498,6 +499,10 @@ def main():
     ap.add_argument("--tol-band", type=float, default=1.0, help="dB de diferencia por banda de octava")
     ap.add_argument("--tol-lsd", type=float, default=1.0, help="dB de distancia espectral logarítmica")
     args = ap.parse_args()
+    global M68K_HZ, FRAME_CYCLES
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from games import game
+    M68K_HZ, FRAME_CYCLES = game(args.game)["cpu_hz"], game(args.game)["frame_cycles"]
     na, nb = args.name_a, args.name_b
     tol = {"energy": args.tol_energy, "band": args.tol_band, "lsd": args.tol_lsd}
 

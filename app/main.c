@@ -162,8 +162,9 @@ static void usage(const char *argv0) {
 }
 
 /* ---- ROMs ---------------------------------------------------------------------------------------------------- */
-/* origen de ROMs: el pedido expresamente (argumento, configuracion o SF2_ROM) o, si no hay, el primer sf2.zip que
- * existe en el directorio actual, junto al juego o en las preferencias.  Devuelve 1 si la ruta existe. */
+/* origen de ROMs: el pedido expresamente (argumento, configuracion o SF2_ROM) o, si no hay, el primer <set>.zip (sf2.zip,
+ * sf2ce.zip... segun la variante del ejecutable) que existe en el directorio actual, junto al juego o en las preferencias.
+ * Devuelve 1 si la ruta existe. */
 static int find_rom_path(App *a, const char *arg, char *out, size_t n) {
     const char *asked[3] = { arg, a->cfg.rom_path, SDL_getenv("SF2_ROM") };
     for (int i = 0; i < 3; i++)
@@ -172,29 +173,31 @@ static int find_rom_path(App *a, const char *arg, char *out, size_t n) {
             return path_exists(out);
         }
     const char *base = SDL_GetBasePath();
+    const char *id = sf2_game()->id;
     char tried[3][1100];
-    snprintf(tried[0], sizeof tried[0], "sf2.zip");
-    snprintf(tried[1], sizeof tried[1], "%ssf2.zip", base ? base : "");
-    snprintf(tried[2], sizeof tried[2], "%ssf2.zip", a->pref_dir);
+    snprintf(tried[0], sizeof tried[0], "%s.zip", id);
+    snprintf(tried[1], sizeof tried[1], "%s%s.zip", base ? base : "", id);
+    snprintf(tried[2], sizeof tried[2], "%s%s.zip", a->pref_dir, id);
     for (int i = 0; i < 3; i++)
         if (path_exists(tried[i])) {
             snprintf(out, n, "%s", tried[i]);
             return 1;
         }
-    snprintf(out, n, "sf2.zip");
+    snprintf(out, n, "%s.zip", id);
     return 0;
 }
 
 static int load_roms(App *a, const char *arg, RomSet *rs) {
     char path[1100], report[2600], msg[3200];
     int found = find_rom_path(a, arg, path, sizeof path);
-    romset_init(rs);
+    const GameDef *game = sf2_game();
+    romset_init(rs, game);
     if (!found) {
         snprintf(msg, sizeof msg,
-            "No se encuentran las ROMs de Street Fighter II (World 910522).\n\n"
-            "Coloca sf2.zip (el del set \"sf2\" de MAME) junto al juego o en\n  %s\n"
-            "o indica su ruta: sf2 /ruta/sf2.zip   (o [paths] rom = ... en %s).\n\n"
-            "El proyecto no incluye ROMs: son las tuyas.", a->pref_dir, a->cfg_path);
+            "No se encuentran las ROMs de %s.\n\n"
+            "Coloca %s.zip (el del set \"%s\" de MAME) junto al juego o en\n  %s\n"
+            "o indica su ruta: sf2 /ruta/%s.zip   (o [paths] rom = ... en %s).\n\n"
+            "El proyecto no incluye ROMs: son las tuyas.", game->title, game->id, game->id, a->pref_dir, game->id, a->cfg_path);
         fatal_message(APP_NAME, msg);
         return -1;
     }
@@ -205,7 +208,7 @@ static int load_roms(App *a, const char *arg, RomSet *rs) {
         romset_free(rs);
         return -1;
     }
-    if (!a->quiet) fprintf(stderr, "ROMs: %s (23 de 23, CRC verificados)\n", path);
+    if (!a->quiet) fprintf(stderr, "ROMs: %s (%d de %d de %s, CRC verificados)\n", path, game->nroms, game->nroms, game->id);
     return 0;
 }
 
@@ -1059,6 +1062,10 @@ static void reset_game(App *a) {
 }
 
 static void set_stereo(App *a, int on) {
+    if (on && !sf2_has_mods()) {               /* el estéreo usa la cola de sonido de WW: en otra variante no existe (D66) */
+        osd(a, "Sonido estereo: no disponible en esta variante");
+        return;
+    }
     a->cfg.stereo = on != 0;
     sf2_set_stereo(a->sf2, a->cfg.stereo);
     osd(a, a->cfg.stereo ? "Sonido estereo: activado" : "Sonido estereo: apagado (mono original)");

@@ -44,13 +44,13 @@ int main(int argc, char **argv) {
     static Gfx gfx;
     RomSet rs;
     char report[2048];
-    romset_init(&rs);
+    romset_init(&rs, recomp_game());
     if (hostio_load_romset(gfx_dir, &rs, report, sizeof report) != 0) { fprintf(stderr, "%s: %s", gfx_dir, report); return 1; }
     if (gfx_init(&gfx, &rs) < 0) return 1;
     romset_free(&rs);
-    static uint8_t rom[ROM_SIZE];
+    static uint8_t rom[ROM_SIZE_MAX];
     static Mem mem;
-    mem_init(&mem, rom, "volcado");
+    mem_init(&mem, recomp_game(), rom, "volcado");
     if (read_file(files[0], mem.gfxram, GFXRAM_SIZE) < 0) return 1;
     uint8_t regs[0x80];
     if (read_file(files[1], regs, sizeof regs) < 0) return 1;

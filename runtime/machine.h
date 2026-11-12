@@ -55,6 +55,7 @@ struct Machine {
     M68K cpu;                   /* primer miembro: los ganchos rt_* reciben M68K * y recuperan la máquina de él */
     Mem mem;
     Cps1 cps;
+    uint32_t sample_pc;         /* punto de muestra de la variante (game->sample_pc; ninguno si su programa no está analizado) */
     uint64_t next_irq;
     uint64_t irq_time;          /* ciclo en que se afirmó la última IRQ2 (para el punto de muestreo, D47) */
     /* punto de muestreo de interrupciones (D47): comienzo de la instrucción anterior, fin del último acceso al bus y
@@ -92,9 +93,10 @@ struct Machine {
 
 SF2_STATIC_ASSERT(offsetof(Machine, cpu) == 0, "los ganchos rt_* suponen M68K como primer miembro de Machine");
 
-/* prepara memoria y máquina mínima; `rom` es la imagen de 1 MiB (no se copia, debe vivir lo que la máquina).
+/* prepara memoria y máquina mínima; `rom` es la imagen de programa de la variante (game->prog_size bytes; no se copia,
+ * debe vivir lo que la máquina) y `frame_cycles` suele ser game->frame_cycles.
  * Deja la CPU lista para el primer machine_run / machine_step (equivale a encender la placa). */
-void machine_init(Machine *mc, const uint8_t *rom, uint64_t frame_cycles);
+void machine_init(Machine *mc, const GameDef *game, const uint8_t *rom, uint64_t frame_cycles);
 /* libera lo que reservó machine_init */
 void machine_free(Machine *mc);
 /* apaga y enciende: RAM a cero, CPU en reset, reloj a cero, placa de sonido en reset si está conectada */

@@ -31,7 +31,7 @@ int cps1_input_lookup(const char *name, uint8_t *port, uint16_t *mask) {
 void cps1_init(Cps1 *m, Mem *mem) {
     memset(m, 0, sizeof *m);
     m->mem = mem;
-    m->frame_cycles = CPS1_FRAME_CYCLES;
+    m->frame_cycles = mem->game->frame_cycles;
 }
 
 static void perr(char *err, size_t errn, const char *name, int line, const char *msg, const char *arg) {
@@ -181,7 +181,7 @@ void cps1_sample(Cps1 *m, M68K *c) {
     fprintf(f, " a=");
     for (int i = 0; i < 8; i++) fprintf(f, "%s%08x", i ? "," : "", c->a[i]);
     fprintf(f, " in=%02x,%04x,%02x fc=%02x w=%08x v=%08x g=%08x", mem->in0_live & 0xff, mem->in1_live & 0xffff,
-            mem->in2_live & 0xff, mem->wram[CPS1_FRAME_COUNTER - WRAM_BASE], cps1_hash_wram(mem),
+            mem->in2_live & 0xff, mem->wram[(mem->game->frame_counter - WRAM_BASE) & 0xffffu], cps1_hash_wram(mem),
             cps1_hash_wram_volatile(mem), cps1_hash_gfx(mem));
     if (m->detail) {
         fprintf(f, " wb=");

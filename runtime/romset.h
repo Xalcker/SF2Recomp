@@ -1,6 +1,6 @@
 /*
- * romset.h - catálogo de las 23 ROMs de Street Fighter II: The World Warrior (World 910522, set "sf2" de
- * MAME) y su carga desde un origen abstracto (carpeta o zip) con verificación por CRC-32.
+ * romset.h - carga de las ROMs de una variante de SF2 (catálogo en game.c: 23 ROMs del set "sf2" de MAME,
+ * 18 del set "sf2ce"...) desde un origen abstracto (carpeta o zip) con verificación por CRC-32.
  *
  * Las ROMs se identifican por CRC-32 y tamaño, no por nombre: el mismo contenido circula con los nombres
  * antiguos de MAME ("sf2e.30g", "sf2_05.bin") y con los actuales ("sf2e_30g.11e", "sf2-1m.3a"), y el
@@ -16,30 +16,13 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "game.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define ROMSET_COUNT 23
-
-typedef enum RomKind {
-    ROMKIND_PROGRAM,    /* 68000, pares de chips que se intercalan en la imagen de 1 MiB (dest = base, lane = 0 par / 1 impar) */
-    ROMKIND_GFX,        /* región "gfx" de MAME de 6 MiB, ROM_LOAD64_WORD (dest = offset dentro de la región) */
-    ROMKIND_Z80,        /* programa del Z80 (64 KiB: 32 KiB fijos y 32 KiB de banco) */
-    ROMKIND_OKI,        /* muestras del OKI MSM6295 (dest = offset en los 256 KiB) */
-} RomKind;
-
-typedef struct RomInfo {
-    const char *name;        /* nombre actual del set de MAME */
-    const char *alt_name;    /* nombre antiguo (carpetas sueltas) */
-    uint32_t crc, size;
-    RomKind kind;
-    uint32_t dest;
-    int lane;
-} RomInfo;
-
-extern const RomInfo romset_catalogue[ROMSET_COUNT];
+#define ROMSET_MAX GAME_ROMS_MAX
 
 /* ---- origen de archivos ----------------------------------------------------------------------- */
 typedef struct RomFile {
@@ -59,23 +42,28 @@ typedef struct RomSource {
 
 /* ---- conjunto cargado ------------------------------------------------------------------------- */
 typedef struct RomSet {
-    uint8_t *data[ROMSET_COUNT];     /* búfer de cada ROM (romset_catalogue[i].size bytes), NULL si falta */
+    const GameDef *game;             /* variante cuyo catálogo se carga (game->roms) */
+    uint8_t *data[ROMSET_MAX];       /* búfer de cada ROM (game->roms[i].size bytes), NULL si falta */
 } RomSet;
 
-void romset_init(RomSet *rs);
+void romset_init(RomSet *rs, const GameDef *game);
 void romset_free(RomSet *rs);
+/* 1 si están todas las ROMs del catálogo */
+int romset_complete(const RomSet *rs);
+/* índice en game->roms de la nth-ésima ROM de ese tipo, o -1 */
+int romset_index(const GameDef *game, RomKind kind, int nth);
 
 /* nombres que un origen de tipo carpeta debe probar: 2 por ROM (actual y antiguo) */
-size_t romset_candidate_count(void);
-const char *romset_candidate_name(size_t i);
+size_t romset_candidate_count(const GameDef *game);
+const char *romset_candidate_name(const GameDef *game, size_t i);
 
 /* Recorre el origen, verifica por CRC y rellena `rs`.  Devuelve cuántas ROMs faltan o están mal (0 = el
  * conjunto está completo).  `report` recibe un texto legible (en español) con lo que falta, lo que tiene
  * el CRC equivocado y lo que no se pudo leer; queda vacío si todo está bien. */
 int romset_load(RomSet *rs, const RomSource *src, char *report, size_t report_size);
 
-/* intercala los ocho chips de programa en la imagen plana de 1 MiB que usa el código recompilado */
-void romset_build_program(const RomSet *rs, uint8_t *image /* 0x100000 bytes */);
+/* monta los chips de programa en la imagen plana que usa el código recompilado (game->prog_size bytes) */
+void romset_build_program(const RomSet *rs, uint8_t *image);
 
 /* abre el zip que está en memoria y carga las ROMs de él: lo mismo que romset_load, y -1 si no es un zip legible
  * (con el motivo en `report`) */

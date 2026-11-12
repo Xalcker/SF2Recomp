@@ -3,7 +3,7 @@
 
 # ---- utilidades puras: sin dependencia de la maquina -----------------------------------------------------------
 add_library(sf2_base STATIC
-  mem.c cps1.c state.c crc32.c zipread.c romset.c png.c)
+  game.c mem.c cps1.c state.c crc32.c zipread.c romset.c png.c)
 target_include_directories(sf2_base PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_options(sf2_base PRIVATE -Wall -Wno-unused-function)
 

@@ -103,14 +103,17 @@ void rt_hook(M68K *c) {
         const uint64_t s = c->cycles, sp = mc->ins_start, prev_end = mc->acc_end;
         const uint32_t ke = c->ke, k = (ke >> 8) & 63, e = ke & 63, kk = ke >> 14, ek = (ke >> 6) & 3;
         const uint64_t k_start = sp + k, k_end = s - k;
-        mc->ack = kk == 0 ? prev_end : kk == 1 ? k_start : k_end;
+        /* sin acceso antes de su latch (kk == 0) vale el comienzo de la instrucción, no el último acceso de la anterior (D67): MAME
+         * para la CPU (y así ve la IRQ) tras el primer acceso al bus o el primer fin de instrucción que alcanza el instante de la
+         * IRQ, y la anterior puede acabar con ciclos internos sin acceso (desplazamientos, MULU...) */
+        mc->ack = kk == 0 ? sp : kk == 1 ? k_start : k_end;
         const uint64_t e_start = sp + e;
         mc->acc_end = ek == 0 ? s : ek == 1 ? e_start : prev_end;
         mc->ins_start = s;
     }
     if (SF2_UNLIKELY(mc->max_insns != 0) && c->icount > mc->max_insns)
         stop_machine(mc, MACHINE_DONE);
-    if (SF2_UNLIKELY(c->pc == CPS1_SAMPLE_PC))
+    if (SF2_UNLIKELY(c->pc == mc->sample_pc))
         sample_point(mc, c);
     /* poll() solo hace algo si llegó el VBlank o hay una IRQ pendiente */
     if (SF2_UNLIKELY(c->cycles >= mc->next_irq || c->irq_pending))
@@ -148,8 +151,11 @@ void rt_unknown(M68K *c) {
     mc->miss_to = c->pc;
     if (mc->on_unknown && mc->on_unknown(mc))
         return;
+    const char *id = mc->mem.game->id;            /* pistas de la variante: tools/hints.txt (sf2) o tools/hints_<set>.txt (D63) */
+    const int ww = id[0] == 's' && id[1] == 'f' && id[2] == '2' && id[3] == 0;
     rt_fatal(c, "el juego llego a codigo que el recompilador no vio: salto a %06x desde la instruccion %06x "
-                "(anadir 'entry %06x' a tools/hints.txt y regenerar)", mc->miss_to, mc->miss_from, mc->miss_to);
+                "(anadir 'entry %06x' a tools/hints%s%s.txt y regenerar)", mc->miss_to, mc->miss_from, mc->miss_to,
+                ww ? "" : "_", ww ? "" : id);
 }
 
 RecompFn rt_dispatch(M68K *c) {
@@ -201,7 +207,8 @@ static void sound_latch_hook(void *ctx, int which, uint8_t val) {
             /* mod estéreo: 0x6264 saca de la cola la ranura 0x24(a5) y escribe el latch antes de avanzar el índice; la posición
              * la anotó el parche de 0x62AC al encolarla (solo lectura de la RAM, la partida no cambia) */
             const uint8_t *w = mc->mem.wram;
-            const unsigned slot = ((unsigned)(w[0x8024] << 8 | w[0x8025]) >> 1) & 63u;
+            const uint32_t ri = mc->mem.game->mod_ram->snd_read & 0xffffu;      /* índice de lectura de la cola (WW 0x24(a5), D68) */
+            const unsigned slot = ((unsigned)(w[ri] << 8 | w[(ri + 1) & 0xffffu]) >> 1) & 63u;
             sound_latch_pos(mc->sound, mc->cpu.snd_ok[slot], mc->cpu.snd_x[slot]);
         }
         sound_latch_write(mc->sound, which, val, mc->cpu.cycles);
@@ -224,9 +231,10 @@ void machine_log_sound_cmds(Machine *mc, FILE *f) {
     update_latch_hook(mc);
 }
 
-void machine_init(Machine *mc, const uint8_t *rom, uint64_t frame_cycles) {
+void machine_init(Machine *mc, const GameDef *game, const uint8_t *rom, uint64_t frame_cycles) {
     memset(mc, 0, sizeof *mc);
-    mem_init(&mc->mem, rom, "recomp");
+    mem_init(&mc->mem, game, rom, "recomp");
+    mc->sample_pc = game->program_known ? game->sample_pc : UINT32_MAX;
     cps1_init(&mc->cps, &mc->mem);
     mc->cps.frame_cycles = frame_cycles;
     mc->next_irq = frame_cycles;

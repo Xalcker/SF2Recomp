@@ -23,7 +23,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from m68k import (Decoder, Insn, Op, RomReader, sext16, DN, AN, IND, POSTINC, PREDEC, D16AN, D8ANXN, ABSW, ABSL,
                   D16PC, D8PCXN, IMM, CC_NAMES)
 
-ROM_END = 0x100000   # 1 MiB: cuatro pares de ROMs (el ultimo, 0xC0000-0xFFFFF, parece solo datos)
+ROM_END = 0x100000   # sf2: 1 MiB (cuatro pares de ROMs; el ultimo, 0xC0000-0xFFFFF, parece solo datos).  Analysis usa
+                     # self.rom_end = len(imagen), que en sf2ce es 1,5 MiB (D63); esto queda para quien lo importe
 UNKNOWN, CODE, TABLE, VECTOR = 0, 1, 2, 3
 KIND_NAMES = {UNKNOWN: "desconocido", CODE: "codigo", TABLE: "tabla", VECTOR: "vectores"}
 
@@ -78,6 +79,25 @@ class Indirect:
 
 class Analysis:
     def __init__(self, rom: bytes, hints: Optional[dict] = None, verbose=False):
+        self.rom_end = len(rom)                # fin del programa de la variante (sf2: 0x100000, sf2ce: 0x180000)
+        # código que el juego construye en RAM a partir de bytes codificados de la ROM (hint ram_code; sf2ce, D64): se analiza en
+        # su dirección de RAM, sobre una imagen ampliada que lo lleva ahí.  `kind` cubre la imagen ampliada; los informes de
+        # cobertura solo cuentan el programa.
+        self.overlays: List[Tuple[int, int]] = []
+        ovl = (hints or {}).get("ram_code", [])
+        if ovl:
+            ext = bytearray(rom)
+            for dest, src, n, add, unit in ovl:
+                if dest + n > len(ext):
+                    ext.extend(bytes(dest + n - len(ext)))
+                if unit == 2:      # por palabras de 16 bits big-endian
+                    for i in range(0, n, 2):
+                        w = (((rom[src + i] << 8) | rom[src + i + 1]) + add) & 0xFFFF
+                        ext[dest + i:dest + i + 2] = bytes((w >> 8, w & 0xFF))
+                else:
+                    ext[dest:dest + n] = bytes((rom[src + i] + add) & 0xFF for i in range(n))
+                self.overlays.append((dest, dest + n))
+            rom = bytes(ext)
         self.rom = rom
         self.rr = RomReader(rom)
         self.dec = Decoder(self.rr.rd16)
@@ -109,7 +129,14 @@ class Analysis:
 
     # ---- utilidades ---------------------------------------------------------------------
     def in_rom(self, a):
-        return 0 <= a < ROM_END
+        return 0 <= a < self.rom_end or any(lo <= a < hi for lo, hi in self.overlays)
+
+    def overlay_bytes(self, a):
+        """(inicio, bytes) del código en RAM que contiene `a`, o None"""
+        for lo, hi in self.overlays:
+            if lo <= a < hi:
+                return lo, self.rom[lo:hi]
+        return None
 
     def is_code_addr(self, a):
         return self.in_rom(a) and (a & 1) == 0
@@ -151,7 +178,7 @@ class Analysis:
                 self.overlaps.append(a)
                 return
             ins = self.dec.decode(a)
-            if ins is None or ins.next > ROM_END:
+            if ins is None or not self.in_rom(ins.next - 1):
                 self.bad_decode.append((a, self.rr.rd16(a) or 0))
                 return
             self.insns[a] = ins
@@ -544,7 +571,7 @@ class Analysis:
         return [t for t in targets if self.is_code_addr(t)]
 
     def table_limit(self, base: int, start: int) -> int:
-        lim = ROM_END
+        lim = self.rom_end
         if base in self.table_end_override:
             return self.table_end_override[base]
         for h in self.hard_limits:
@@ -564,7 +591,7 @@ class Analysis:
         t = Table(base, "word", rel)
         p = base
         # la base puede caer dentro del propio idioma (los índices empiezan en 2, 4...): saltar el código
-        while p < ROM_END and self.kind[p] == CODE and p < base + 16:
+        while p < self.rom_end and self.kind[p] == CODE and p < base + 16:
             p += 2
         t.base = p
         limit = self.table_limit(base, p)
@@ -593,7 +620,7 @@ class Analysis:
             return self.tables[base]
         t = Table(base, "long", base)
         p = base
-        while p < ROM_END and self.kind[p] == CODE and p < base + 16:
+        while p < self.rom_end and self.kind[p] == CODE and p < base + 16:
             p += 4
         t.base = p
         limit = self.table_limit(base, p)
@@ -653,7 +680,10 @@ class Analysis:
         for i in range(0, 0x400):
             self.kind[i] = VECTOR
         self.add_entry(self.rr.rd32(4), "reset")
+        skip = set(self.hints.get("not_vectors", []))
         for v in range(2, 64):
+            if v in skip:
+                continue
             h = self.rr.rd32(v * 4)
             if h is not None and self.is_code_addr(h) and h >= 0x400:
                 self.add_entry(h, f"vector{v}")
@@ -661,6 +691,12 @@ class Analysis:
             self.add_entry(a, "hint")
         for a in self.hints.get("labels", []):
             self.add_label(a, "hint")
+        # tablas de desplazamientos que el análisis no reconoce (p. ej. intercaladas con otros datos): cada destino es una entrada
+        for base, n, stride in self.hints.get("offset_tables", []):
+            for k in range(n):
+                off = self.rr.rd16(base + k * stride)
+                if off is not None:
+                    self.add_entry((base + (off - 0x10000 if off & 0x8000 else off)) & 0xFFFFFF, "hint")
         while self.worklist:
             a, src = self.worklist.pop()
             if a in self.insns:
@@ -742,16 +778,16 @@ class Analysis:
     # ---- informes ----------------------------------------------------------------------
     def coverage(self) -> dict:
         counts = defaultdict(int)
-        for k in self.kind:
+        for k in self.kind[:self.rom_end]:
             counts[k] += 1
-        total = len(self.rom)
+        total = self.rom_end
         res = {KIND_NAMES[k]: (counts[k], 100.0 * counts[k] / total) for k in (CODE, TABLE, VECTOR, UNKNOWN)}
         return res
 
     def unknown_regions(self, min_size=64) -> List[Tuple[int, int]]:
         regs = []
         a = 0
-        n = len(self.kind)
+        n = self.rom_end
         while a < n:
             if self.kind[a] == UNKNOWN:
                 b = a
@@ -781,14 +817,16 @@ class Analysis:
             if not (m in ("rts", "rte", "rtr", "illegal", "jmp") or (m == "bcc" and ins.cc == 0)):
                 succ.append(self.inline_ret.get(a, ins.next))
             for t in succ:
-                if t < ROM_END and t not in self.insns:
+                if self.in_rom(t) and t not in self.insns:
                     need.setdefault(t, []).append(a)
         return need
 
     def report(self) -> str:
         out = []
         cov = self.coverage()
-        out.append("== Cobertura del ROM (0x%X bytes) ==" % len(self.rom))
+        out.append("== Cobertura del ROM (0x%X bytes) ==" % self.rom_end)
+        for lo, hi in self.overlays:
+            out.append("  codigo en RAM (ram_code) %06x-%06x: %d instrucciones" % (lo, hi, sum(1 for a in self.insns if lo <= a < hi)))
         for name, (n, pct) in cov.items():
             out.append(f"  {name:<12} {n:8d} bytes  {pct:6.2f}%")
         out.append(f"  instrucciones: {len(self.insns)}   entradas: {len(self.entries)}   etiquetas: {len(self.labels)}")
@@ -865,6 +903,15 @@ def load_hints(path: str) -> dict:
                 hints["table_end"][int(parts[1], 16)] = int(parts[2], 16)
             elif parts[0] == "inline_text":
                 hints.setdefault("inline_text", []).append(int(parts[1], 16))
+            elif parts[0] == "ram_code":
+                dest, src, n, add = int(parts[1], 16), int(parts[2], 16), int(parts[3], 16), int(parts[4], 0)
+                unit = 2 if len(parts) > 5 and parts[5] == "w" else 1
+                hints.setdefault("ram_code", []).append((dest, src, n, add, unit))
+                hints["entries"].append(dest)
+            elif parts[0] == "not_vector":
+                hints.setdefault("not_vectors", []).append(int(parts[1], 0))
+            elif parts[0] == "offset_table":
+                hints.setdefault("offset_tables", []).append((int(parts[1], 16), int(parts[2], 0), int(parts[3], 0)))
     return hints
 
 

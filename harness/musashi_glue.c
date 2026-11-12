@@ -26,7 +26,7 @@ void m68k_write_memory_32(unsigned int a, unsigned int v) { mem_write32(g_musash
 static unsigned int dasm_rd16(unsigned int a) {
     Mem *m = g_musashi_mem_ptr;
     a &= 0xffffff;
-    if (a + 1 < ROM_SIZE) return (m->rom[a] << 8) | m->rom[a + 1];
+    if (a + 1 < m->rom_size) return (m->rom[a] << 8) | m->rom[a + 1];
     if (a >= WRAM_BASE) return (m->wram[a - WRAM_BASE] << 8) | m->wram[(a - WRAM_BASE + 1) & 0xffff];
     if (a >= GFXRAM_BASE && a + 1 < GFXRAM_BASE + GFXRAM_SIZE) return (m->gfxram[a - GFXRAM_BASE] << 8) | m->gfxram[a - GFXRAM_BASE + 1];
     return 0xffff;
