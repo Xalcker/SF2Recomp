@@ -225,7 +225,16 @@ CRC. `probe_rom.py` queda como herramienta de inspección.
 ```bash
 python3 tools/interleave.py sf2 build/rom.bin        # carpeta
 python3 tools/interleave.py sf2.zip build/rom.bin    # zip de MAME
+python3 tools/interleave.py sf2ce.zip build/rom.bin --game sf2ce   # Champion Edition: 3 ROMs de palabras, 1,5 MiB (D63)
 ```
+
+Desde D63 la tabla de cada variante está en `games.py` (espejo de `runtime/game.c`, con `--game`, por omisión `sf2`).
+
+## games.py (D63)
+
+Lo que las herramientas de Python necesitan de cada variante (`sf2`, `sf2ce`): título, tamaño del programa, reloj, ciclos por cuadro,
+chips de programa (CRC, tamaño, destino, pares de bytes o palabras), archivo de pistas y si `recompiler/mod_patches.txt` es suyo.
+`runtime/game.c` es la referencia; ver `docs/VARIANTES.md`.
 
 ## linux-docker.sh, windows-wine-docker.sh (hito 5)
 
@@ -257,6 +266,7 @@ make analyze     # build/coverage.txt, build/disasm.txt, build/insns.txt
 Correcciones manuales del análisis, una por línea: `entry DIR` (punto de entrada), `label DIR`
 (inicio de bloque despachable), `table_end BASE FIN` (acota una tabla de salto). Vacío por ahora:
 ni el arnés en paso cerrado ni el arnés a ciegas han necesitado ninguna en toda la partida a ciegas.
+Son las de `sf2`; cada otra variante tiene las suyas en `hints_<set>.txt` (`hints_sf2ce.txt`, vacío hasta la fase 1 de CE, D63).
 
 ## dump_cycles.c y dasmcheck.c (hito 1)
 

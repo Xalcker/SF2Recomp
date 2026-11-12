@@ -307,12 +307,12 @@ void training_vblank(Training *t, Mem *m, const uint16_t host[3], uint16_t out[3
 #define PROJ_COUNT  8
 #define PROJ_SIZE   0xC0u
 
-static uint32_t rom8(const Mem *m, uint32_t a) { return a < 0x100000u ? m->rom[a] : 0; }
+static uint32_t rom8(const Mem *m, uint32_t a) { return a < m->rom_size ? m->rom[a] : 0; }
 static uint32_t rom16(const Mem *m, uint32_t a) { return (rom8(m, a) << 8) | rom8(m, a + 1); }
 static uint32_t rom32(const Mem *m, uint32_t a) { return (rom16(m, a) << 16) | rom16(m, a + 2); }
 
 static int add_box(const Mem *m, Sf2Box *out, int n, int max, uint32_t rec, uint8_t kind, uint8_t owner, int x, int y, int mirror) {
-    if (n >= max || rec + 4 > 0x100000u)
+    if (n >= max || rec + 4 > m->rom_size)
         return n;
     const int xo = (int8_t)rom8(m, rec), yo = (int8_t)rom8(m, rec + 1), rx = (int)rom8(m, rec + 2), ry = (int)rom8(m, rec + 3);
     const int cx = x + (mirror ? -xo : xo), cy = y + yo;
@@ -333,7 +333,7 @@ static int object_boxes(const Mem *m, Sf2Box *out, int n, int max, uint32_t obj,
         return n;
     const int x = (int16_t)rd16(m, obj + 6), y = (int16_t)rd16(m, obj + 0xA), mirror = rd8(m, obj + 0x12) != 0;
     const uint32_t pose = (rd16(m, obj + 0x1A) << 16) | rd16(m, obj + 0x1C), table = (rd16(m, obj + 0x34) << 16) | rd16(m, obj + 0x36);
-    if (pose < 0x400u || pose + 0x18 > 0x100000u || table < 0x400u || table + 0xC > 0x100000u)
+    if (pose < 0x400u || pose + 0x18 > m->rom_size || table < 0x400u || table + 0xC > m->rom_size)
         return n;
     static const uint8_t kinds[6] = { SF2_BOX_HEAD, SF2_BOX_BODY, SF2_BOX_FOOT, SF2_BOX_WEAK, SF2_BOX_ATTACK, SF2_BOX_PUSH };
     for (int c = 0; c < 6; c++) {

@@ -23,7 +23,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from m68k import (Decoder, Insn, Op, RomReader, sext16, DN, AN, IND, POSTINC, PREDEC, D16AN, D8ANXN, ABSW, ABSL,
                   D16PC, D8PCXN, IMM, CC_NAMES)
 
-ROM_END = 0x100000   # 1 MiB: cuatro pares de ROMs (el ultimo, 0xC0000-0xFFFFF, parece solo datos)
+ROM_END = 0x100000   # sf2: 1 MiB (cuatro pares de ROMs; el ultimo, 0xC0000-0xFFFFF, parece solo datos).  Analysis usa
+                     # self.rom_end = len(imagen), que en sf2ce es 1,5 MiB (D63); esto queda para quien lo importe
 UNKNOWN, CODE, TABLE, VECTOR = 0, 1, 2, 3
 KIND_NAMES = {UNKNOWN: "desconocido", CODE: "codigo", TABLE: "tabla", VECTOR: "vectores"}
 
@@ -79,6 +80,7 @@ class Indirect:
 class Analysis:
     def __init__(self, rom: bytes, hints: Optional[dict] = None, verbose=False):
         self.rom = rom
+        self.rom_end = len(rom)                # fin del programa de la variante (sf2: 0x100000, sf2ce: 0x180000)
         self.rr = RomReader(rom)
         self.dec = Decoder(self.rr.rd16)
         self.hints = hints or {}
@@ -109,7 +111,7 @@ class Analysis:
 
     # ---- utilidades ---------------------------------------------------------------------
     def in_rom(self, a):
-        return 0 <= a < ROM_END
+        return 0 <= a < self.rom_end
 
     def is_code_addr(self, a):
         return self.in_rom(a) and (a & 1) == 0
@@ -151,7 +153,7 @@ class Analysis:
                 self.overlaps.append(a)
                 return
             ins = self.dec.decode(a)
-            if ins is None or ins.next > ROM_END:
+            if ins is None or ins.next > self.rom_end:
                 self.bad_decode.append((a, self.rr.rd16(a) or 0))
                 return
             self.insns[a] = ins
@@ -544,7 +546,7 @@ class Analysis:
         return [t for t in targets if self.is_code_addr(t)]
 
     def table_limit(self, base: int, start: int) -> int:
-        lim = ROM_END
+        lim = self.rom_end
         if base in self.table_end_override:
             return self.table_end_override[base]
         for h in self.hard_limits:
@@ -564,7 +566,7 @@ class Analysis:
         t = Table(base, "word", rel)
         p = base
         # la base puede caer dentro del propio idioma (los índices empiezan en 2, 4...): saltar el código
-        while p < ROM_END and self.kind[p] == CODE and p < base + 16:
+        while p < self.rom_end and self.kind[p] == CODE and p < base + 16:
             p += 2
         t.base = p
         limit = self.table_limit(base, p)
@@ -593,7 +595,7 @@ class Analysis:
             return self.tables[base]
         t = Table(base, "long", base)
         p = base
-        while p < ROM_END and self.kind[p] == CODE and p < base + 16:
+        while p < self.rom_end and self.kind[p] == CODE and p < base + 16:
             p += 4
         t.base = p
         limit = self.table_limit(base, p)
@@ -781,7 +783,7 @@ class Analysis:
             if not (m in ("rts", "rte", "rtr", "illegal", "jmp") or (m == "bcc" and ins.cc == 0)):
                 succ.append(self.inline_ret.get(a, ins.next))
             for t in succ:
-                if t < ROM_END and t not in self.insns:
+                if t < self.rom_end and t not in self.insns:
                     need.setdefault(t, []).append(a)
         return need
 

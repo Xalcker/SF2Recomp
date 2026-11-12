@@ -5,6 +5,7 @@
 - `REFERENCIAS.md`: enlaces y materiales de referencia.
 - `../README.md`: cómo construir y usar el proyecto en macOS, Linux, Windows y Web.
 - `REVISIONES.md`: revisiones del juego, chip CPS-B de cada una y por qué World 910522.
+- `VARIANTES.md`: *Champion Edition* y *Hyper Fighting*: qué cambia en el hardware, fases y cómo se elige la variante (`SF2_GAME`).
 - `MODS.md`: **catálogo de todo lo que el port añade al juego** (pantalla ancha, HUD, lógica ancha, ultraancho, HFR, herramientas de desarrollo, entrenamiento, visores) y cómo se activa cada cosa.
 - `MENU.md`: el menú del juego (tecla M), página por página.
 - `WIDESCREEN.md`: pantalla ancha real (512 px, 16:9 sin estirar), HUD en los bordes y lógica ancha: cómo está hecha, qué se midió y los límites.

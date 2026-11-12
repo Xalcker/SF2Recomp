@@ -1,14 +1,16 @@
 /*
- * mem.h - mapa de memoria CPS1 (Street Fighter II, placa CPS-B-11) visto por el 68000.
+ * mem.h - mapa de memoria CPS1 (Street Fighter II) visto por el 68000.  Lo que cambia entre variantes (tamaño del
+ * programa y configuración del CPS-B) viene del descriptor del juego (game.h, D63).
  *
- *   0x000000-0x0FFFFF  ROM de programa (1 MiB, cuatro pares de chips)
- *   0x100000-0x3FFFFF  zona de ROM sin poblar: lee 0x0000 (igual que MAME)
+ *   0x000000-...       ROM de programa (sf2: 1 MiB, cuatro pares de chips; sf2ce: 1,5 MiB, tres ROMs de palabras)
+ *   ...-0x3FFFFF       zona de ROM sin poblar: lee 0x0000 (igual que MAME)
  *   0x800000-0x8001FF  E/S: entradas, dipswitches, control de monedas, CPS-A, CPS-B, latches de sonido
  *   0x900000-0x92FFFF  RAM gráfica (192 KiB)
  *   0xFF0000-0xFFFFFF  RAM de trabajo (64 KiB)
  *   resto              sin mapear: lee 0x0000, la escritura se descarta (contrastado con MAME 0.289)
  *
- * Zona de E/S (fuente: cps1.cpp y cps1_v.cpp de MAME, configuración {"sf2", CPS_B_11, mapper_STF29, 0x36}):
+ * Zona de E/S (fuente: cps1.cpp y cps1_v.cpp de MAME; los valores del CPS-B son los de {"sf2", CPS_B_11, mapper_STF29, 0x36},
+ * y en otra variante los de su CpsbConfig, leídos con la misma aritmética que cps1_cps_b_r):
  *
  *   0x800000-0x800007 R  IN1: joysticks y botones 1-3 (bits 0-7 jugador 1, 8-15 jugador 2), activo a nivel bajo
  *   0x800018          R  IN0 << 8 | 0xFF: monedas (bits 0-1), servicio (2), start 1/2 (4-5), modo test (6)
@@ -17,7 +19,8 @@
  *   0x800030-0x800037 W  control de monedas (solo el byte alto): bits 8-9 contadores, 10-11 bloqueo (1 = sin bloqueo)
  *   0x800100-0x80013F W  CPS-A (solo escritura; la lectura devuelve 0 como una zona sin mapear)
  *   0x800140-0x80017F RW CPS-B: 0x800172 lee 0x0401 (ID del CPS-B-11), 0x800176 lee IN2 (botones 4-6, byte bajo),
- *                        0x800140 lee (reg0 * reg0) & 0xFFFF (resto del multiplicador de MAME), los demás leen 0xFFFF
+ *                        0x800140 lee (reg0 * reg0) & 0xFFFF (resto del multiplicador de MAME), los demás leen 0xFFFF.
+ *                        CPS-B-21 (sf2ce): 0x800172 lee 0xFFFF, 0x800144/146 leen la parte baja/alta de reg0 * reg1.
  *   0x800180-0x800187 W  latch de sonido (byte bajo; si solo se escribe el byte alto, el byte alto)
  *   0x800188-0x80018F W  latch 2 de sonido / fade (byte bajo)
  *
@@ -31,8 +34,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
+#include "game.h"
 
-#define ROM_SIZE     0x100000u
+#define ROM_SIZE_MAX 0x400000u     /* CODE_SIZE de cps1.cpp: la ventana de ROM del 68000 */
 #define GFXRAM_BASE  0x900000u
 #define GFXRAM_SIZE  0x30000u
 #define WRAM_BASE    0xFF0000u
@@ -49,11 +53,8 @@
 #define IO_CPSB       0x140
 #define IO_SOUND      0x180
 #define IO_SOUND2     0x188
-#define CPSB_ID_OFFSET   0x32      /* 0x800172 */
-#define CPSB_ID_VALUE    0x0401
-#define CPSB_IN2_OFFSET  0x36      /* 0x800176 */
 
-/* registros CPS-A (índice de palabra desde 0x800100) y CPS-B-11 (desde 0x800140), como cps1.h de MAME */
+/* registros CPS-A (índice de palabra desde 0x800100), como cps1.h de MAME; los del CPS-B dependen de la variante (CpsbConfig) */
 #define CPSA_OBJ_BASE      (0x00 / 2)
 #define CPSA_SCROLL1_BASE  (0x02 / 2)
 #define CPSA_SCROLL2_BASE  (0x04 / 2)
@@ -68,12 +69,6 @@
 #define CPSA_SCROLL3_Y     (0x16 / 2)
 #define CPSA_ROWSCROLL_OFFS (0x20 / 2)
 #define CPSA_VIDEOCONTROL  (0x22 / 2)
-#define CPSB11_LAYER_CONTROL (0x26 / 2)     /* 0x800166 */
-#define CPSB11_PRIORITY0   (0x28 / 2)       /* 0x800168-0x80016E */
-#define CPSB11_PALETTE_CONTROL (0x30 / 2)   /* 0x800170 */
-#define CPSB11_LAYER1_ENABLE 0x08           /* bits de habilitación de SCROLL1/2/3 en el control de capas */
-#define CPSB11_LAYER2_ENABLE 0x10
-#define CPSB11_LAYER3_ENABLE 0x20
 
 #define PALETTE_PAGES   6
 #define PALETTE_ENTRIES (PALETTE_PAGES * 0x200)   /* 0xC00 pens: OBJ, SCROLL1, SCROLL2, SCROLL3, estrellas 1 y 2 */
@@ -99,7 +94,9 @@ typedef struct IoStat {
 } IoStat;
 
 typedef struct Mem {
-    const uint8_t *rom;
+    const GameDef *game;     /* variante: tamaño del programa y configuración del CPS-B */
+    const uint8_t *rom;      /* programa del 68000, rom_size bytes */
+    uint32_t rom_size;
     uint8_t *gfxram;
     uint8_t *wram;
     uint16_t cps_a[0x20];
@@ -133,7 +130,10 @@ typedef struct Mem {
     WriteLog wlog[WLOG_MAX];
 } Mem;
 
-void mem_init(Mem *m, const uint8_t *rom, const char *name);
+/* `rom` es la imagen de programa de la variante (game->prog_size bytes; no se copia) */
+void mem_init(Mem *m, const GameDef *game, const uint8_t *rom, const char *name);
+/* registro del CPS-B en el desplazamiento de byte `addr` de la configuración (layer_control, priority[i]...) */
+static inline uint16_t mem_cpsb_reg(const Mem *m, int addr) { return m->cps_b[(addr / 2) & 0x1f]; }
 void mem_free(Mem *m);
 /* apaga y enciende: RAM, registros, paleta y latches a cero; conserva ROM, dipswitches y ganchos */
 void mem_reset(Mem *m);

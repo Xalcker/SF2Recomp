@@ -278,7 +278,7 @@ static SF2_ALWAYS_INLINE void tilemap_impl(Video *v, const Mem *m, const int lay
     const int rowscroll = layer == 2 && v->rowscroll;
     const int otheroffs = v->st->rowoffs;
     uint16_t pmask[4];
-    for (int g = 0; g < 4; g++) pmask[g] = m->cps_b[CPSB11_PRIORITY0 + g];
+    for (int g = 0; g < 4; g++) pmask[g] = mem_cpsb_reg(m, m->game->cpsb->priority[g]);
     TileInfo info[64];
     int info_row = -1;
     const int rw = v->rw, rx0 = v->rx0;
@@ -610,13 +610,14 @@ void video_render_snap(Video *v, const VideoSnap *st) {
     if (!v->rgb_fixed)
         build_rgb(v, m);
     const uint16_t vc = m->cps_a[CPSA_VIDEOCONTROL];
-    const uint16_t lc = m->cps_b[CPSB11_LAYER_CONTROL];
+    const CpsbConfig *cb = m->game->cpsb;
+    const uint16_t lc = mem_cpsb_reg(m, cb->layer_control);
     if (vc & 0x8000)
         v->flip_warned = 1;            /* volteo de pantalla pedido por el juego, no implementado (D24): lo informa el anfitrión */
     v->enabled[0] = 1;
-    v->enabled[1] = (lc & CPSB11_LAYER1_ENABLE) != 0;
-    v->enabled[2] = (lc & CPSB11_LAYER2_ENABLE) && (vc & 0x04);
-    v->enabled[3] = (lc & CPSB11_LAYER3_ENABLE) && (vc & 0x08);
+    v->enabled[1] = (lc & cb->layer_enable[0]) != 0;
+    v->enabled[2] = (lc & cb->layer_enable[1]) && (vc & 0x04);
+    v->enabled[3] = (lc & cb->layer_enable[2]) && (vc & 0x08);
     if (v->layer_mask != 0xf)              /* depuración: solo las capas pedidas (SF2_VIDEO_LAYERS) */
         for (int k = 0; k < 4; k++) if (!((v->layer_mask >> k) & 1)) v->enabled[k] = 0;
     v->rowscroll = vc & 1;

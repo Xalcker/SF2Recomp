@@ -110,7 +110,7 @@ void rt_hook(M68K *c) {
     }
     if (SF2_UNLIKELY(mc->max_insns != 0) && c->icount > mc->max_insns)
         stop_machine(mc, MACHINE_DONE);
-    if (SF2_UNLIKELY(c->pc == CPS1_SAMPLE_PC))
+    if (SF2_UNLIKELY(c->pc == mc->sample_pc))
         sample_point(mc, c);
     /* poll() solo hace algo si llegó el VBlank o hay una IRQ pendiente */
     if (SF2_UNLIKELY(c->cycles >= mc->next_irq || c->irq_pending))
@@ -224,9 +224,10 @@ void machine_log_sound_cmds(Machine *mc, FILE *f) {
     update_latch_hook(mc);
 }
 
-void machine_init(Machine *mc, const uint8_t *rom, uint64_t frame_cycles) {
+void machine_init(Machine *mc, const GameDef *game, const uint8_t *rom, uint64_t frame_cycles) {
     memset(mc, 0, sizeof *mc);
-    mem_init(&mc->mem, rom, "recomp");
+    mem_init(&mc->mem, game, rom, "recomp");
+    mc->sample_pc = game->program_known ? game->sample_pc : UINT32_MAX;
     cps1_init(&mc->cps, &mc->mem);
     mc->cps.frame_cycles = frame_cycles;
     mc->next_irq = frame_cycles;

@@ -62,17 +62,18 @@ int hostio_is_zip(const char *path) {
 /* ---- carpeta con los archivos sueltos ---------------------------------------------------------------- */
 typedef struct DirSource {
     const char *dir;
+    const GameDef *game;
     size_t count;
-    char path[2 * ROMSET_COUNT][1100];
-    uint32_t size[2 * ROMSET_COUNT];
-    size_t cand[2 * ROMSET_COUNT];         /* índice de candidato de cada archivo presente */
+    char path[2 * ROMSET_MAX][1100];
+    uint32_t size[2 * ROMSET_MAX];
+    size_t cand[2 * ROMSET_MAX];           /* índice de candidato de cada archivo presente */
 } DirSource;
 
 static int dir_get(void *ctx, size_t i, RomFile *out) {
     DirSource *d = ctx;
     if (i >= d->count)
         return 0;
-    out->name = romset_candidate_name(d->cand[i]);
+    out->name = romset_candidate_name(d->game, d->cand[i]);
     out->size = d->size[i];
     out->crc = 0;
     out->crc_known = 0;
@@ -90,12 +91,15 @@ static int dir_read(void *ctx, size_t i, uint8_t *dst) {
     return n == d->size[i] && extra == EOF ? 0 : -1;
 }
 
-static void dir_scan(DirSource *d, const char *dir) {
+static void dir_scan(DirSource *d, const GameDef *game, const char *dir) {
     d->dir = dir;
+    d->game = game;
     d->count = 0;
-    for (size_t c = 0; c < romset_candidate_count(); c++) {
+    for (size_t c = 0; c < romset_candidate_count(game); c++) {
+        if ((c & 1) && strcmp(romset_candidate_name(game, c), romset_candidate_name(game, c - 1)) == 0)
+            continue;                       /* sin nombre antiguo: el mismo archivo no se cuenta dos veces */
         char *p = d->path[d->count];
-        snprintf(p, sizeof d->path[0], "%s/%s", dir, romset_candidate_name(c));
+        snprintf(p, sizeof d->path[0], "%s/%s", dir, romset_candidate_name(game, c));
         FILE *f = fopen(p, "rb");
         if (!f)
             continue;
@@ -126,10 +130,10 @@ int hostio_load_romset(const char *path, RomSet *rs, char *report, size_t report
     DirSource *d = malloc(sizeof *d);
     if (!d)
         return -1;
-    dir_scan(d, path);
+    dir_scan(d, rs->game, path);
     if (d->count == 0) {
-        snprintf(report, report_size, "No se encontro ninguna ROM de SF2 en \"%s\" (se busca un zip o una carpeta con los "
-                 "archivos con los nombres de MAME, por ejemplo sf2e_30g.11e o sf2e.30g)\n", path);
+        snprintf(report, report_size, "No se encontro ninguna ROM de %s en \"%s\" (se busca un zip o una carpeta con los "
+                 "archivos con los nombres de MAME, por ejemplo %s)\n", rs->game->id, path, rs->game->roms[0].name);
         free(d);
         return -1;
     }

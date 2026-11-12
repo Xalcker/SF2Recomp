@@ -11,7 +11,8 @@
  *   resto sin mapear: lee 0 y descarta las escrituras.
  *
  * Tiempo: un solo reloj, el ciclo T del Z80 desde el arranque (el YM2151 usa el mismo cristal).  El 68000
- * (10 MHz) y el Z80 arrancan a la vez; el ciclo c del 68000 es el ciclo floor(c * 3579545 / 10^7) del Z80.
+ * (10 MHz en sf2, 12 MHz en sf2ce: GameDef.cpu_hz) y el Z80 arrancan a la vez; el ciclo c del 68000 es el ciclo
+ * floor(c * 3579545 / reloj del 68000) del Z80.
  * Como el Z80 no influye en el 68000 en la CPS1, la placa corre "detrás": el 68000 deja sus escrituras en
  * los latches con su ciclo (sound_latch_write) y sound_run_until hace avanzar el Z80 hasta un ciclo dado.
  * El latch cambia para los accesos del Z80 desde el ciclo de la escritura, como con el synchronize() del
@@ -40,7 +41,6 @@
 #include "romset.h"
 
 #define SOUND_Z80_HZ      3579545u
-#define SOUND_M68K_HZ     10000000u
 #define SOUND_YM_RATE     55930u      /* 3579545 / 64, entero como en ymfm */
 #define SOUND_OKI_RATE    7575u       /* 1000000 / 132, entero como en okim6295.cpp */
 #define SOUND_OUT_RATE    48000u      /* frecuencia de la máquina en MAME (-samplerate) */
@@ -64,6 +64,7 @@ typedef struct SoundLofi {           /* audio_resampler_lofi de MAME */
 
 typedef struct Cps1Sound {
     Z80 z;
+    uint32_t m68k_hz;                /* reloj del 68000 de la variante (GameDef.cpu_hz); no forma parte del estado */
     uint8_t rom[0x18000];            /* región "audiocpu" de MAME: 0x0000-0x7FFF y bancos en 0x10000-0x17FFF */
     uint8_t ram[0x800];
     uint8_t okirom[OKI6295_ROM_SIZE];
@@ -137,8 +138,8 @@ void sound_set_pan_half(Cps1Sound *s, int half);
 void sound_latch_pos(Cps1Sound *s, int pos_ok, int16_t pos);
 
 /* ciclo del Z80 que corresponde a un ciclo del 68000 */
-static inline uint64_t sound_z80_cycle(uint64_t cyc68) {
-    return cyc68 * SOUND_Z80_HZ / SOUND_M68K_HZ;
+static inline uint64_t sound_z80_cycle(const Cps1Sound *s, uint64_t cyc68) {
+    return cyc68 * SOUND_Z80_HZ / s->m68k_hz;
 }
 
 /* cierra los archivos de salida e imprime un resumen */

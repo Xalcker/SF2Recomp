@@ -1,4 +1,4 @@
-/* romset.c - catálogo de ROMs de SF2 y carga con verificación por CRC (ver romset.h). */
+/* romset.c - carga de las ROMs de una variante de SF2 con verificación por CRC (ver romset.h; catálogos en game.c). */
 #include "romset.h"
 #include "crc32.h"
 #include "zipread.h"
@@ -8,51 +8,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* ROM_START( sf2 ) de MAME 0.289 (src/mame/capcom/cps1.cpp) */
-const RomInfo romset_catalogue[ROMSET_COUNT] = {
-    /* programa del 68000: pares (par, impar) cada 256 KiB */
-    { "sf2e_30g.11e", "sf2e.30g",    0xfe39ee33u, 0x20000, ROMKIND_PROGRAM, 0x00000, 0 },
-    { "sf2e_37g.11f", "sf2e.37g",    0xfb92cd74u, 0x20000, ROMKIND_PROGRAM, 0x00000, 1 },
-    { "sf2e_31g.12e", "sf2e.31g",    0x69a0a301u, 0x20000, ROMKIND_PROGRAM, 0x40000, 0 },
-    { "sf2e_38g.12f", "sf2e.38g",    0x5e22db70u, 0x20000, ROMKIND_PROGRAM, 0x40000, 1 },
-    { "sf2e_28g.9e",  "sf2e.28g",    0x8bf9f1e5u, 0x20000, ROMKIND_PROGRAM, 0x80000, 0 },
-    { "sf2e_35g.9f",  "sf2e.35g",    0x626ef934u, 0x20000, ROMKIND_PROGRAM, 0x80000, 1 },
-    { "sf2_29b.10e",  "sf2_29a.bin", 0xbb4af315u, 0x20000, ROMKIND_PROGRAM, 0xc0000, 0 },
-    { "sf2_36b.10f",  "sf2_36a.bin", 0xc02a13ebu, 0x20000, ROMKIND_PROGRAM, 0xc0000, 1 },
-    /* gráficos: ROM_LOAD64_WORD, una palabra de cada ROM cada 8 bytes de la región de 6 MiB */
-    { "sf2-5m.4a",    "sf2_06.bin",  0x22c9cc8eu, 0x80000, ROMKIND_GFX, 0x000000, 0 },
-    { "sf2-7m.6a",    "sf2_08.bin",  0x57213be8u, 0x80000, ROMKIND_GFX, 0x000002, 0 },
-    { "sf2-1m.3a",    "sf2_05.bin",  0xba529b4fu, 0x80000, ROMKIND_GFX, 0x000004, 0 },
-    { "sf2-3m.5a",    "sf2_07.bin",  0x4b1b33a8u, 0x80000, ROMKIND_GFX, 0x000006, 0 },
-    { "sf2-6m.4c",    "sf2_15.bin",  0x2c7e2229u, 0x80000, ROMKIND_GFX, 0x200000, 0 },
-    { "sf2-8m.6c",    "sf2_17.bin",  0xb5548f17u, 0x80000, ROMKIND_GFX, 0x200002, 0 },
-    { "sf2-2m.3c",    "sf2_14.bin",  0x14b84312u, 0x80000, ROMKIND_GFX, 0x200004, 0 },
-    { "sf2-4m.5c",    "sf2_16.bin",  0x5e9cd89au, 0x80000, ROMKIND_GFX, 0x200006, 0 },
-    { "sf2-13m.4d",   "sf2_25.bin",  0x994bfa58u, 0x80000, ROMKIND_GFX, 0x400000, 0 },
-    { "sf2-15m.6d",   "sf2_27.bin",  0x3e66ad9du, 0x80000, ROMKIND_GFX, 0x400002, 0 },
-    { "sf2-9m.3d",    "sf2_24.bin",  0xc1befaa8u, 0x80000, ROMKIND_GFX, 0x400004, 0 },
-    { "sf2-11m.5d",   "sf2_26.bin",  0x0627c831u, 0x80000, ROMKIND_GFX, 0x400006, 0 },
-    /* sonido */
-    { "sf2_9.12a",    "sf2_09.bin",  0xa4823a1bu, 0x10000, ROMKIND_Z80, 0x00000, 0 },
-    { "sf2_18.11c",   "sf2_18.bin",  0x7f162009u, 0x20000, ROMKIND_OKI, 0x00000, 0 },
-    { "sf2_19.12c",   "sf2_19.bin",  0xbeade53fu, 0x20000, ROMKIND_OKI, 0x20000, 0 },
-};
-
-void romset_init(RomSet *rs) {
+void romset_init(RomSet *rs, const GameDef *game) {
     memset(rs, 0, sizeof *rs);
+    rs->game = game;
 }
 
 void romset_free(RomSet *rs) {
-    for (int i = 0; i < ROMSET_COUNT; i++) {
+    for (int i = 0; i < ROMSET_MAX; i++) {
         free(rs->data[i]);
         rs->data[i] = NULL;
     }
 }
 
-size_t romset_candidate_count(void) { return 2 * ROMSET_COUNT; }
+size_t romset_candidate_count(const GameDef *game) { return 2u * (size_t)game->nroms; }
 
-const char *romset_candidate_name(size_t i) {
-    const RomInfo *r = &romset_catalogue[(i / 2) % ROMSET_COUNT];
+const char *romset_candidate_name(const GameDef *game, size_t i) {
+    const RomInfo *r = &game->roms[(i / 2) % (size_t)game->nroms];
     return (i & 1) ? r->alt_name : r->name;
 }
 
@@ -73,25 +44,26 @@ static int ieq(const char *a, const char *b) {
     return *a == *b;
 }
 
-static int size_is_rom(uint32_t size) {
-    for (int i = 0; i < ROMSET_COUNT; i++)
-        if (romset_catalogue[i].size == size)
+static int size_is_rom(const GameDef *g, uint32_t size) {
+    for (int i = 0; i < g->nroms; i++)
+        if (g->roms[i].size == size)
             return 1;
     return 0;
 }
 
 /* entrada libre del catálogo con ese CRC y tamaño, o -1 */
 static int find_entry(const RomSet *rs, uint32_t crc, uint32_t size) {
-    for (int i = 0; i < ROMSET_COUNT; i++)
-        if (!rs->data[i] && romset_catalogue[i].crc == crc && romset_catalogue[i].size == size)
+    const GameDef *g = rs->game;
+    for (int i = 0; i < g->nroms; i++)
+        if (!rs->data[i] && g->roms[i].crc == crc && g->roms[i].size == size)
             return i;
     return -1;
 }
 
 /* entrada del catálogo cuyo nombre (actual o antiguo) es `name` */
-static int find_by_name(const char *name) {
-    for (int i = 0; i < ROMSET_COUNT; i++)
-        if (ieq(name, romset_catalogue[i].name) || ieq(name, romset_catalogue[i].alt_name))
+static int find_by_name(const GameDef *g, const char *name) {
+    for (int i = 0; i < g->nroms; i++)
+        if (ieq(name, g->roms[i].name) || ieq(name, g->roms[i].alt_name))
             return i;
     return -1;
 }
@@ -114,17 +86,18 @@ int romset_load(RomSet *rs, const RomSource *src, char *report, size_t report_si
     Report r = { report, report_size, 0 };
     if (report && report_size)
         report[0] = 0;
-    char wrong[ROMSET_COUNT][96] = { { 0 } };        /* diagnóstico por entrada: archivo con su nombre pero otro CRC */
-    uint32_t wrong_crc[ROMSET_COUNT] = { 0 };
+    const GameDef *g = rs->game;
+    char wrong[ROMSET_MAX][96] = { { 0 } };          /* diagnóstico por entrada: archivo con su nombre pero otro CRC */
+    uint32_t wrong_crc[ROMSET_MAX] = { 0 };
     char unreadable[512] = "";
     RomFile f;
     uint8_t *tmp = NULL;
     size_t tmp_cap = 0;
 
     for (size_t i = 0; src->get(src->ctx, i, &f); i++) {
-        if (!size_is_rom(f.size))
+        if (!size_is_rom(g, f.size))
             continue;
-        int by_name = find_by_name(base_name(f.name));
+        int by_name = find_by_name(g, base_name(f.name));
         int idx = -1;
         if (f.crc_known) {
             idx = find_entry(rs, f.crc, f.size);
@@ -167,16 +140,19 @@ int romset_load(RomSet *rs, const RomSource *src, char *report, size_t report_si
     free(tmp);
 
     int missing = 0;
-    for (int i = 0; i < ROMSET_COUNT; i++)
+    for (int i = 0; i < g->nroms; i++)
         if (!rs->data[i])
             missing++;
     if (missing) {
-        rep(&r, "Faltan %d de las %d ROMs de Street Fighter II (World 910522, set \"sf2\" de MAME):\n", missing, ROMSET_COUNT);
-        for (int i = 0; i < ROMSET_COUNT; i++) {
+        rep(&r, "Faltan %d de las %d ROMs de %s (set \"%s\" de MAME):\n", missing, g->nroms, g->title, g->id);
+        for (int i = 0; i < g->nroms; i++) {
             if (rs->data[i])
                 continue;
-            const RomInfo *ri = &romset_catalogue[i];
-            rep(&r, "  - %s (o %s), %u KiB, CRC %08x", ri->name, ri->alt_name, ri->size / 1024, ri->crc);
+            const RomInfo *ri = &g->roms[i];
+            if (strcmp(ri->name, ri->alt_name) != 0)
+                rep(&r, "  - %s (o %s), %u KiB, CRC %08x", ri->name, ri->alt_name, ri->size / 1024, ri->crc);
+            else
+                rep(&r, "  - %s, %u KiB, CRC %08x", ri->name, ri->size / 1024, ri->crc);
             if (wrong[i][0])
                 rep(&r, " -> el archivo \"%s\" tiene el CRC %08x: no es esta revision o esta danado", wrong[i], wrong_crc[i]);
             rep(&r, "\n");
@@ -188,13 +164,31 @@ int romset_load(RomSet *rs, const RomSource *src, char *report, size_t report_si
 }
 
 void romset_build_program(const RomSet *rs, uint8_t *image) {
-    for (int i = 0; i < ROMSET_COUNT; i++) {
-        const RomInfo *ri = &romset_catalogue[i];
+    const GameDef *g = rs->game;
+    for (int i = 0; i < g->nroms; i++) {
+        const RomInfo *ri = &g->roms[i];
         if (ri->kind != ROMKIND_PROGRAM || !rs->data[i])
             continue;
-        for (uint32_t k = 0; k < ri->size; k++)
-            image[ri->dest + 2u * k + (uint32_t)ri->lane] = rs->data[i][k];
+        if (ri->lane == ROMLANE_WORD)          /* ROM_LOAD16_WORD_SWAP: el archivo ya está en el orden del 68000 */
+            memcpy(image + ri->dest, rs->data[i], ri->size);
+        else
+            for (uint32_t k = 0; k < ri->size; k++)
+                image[ri->dest + 2u * k + (uint32_t)ri->lane] = rs->data[i][k];
     }
+}
+
+int romset_complete(const RomSet *rs) {
+    for (int i = 0; i < rs->game->nroms; i++)
+        if (!rs->data[i])
+            return 0;
+    return 1;
+}
+
+int romset_index(const GameDef *game, RomKind kind, int nth) {
+    for (int i = 0; i < game->nroms; i++)
+        if (game->roms[i].kind == kind && nth-- == 0)
+            return i;
+    return -1;
 }
 
 /* ---- origen sobre un zip en memoria ---------------------------------------------------------------- */

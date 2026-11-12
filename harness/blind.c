@@ -181,7 +181,7 @@ static int parse_frame_list(const char *s, uint64_t **out) {
 /* carga las ROMs de una carpeta o de un zip y avisa de lo que falte */
 static int load_roms(const char *path, RomSet *rs) {
     char report[2048];
-    romset_init(rs);
+    romset_init(rs, recomp_game());
     if (hostio_load_romset(path, rs, report, sizeof report) != 0) {
         fprintf(stderr, "%s: %s", path, report[0] ? report : "no se pudieron cargar las ROMs\n");
         return -1;
@@ -193,7 +193,7 @@ int main(int argc, char **argv) {
     Machine *mc = &g_mc;
     const char *rom_path = NULL, *inputs = NULL, *summary = NULL, *gfx_dir = "sf2", *png_list = NULL;
     const char *cov_path = NULL, *io_table = NULL;
-    uint64_t frame_cycles = CPS1_FRAME_CYCLES, max_frames = 600, max_insns = 0;
+    uint64_t frame_cycles = recomp_game()->frame_cycles, max_frames = 600, max_insns = 0;
     int log_io = 0, detail = 0, audio = 0, quiet = 0, step = 0, stereo = 0;
     const char *audio_dir = NULL, *wav_path = NULL, *sound_roms = "sf2", *cmds_path = NULL;
     const char *dispatch_path = NULL, *dips = NULL, *roundtrip_list = NULL;
@@ -250,7 +250,7 @@ int main(int argc, char **argv) {
     uint8_t *rom = load_rom(rom_path);
     if (!rom) return 1;
 
-    machine_init(mc, rom, frame_cycles);
+    machine_init(mc, recomp_game(), rom, frame_cycles);
     mc->max_frames = max_frames;
     mc->max_insns = max_insns;
     mc->quiet = quiet;

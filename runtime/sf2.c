@@ -24,7 +24,8 @@ struct Sf2 {
     Video video;
     Cps1Sound snd;
     int has_video, has_sound;
-    uint8_t *prog;                   /* imagen de programa de 1 MiB (la máquina la lee, no la copia) */
+    const GameDef *game;             /* variante del código generado (recomp_game) */
+    uint8_t *prog;                   /* imagen de programa (game->prog_size bytes; la máquina la lee, no la copia) */
     float *audio;
     size_t audio_len, audio_cap;     /* en floats: muestras por canales */
     unsigned audio_channels;         /* 1 = mono (el original), 2 = estéreo (mod de sonido estéreo) */
@@ -57,6 +58,13 @@ static void set_err(char *err, size_t n, const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(err, n, fmt, ap);
     va_end(ap);
+}
+
+const GameDef *sf2_game(void) { return recomp_game(); }
+
+double sf2_frame_hz(void) {
+    const GameDef *g = recomp_game();
+    return game_frame_hz(g ? g : &game_sf2);
 }
 
 void sf2_options_default(Sf2Options *o) {
@@ -140,9 +148,23 @@ void sf2_destroy(Sf2 *s) {
 
 int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, size_t errn) {
     *out = NULL;
-    for (int i = 0; i < ROMSET_COUNT; i++)
+    const GameDef *game = recomp_game();
+    if (!game) {
+        set_err(err, errn, "el codigo generado es de un juego desconocido (\"%s\")", recomp_game_id);
+        return -1;
+    }
+    if (roms->game != game) {
+        set_err(err, errn, "las ROMs son de %s (set \"%s\") y este ejecutable es de %s (set \"%s\")",
+                roms->game ? roms->game->title : "?", roms->game ? roms->game->id : "?", game->title, game->id);
+        return -1;
+    }
+    if (!game->program_known) {
+        set_err(err, errn, "%s (set \"%s\") todavia no se puede jugar: falta analizar su programa (docs/VARIANTES.md)", game->title, game->id);
+        return -1;
+    }
+    for (int i = 0; i < game->nroms; i++)
         if (!roms->data[i]) {
-            set_err(err, errn, "faltan ROMs (%s)", romset_catalogue[i].name);
+            set_err(err, errn, "faltan ROMs (%s)", game->roms[i].name);
             return -1;
         }
     Sf2Options def;
@@ -152,10 +174,11 @@ int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, 
     }
     Sf2 *s = calloc(1, sizeof *s);
     if (!s) { set_err(err, errn, "sin memoria"); return -1; }
-    s->prog = calloc(ROM_SIZE, 1);
+    s->game = game;
+    s->prog = calloc(game->prog_size, 1);
     if (!s->prog) { set_err(err, errn, "sin memoria"); free(s); return -1; }
     romset_build_program(roms, s->prog);
-    uint32_t crc = sf2_crc32(0, s->prog, ROM_SIZE);
+    uint32_t crc = sf2_crc32(0, s->prog, game->prog_size);
     if (crc != recomp_rom_crc32) {
         set_err(err, errn, "las ROMs de programa no son las que se usaron al generar el codigo (CRC de la imagen %08x, "
                            "esperado %08x): regenera el ejecutable con estas ROMs (SF2_ROM_DIR)", crc, recomp_rom_crc32);
@@ -171,7 +194,7 @@ int sf2_create(Sf2 **out, const RomSet *roms, const Sf2Options *opt, char *err, 
         free(s);
         return -1;
     }
-    machine_init(&s->mc, s->prog, CPS1_FRAME_CYCLES);
+    machine_init(&s->mc, game, s->prog, game->frame_cycles);
     s->mc.user = s;
     s->mc.quiet = 1;
     s->mc.on_sample = on_sample;
@@ -294,7 +317,7 @@ static void shadow_frame(Sf2 *s) {
     if (s->shadow_failed || !s->has_video || s->wide_logic || s->stage_full || s->video.w <= SF2_SCREEN_W || s->video.rw <= SF2_SCREEN_W)
         return;
     if (!s->shadow_init) {
-        machine_init(&s->shadow, s->prog, CPS1_FRAME_CYCLES);
+        machine_init(&s->shadow, s->game, s->prog, s->game->frame_cycles);
         s->shadow.quiet = 1;
         s->shadow.user = s;
         s->shadow.on_vblank = shadow_vblank;

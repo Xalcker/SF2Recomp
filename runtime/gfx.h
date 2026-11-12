@@ -1,8 +1,8 @@
 /*
- * gfx.h - ROMs gráficas de SF2 (World 910522) y mapeador de bancos STF29 (hito 3).
+ * gfx.h - ROMs gráficas de SF2 y mapeador de bancos de la placa B (hito 3; STF29 en sf2, S9263B en sf2ce, D63).
  *
  * Región "gfx" de MAME (ROM_START( sf2 ), ROM_LOAD64_WORD): 6 MiB formados por tres grupos de cuatro
- * ROMs de 512 KiB.  Cada ROM aporta una palabra de 16 bits (dos bytes en el orden del archivo) cada 8
+ * ROMs de 512 KiB (sf2ce tiene la misma forma con otras ROMs; el catálogo de cada variante está en game.c).  Cada ROM aporta una palabra de 16 bits (dos bytes en el orden del archivo) cada 8
  * bytes de la región: la ROM cargada en el offset 0 ocupa los bytes 0-1, 8-9, 16-17...; la del offset 2
  * los bytes 2-3, 10-11...; etc.  Nombres de nuestro set (sf2/) y posición:
  *
@@ -50,6 +50,7 @@
 #define GFXTYPE_SCROLL3 8
 
 typedef struct Gfx {
+    const GfxMapper *mapper;   /* PAL de la placa B de la variante (game.h) */
     uint8_t *rom;      /* 6 MiB, región "gfx" de MAME: solo existe mientras gfx_init decodifica (después NULL) */
     uint8_t *pens;     /* GFX_UNITS * 16 pens predecodificados */
     /* hito 6 (rendimiento): gfx_map precalculado para cada código de 16 bits de los cuatro tipos (sprites, SCROLL1-3)
@@ -61,12 +62,12 @@ typedef struct Gfx {
     uint8_t *blank[2];
 } Gfx;
 
-/* intercala las doce ROMs gráficas del RomSet (nombres y posiciones en romset.c) y predecodifica; 0 o -1 */
+/* intercala las ROMs gráficas del RomSet (nombres y posiciones en el catálogo de game.c) y predecodifica; 0 o -1 */
 int gfx_init(Gfx *g, const RomSet *rs);
 void gfx_free(Gfx *g);
 
-/* mapeador STF29: índice de tile del tipo dado (en unidades de su tamaño) o -1 si está fuera de rango */
-int gfx_map(int type, int code);
+/* mapeador: índice de tile del tipo dado (en unidades de su tamaño) o -1 si está fuera de rango */
+int gfx_map(const GfxMapper *mapper, int type, int code);
 /* lo mismo con las tablas de gfx_init (type: GFXTYPE_*; code de 16 bits) */
 static inline int gfx_map_fast(const Gfx *g, int type, int code) {
     int t = type == 1 ? 0 : type == 2 ? 1 : type == 4 ? 2 : 3;

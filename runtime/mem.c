@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-void mem_init(Mem *m, const uint8_t *rom, const char *name) {
+void mem_init(Mem *m, const GameDef *game, const uint8_t *rom, const char *name) {
     memset(m, 0, sizeof *m);
+    m->game = game;
     m->rom = rom;
+    m->rom_size = game->prog_size;
     m->gfxram = calloc(GFXRAM_SIZE, 1);
     m->wram = calloc(WRAM_SIZE, 1);
     m->name = name;
@@ -103,15 +105,21 @@ static uint32_t io_read16(Mem *m, uint32_t off) {
         }
         v = ((in & 0xff) << 8) | 0xff;
     } else if (off >= 0x140 && off < 0x180) {
-        uint32_t r = off - 0x140;
-        if (r == CPSB_ID_OFFSET)
-            v = CPSB_ID_VALUE;
-        else if (r == CPSB_IN2_OFFSET)
+        /* cps1_cps_b_r con la configuración de la variante, en el mismo orden y con la misma división entera: los campos
+         * a -1 dan el registro 0 (-1 / 2 = 0), y así el CPS-B-11, sin multiplicador, lee en 0x800140 reg0 * reg0 */
+        const CpsbConfig *b = m->game->cpsb;
+        const int o = (int)(off - 0x140) >> 1;
+        const uint32_t prod = (uint32_t)m->cps_b[(b->mult_factor1 / 2) & 0x1f] * m->cps_b[(b->mult_factor2 / 2) & 0x1f];
+        if (o == b->id_addr / 2)
+            v = (uint16_t)b->id_value;           /* -1 (CPS-B-21) lee 0xFFFF */
+        else if (o == b->mult_result_lo / 2)
+            v = prod & 0xffff;
+        else if (o == b->mult_result_hi / 2)
+            v = prod >> 16;
+        else if (b->in2_addr != 0 && o == b->in2_addr / 2)
             v = m->in2_live & 0xff;              /* puerto de 8 bits: el byte alto lee 0 */
-        else if (r == 0)
-            v = (uint32_t)(m->cps_b[0] * m->cps_b[0]) & 0xffff;   /* resto del multiplicador de otros CPS-B en MAME */
         else
-            v = 0xffff;                          /* cps1_cps_b_r: registros no leíbles */
+            v = 0xffff;                          /* registros no leíbles */
     } else {
         v = 0;                                   /* zonas de solo escritura y 0x800020: valor sin mapear de MAME */
     }
@@ -131,7 +139,7 @@ static uint32_t io_read16(Mem *m, uint32_t off) {
 void mem_palette_copy(Mem *m) {
     uint32_t base = ((uint32_t)m->cps_a[CPSA_PALETTE_BASE] * 256u) & ~0x3ffu & 0x3ffffu;
     uint32_t src = base;
-    uint16_t ctrl = m->cps_b[CPSB11_PALETTE_CONTROL];
+    uint16_t ctrl = mem_cpsb_reg(m, m->game->cpsb->palette_control);
     for (int page = 0; page < PALETTE_PAGES; page++) {
         if ((ctrl >> page) & 1) {
             for (int i = 0; i < 0x200; i++, src += 2) {
@@ -188,7 +196,7 @@ static void io_write16(Mem *m, uint32_t off, uint32_t val, uint32_t mask) {
 /* ---- bus ------------------------------------------------------------------------------- */
 /* Acceso de 16 bits alineado (el bus del 68000 es de 16 bits). */
 static inline uint32_t bus_read16(Mem *m, uint32_t a) {
-    if (a < ROM_SIZE)
+    if (a < m->rom_size)
         return (m->rom[a] << 8) | m->rom[a + 1];
     if (a >= WRAM_BASE)
         return (m->wram[a - WRAM_BASE] << 8) | m->wram[(a - WRAM_BASE + 1) & 0xffff];
@@ -220,7 +228,7 @@ static inline void bus_write16(Mem *m, uint32_t a, uint32_t v, uint32_t mask) {
     }
     m->unmapped++;
     if (m->log_io && m->log_file && m->unmapped < 50)
-        fprintf(m->log_file, "[%s] escritura %s %06x <- %04x\n", m->name, a < ROM_SIZE ? "en ROM" : "sin mapear", a, v);
+        fprintf(m->log_file, "[%s] escritura %s %06x <- %04x\n", m->name, a < ROM_SIZE_MAX ? "en ROM" : "sin mapear", a, v);
 }
 
 uint32_t mem_read16(Mem *m, uint32_t addr) {

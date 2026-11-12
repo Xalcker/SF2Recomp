@@ -279,6 +279,12 @@ Sobre el núcleo validado se añadieron interruptores que, apagados, dejan el ju
 
 Pendiente: ver los límites de cada mod en `docs/MODS.md` y la lista de ideas con su estado en `docs/MEJORAS.md`.
 
+## Otras variantes: Champion Edition y Hyper Fighting (desde 2026-11-12)
+
+Plan por fases en `docs/VARIANTES.md`. Fase 0 hecha (D63, bitácora `2026-11-12-variantes-fase-0`): el núcleo describe cada variante con
+un `GameDef` (reloj, CPS-B, mapeador, ROMs) y la elige `SF2_GAME`; WW sigue idéntico byte a byte. Siguiente: fase 1, CE en vanilla
+idéntico a MAME (necesita `sf2ce.zip`).
+
 ## Riesgos y mitigaciones
 
 | Riesgo | Mitigación |

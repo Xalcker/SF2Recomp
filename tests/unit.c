@@ -10,6 +10,8 @@
 #include <string.h>
 #include "config.h"
 #include "crc32.h"
+#include "game.h"
+#include "gfx.h"
 #include "mem.h"
 #include "oki6295.h"
 #include "romset.h"
@@ -153,31 +155,97 @@ static int fake_read(void *ctx, size_t i, uint8_t *dst) {
 }
 
 static void test_romset(void) {
-    /* catalogo: 23 entradas con CRC distintos, tamanos validos y destinos que no se pisan */
-    uint64_t total = 0;
-    for (int i = 0; i < ROMSET_COUNT; i++) {
-        const RomInfo *a = &romset_catalogue[i];
-        total += a->size;
-        for (int j = i + 1; j < ROMSET_COUNT; j++) {
-            CHECK(a->crc != romset_catalogue[j].crc);
-            CHECK(strcmp(a->name, romset_catalogue[j].name) != 0);
+    /* catalogos: entradas con CRC distintos, tamanos validos, destinos que no se pisan y programa completo */
+    CHECK(game_count() == 2 && game_find("sf2") == &game_sf2 && game_find("sf2ce") == &game_sf2ce && game_find("sf2x") == NULL);
+    for (int gi = 0; gi < game_count(); gi++) {
+        const GameDef *g = game_at(gi);
+        uint64_t total = 0, prog = 0;
+        CHECK(g->nroms <= ROMSET_MAX);
+        CHECK((uint64_t)g->cpu_hz * 512u * 262u / 8000000u == g->frame_cycles);      /* 512 x 262 ciclos de 8 MHz por cuadro */
+        CHECK(g->prog_size <= ROM_SIZE_MAX);
+        for (int i = 0; i < g->nroms; i++) {
+            const RomInfo *a = &g->roms[i];
+            total += a->size;
+            for (int j = i + 1; j < g->nroms; j++) {
+                CHECK(a->crc != g->roms[j].crc);
+                CHECK(strcmp(a->name, g->roms[j].name) != 0);
+            }
+            if (a->kind == ROMKIND_PROGRAM) {
+                prog += a->size;
+                if (a->lane == ROMLANE_WORD) CHECK(a->dest + a->size <= g->prog_size);
+                else CHECK(a->dest + 2u * a->size <= g->prog_size + (uint32_t)a->lane);
+            }
+            if (a->kind == ROMKIND_GFX) CHECK(a->dest + 8u * (a->size / 2) <= g->gfx_size + 6);
         }
-        if (a->kind == ROMKIND_PROGRAM) CHECK(a->dest + 2u * a->size <= 0x100000 + a->lane);
-        if (a->kind == ROMKIND_GFX) CHECK(a->dest + 8u * (a->size / 2) <= 0x600000 + 6);
+        CHECK(prog == g->prog_size);
+        CHECK(romset_candidate_count(g) == 2u * (size_t)g->nroms);
+        if (g == &game_sf2) CHECK(g->nroms == 23 && total == 8u * 0x20000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
+        if (g == &game_sf2ce) CHECK(g->nroms == 18 && total == 3u * 0x80000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
     }
-    CHECK(total == 8u * 0x20000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
-    CHECK(romset_candidate_count() == 2u * ROMSET_COUNT);
     /* contenido equivocado en archivos con nombre de ROM: faltan las 23, y el informe nombra el CRC malo */
     FakeSrc fs = { { "sf2e.30g", "sf2_09.bin", "otra_cosa.bin" }, { 0x20000, 0x10000, 0x20000 }, NULL };
     RomSource src = { &fs, fake_get, fake_read };
     RomSet rs;
     char report[4096];
-    romset_init(&rs);
+    romset_init(&rs, &game_sf2);
     int missing = romset_load(&rs, &src, report, sizeof report);
-    CHECK(missing == ROMSET_COUNT);
+    CHECK(missing == game_sf2.nroms);
     CHECK(strstr(report, "Faltan 23 de las 23") != NULL);
     CHECK(strstr(report, "sf2e_30g.11e") != NULL && strstr(report, "fe39ee33") != NULL);
     CHECK(strstr(report, "el archivo \"sf2e.30g\" tiene el CRC") != NULL);
+    romset_free(&rs);
+}
+
+/* lecturas del CPS-B de cada variante (cps1_cps_b_r de MAME) y mapeadores gráficos (D63) */
+static void test_cpsb(void) {
+    static uint8_t rom[0x180000];
+    Mem m;
+    /* CPS-B-11 (sf2): ID 0x0401 en 0x800172, IN2 en 0x800176, "resto del multiplicador" reg0 * reg0 en 0x800140, 0xFFFF el resto */
+    mem_init(&m, &game_sf2, rom, "b11");
+    CHECK(m.rom_size == 0x100000);
+    mem_write16(&m, 0x800140, 0x0123);
+    mem_write16(&m, 0x800142, 0x0456);
+    m.in2 = 0xfa; mem_latch_inputs(&m);
+    CHECK(mem_read16(&m, 0x800172) == 0x0401);
+    CHECK(mem_read16(&m, 0x800176) == 0x00fa);
+    CHECK(mem_read16(&m, 0x800140) == ((0x0123u * 0x0123u) & 0xffff));
+    CHECK(mem_read16(&m, 0x800144) == 0xffff && mem_read16(&m, 0x800146) == 0xffff);
+    mem_free(&m);
+    /* CPS-B-21 (sf2ce): ID sin valor (0xFFFF), multiplicador reg0 * reg1 en 0x800144 (bajo) y 0x800146 (alto) */
+    mem_init(&m, &game_sf2ce, rom, "b21");
+    CHECK(m.rom_size == 0x180000);
+    mem_write16(&m, 0x800140, 0xfedc);
+    mem_write16(&m, 0x800142, 0x1234);
+    m.in2 = 0x5f; mem_latch_inputs(&m);
+    const uint32_t p = 0xfedcu * 0x1234u;
+    CHECK(mem_read16(&m, 0x800172) == 0xffff);
+    CHECK(mem_read16(&m, 0x800144) == (p & 0xffff) && mem_read16(&m, 0x800146) == (p >> 16));
+    CHECK(mem_read16(&m, 0x800140) == 0xffff);
+    CHECK(mem_read16(&m, 0x800176) == 0x005f);
+    rom[0x17fffe] = 0xab; rom[0x17ffff] = 0xcd;
+    CHECK(mem_read16(&m, 0x17fffe) == 0xabcd && mem_read16(&m, 0x180000) == 0);   /* programa de 1,5 MiB, luego lee 0 */
+    mem_free(&m);
+    /* las capas se habilitan con bits distintos; prioridades y control de paleta en los mismos registros */
+    CHECK(game_sf2.cpsb->layer_enable[0] == 0x08 && game_sf2ce.cpsb->layer_enable[0] == 0x02);
+    CHECK(game_sf2.cpsb->palette_control == game_sf2ce.cpsb->palette_control);
+    /* STF29 y S9263B traducen igual todos los códigos */
+    static const int types[4] = { GFXTYPE_SPRITES, GFXTYPE_SCROLL1, GFXTYPE_SCROLL2, GFXTYPE_SCROLL3 };
+    int same = 1;
+    for (int t = 0; t < 4; t++)
+        for (int code = 0; code < 0x10000; code++)
+            if (gfx_map(game_sf2.mapper, types[t], code) != gfx_map(game_sf2ce.mapper, types[t], code)) same = 0;
+    CHECK(same);
+    CHECK(gfx_map(game_sf2.mapper, GFXTYPE_SCROLL1, 0x4000) == 0x14000 && gfx_map(game_sf2.mapper, GFXTYPE_SCROLL1, 0x3fff) == -1);
+    /* programa de palabras (ROM_LOAD16_WORD_SWAP): el archivo va tal cual a su dirección */
+    RomSet rs;
+    romset_init(&rs, &game_sf2ce);
+    for (int i = 0; i < 3; i++) {
+        rs.data[i] = calloc(0x80000, 1);
+        rs.data[i][0] = (uint8_t)(0x10 + i); rs.data[i][1] = (uint8_t)(0x20 + i);
+    }
+    static uint8_t img[0x180000];
+    romset_build_program(&rs, img);
+    CHECK(img[0] == 0x10 && img[1] == 0x20 && img[0x80000] == 0x11 && img[0x100001] == 0x22);
     romset_free(&rs);
 }
 
@@ -257,6 +325,7 @@ int main(void) {
     test_inflate();
     test_zip();
     test_romset();
+    test_cpsb();
     test_state_stream();
     test_config();
     test_portability();

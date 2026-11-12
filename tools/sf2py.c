@@ -28,7 +28,7 @@ static Machine *mach(Sf2 *s) { return (Machine *)s; }
 SF2PY_API Sf2 *sf2py_create(const char *roms, int video, int sound, char *err, int errn) {
     RomSet rs;
     char report[2048];
-    romset_init(&rs);
+    romset_init(&rs, sf2_game());
     if (hostio_load_romset(roms, &rs, report, sizeof report) != 0) {
         snprintf(err, (size_t)errn, "%s: %s", roms, report[0] ? report : "no se pudieron cargar las ROMs");
         romset_free(&rs);

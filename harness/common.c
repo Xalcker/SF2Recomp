@@ -4,11 +4,11 @@
 
 uint32_t g_ring[TRACE_RING];
 unsigned g_ring_pos;
-static uint8_t g_covered[ROM_SIZE / 8];   /* cobertura dinámica: bit por dirección de instrucción ejecutada */
+static uint8_t g_covered[ROM_SIZE_MAX / 8];   /* cobertura dinámica: bit por dirección de instrucción ejecutada */
 static uint64_t g_distinct;
 
 void cov_mark(uint32_t pc) {
-    if (pc < ROM_SIZE) {
+    if (pc < ROM_SIZE_MAX) {
         uint8_t bit = 1u << (pc & 7);
         if (!(g_covered[pc >> 3] & bit)) { g_covered[pc >> 3] |= bit; g_distinct++; }
     }
@@ -22,7 +22,7 @@ void cov_report(const char *path, unsigned insn_count) {
     if (path) {
         FILE *f = fopen(path, "w");
         if (f) {
-            for (uint32_t a = 0; a < ROM_SIZE; a += 2)
+            for (uint32_t a = 0; a < ROM_SIZE_MAX; a += 2)
                 if (g_covered[a >> 3] & (1u << (a & 7))) fprintf(f, "%06x\n", a);
             fclose(f);
             printf("direcciones ejecutadas escritas en %s\n", path);
@@ -59,9 +59,10 @@ void dump_regs(FILE *f, const char *tag, const uint32_t *d, const uint32_t *a, u
 uint8_t *load_rom(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) { perror(path); return NULL; }
-    uint8_t *rom = calloc(ROM_SIZE, 1);
-    size_t n = fread(rom, 1, ROM_SIZE, f);
+    const uint32_t size = recomp_game()->prog_size;      /* imagen de programa de la variante del código generado */
+    uint8_t *rom = calloc(size + 1, 1);
+    size_t n = fread(rom, 1, size + 1, f);
     fclose(f);
-    if (n != ROM_SIZE) { fprintf(stderr, "ROM de tamano inesperado (%zu bytes)\n", n); free(rom); return NULL; }
+    if (n != size) { fprintf(stderr, "ROM de tamano inesperado (%zu bytes; %s espera %u)\n", n, recomp_game()->id, size); free(rom); return NULL; }
     return rom;
 }

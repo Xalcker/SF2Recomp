@@ -28,7 +28,7 @@ extern "C" {
 #define SF2_SCREEN_H   224
 #define SF2_SCREEN_W_MAX 800                  /* techo de la pantalla ancha (16:9 con la forma de píxel de la recreativa) */
 #define SF2_AUDIO_RATE 48000u                 /* frecuencia de la mezcla validada contra MAME (D31) */
-#define SF2_FRAME_HZ   (10000000.0 / 167680.0)   /* 59,637 Hz */
+#define SF2_FRAME_HZ   (sf2_frame_hz())          /* reloj del 68000 / ciclos por cuadro: 59,637 Hz en todas las variantes */
 
 /* bits de las entradas (1 = pulsado) para sf2_set_input; los mismos nombres que tools/inputs_sf2.txt */
 #define SF2_IN0_COIN1   0x0001
@@ -57,6 +57,12 @@ typedef struct Sf2Options {
 } Sf2Options;
 
 typedef struct Sf2 Sf2;
+
+/* variante de SF2 que mueve este ejecutable (la del código generado, D63): su catálogo de ROMs es el que hay que cargar
+ * (romset_init(&rs, sf2_game())) */
+const GameDef *sf2_game(void);
+/* cuadros por segundo de esa variante */
+double sf2_frame_hz(void);
 
 /* opciones por omisión: vídeo y sonido activados, dipswitches de MAME */
 void sf2_options_default(Sf2Options *o);

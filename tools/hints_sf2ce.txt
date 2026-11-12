@@ -1,0 +1,3 @@
+# tools/hints_sf2ce.txt - correcciones manuales del análisis estático de Street Fighter II': Champion Edition (World 920513).
+# Mismo formato que tools/hints.txt (entry / label / table_end / inline_text).  Vacío hasta la fase 1 de CE
+# (docs/VARIANTES.md): se llenará al recorrer el juego y revisar los conflictos de tools/coverage.py, como en el hito 6.

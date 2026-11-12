@@ -11,8 +11,24 @@ function(sf2_generation_pipeline OUTDIR)
       "  -DSF2_GENERATED_DIR=/ruta/a/<otro build>/generated")
   endif()
   set(tools "${SF2_ROOT}/tools")
+  if(NOT SF2_GAME)
+    set(SF2_GAME sf2)
+  endif()
+  # pistas del análisis de cada variante (D63): tools/hints.txt es la de sf2; las demás, tools/hints_<juego>.txt
+  if(SF2_GAME STREQUAL "sf2")
+    set(hints "${tools}/hints.txt")
+  else()
+    set(hints "${tools}/hints_${SF2_GAME}.txt")
+  endif()
   set(gen "${OUTDIR}/generated")
   set(rom_bin "${OUTDIR}/rom.bin")
+  # la variante se escribe en un archivo (solo si cambia) del que dependen la imagen y la regeneración, como SF2_USE_MODS
+  set(game_stamp "${OUTDIR}/gen_game.txt")
+  file(CONFIGURE OUTPUT "${game_stamp}" CONTENT "SF2_GAME=${SF2_GAME}\n")
+  set(hints_dep "${game_stamp}")
+  if(EXISTS "${hints}")
+    list(APPEND hints_dep "${hints}")
+  endif()
   set(cycles_bin "${OUTDIR}/cycles68000.bin")
 
   # dependencias de la imagen: el zip, o los archivos de la carpeta
@@ -22,8 +38,8 @@ function(sf2_generation_pipeline OUTDIR)
     set(rom_files "${SF2_ROM_DIR}")
   endif()
   add_custom_command(OUTPUT "${rom_bin}"
-    COMMAND "${Python3_EXECUTABLE}" "${tools}/interleave.py" "${SF2_ROM_DIR}" "${rom_bin}"
-    DEPENDS "${tools}/interleave.py" ${rom_files}
+    COMMAND "${Python3_EXECUTABLE}" "${tools}/interleave.py" "${SF2_ROM_DIR}" "${rom_bin}" --game ${SF2_GAME}
+    DEPENDS "${tools}/interleave.py" "${tools}/games.py" "${game_stamp}" ${rom_files}
     COMMENT "Intercalando las ROMs de programa (${SF2_ROM_DIR})"
     VERBATIM)
   add_custom_command(OUTPUT "${cycles_bin}"
@@ -51,10 +67,11 @@ function(sf2_generation_pipeline OUTDIR)
 
   add_custom_command(OUTPUT ${srcs} "${gen}/recomp_funcs.h"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${gen}"
-    COMMAND "${Python3_EXECUTABLE}" "${SF2_ROOT}/recompiler/gen_c.py" "${rom_bin}" "${gen}"
-            --hints "${tools}/hints.txt" ${mods_args} --cycles "${cycles_bin}" --parts ${SF2_PARTS}
+    COMMAND "${Python3_EXECUTABLE}" "${SF2_ROOT}/recompiler/gen_c.py" "${rom_bin}" "${gen}" --game ${SF2_GAME}
+            --hints "${hints}" ${mods_args} --cycles "${cycles_bin}" --parts ${SF2_PARTS}
             --report "${OUTDIR}/coverage.txt"
-    DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/hints.txt" "${SF2_ROOT}/recompiler/mod_patches.txt"
+    DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/games.py" "${SF2_ROOT}/recompiler/mod_patches.txt"
+            ${hints_dep}
             "${rom_bin}" "${cycles_bin}" "${mods_stamp}"
     COMMENT "Recompilando el 68000 a C (gen_c.py, 16 partes)"
     VERBATIM)

@@ -23,7 +23,9 @@ llegue también a `build-win` y `build-web`). `make -j8` lo lanza a través del 
 - `recomp_funcs.h`: prototipos `void f_XXXXXX(M68K *c);`, la macro `TAILDISPATCH` y las
   declaraciones de la tabla (`recomp_table`, `recomp_table_len`, `recomp_reset_pc`,
   `recomp_insn_count`) y, desde el hito 5, `recomp_rom_crc32`: el CRC-32 de la imagen de programa con la que se
-  generó, que el juego comprueba al cargar las ROMs (D38).
+  generó, que el juego comprueba al cargar las ROMs (D38), y desde D63 `recomp_game_id`: el set de MAME de esa imagen (`--game`,
+  por omisión `sf2`), del que el núcleo saca su descriptor (`runtime/game.h`). `gen_c.py --game` comprueba que la imagen mide lo que
+  el programa de esa variante y, si la variante no tiene mods, no aplica `mod_patches.txt`.
 - `recomp_NN.c`: las funciones, repartidas en N archivos equilibrados para compilar en paralelo.
 - `recomp_table.c`: `{ dirección, función }` ordenada por dirección para todas las etiquetas
   despachables (entradas, destinos de salto, puntos de retorno tras `jsr`/`trap`).

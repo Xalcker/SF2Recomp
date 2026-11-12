@@ -689,3 +689,19 @@ la X del rival divergía en el cuadro 30.728 de `ryu.txt`), así que se aplican 
 ensanchados los tiles de un bloque que pasan de la X 511 se recortan en vez de dar la vuelta. (4) El criterio de escena ancha añade la subfase 0x0E y el modo 0x0C
 fase 0 con luchadores (`0xFF86C6`), que vaciaban las bandas un cuadro; la fase 0 del modo 0x0C sin luchadores es la intro del atracción. Comprobado: `make test` 8/8
 (centro del cuadro ancho idéntico al de 384), `compare-video` 17/17.
+
+## D63 (2026-11-12): Variantes de SF2 con un descriptor por juego; una variante por árbol de compilación
+
+Para dar cabida a *Champion Edition* y *Hyper Fighting* (`docs/VARIANTES.md`). Decisiones: (1) todo lo que distingue una variante vive en
+un `GameDef` (`runtime/game.h`): reloj del 68000 y ciclos por cuadro, tamaño del programa, configuración del CPS-B, mapeador gráfico,
+catálogo de ROMs y los hechos del programa que usa la validación (manejador de la IRQ2, punto de muestra, contador de cuadros); nada de
+macros sueltas por el núcleo. (2) El CPS-B se describe con los valores crudos de la tabla de MAME y se lee con la misma aritmética que
+`cps1_cps_b_r` (incluida la división entera de -1, que da en el CPS-B-11 la lectura `reg0 * reg0` de 0x800140), en vez de un caso por
+chip. (3) Un árbol de compilación mueve una sola variante: el C generado es de un programa concreto y sus símbolos (`f_XXXXXX`, la tabla)
+chocarían con los de otro. La variante la elige `SF2_GAME` en CMake y queda escrita en el C generado (`recomp_game_id`), de donde la toma
+el núcleo (`recomp_game()`); así el ejecutable no puede emparejarse con otro descriptor, y las piezas sin código generado (`romset`,
+`mem`, `cps1`) reciben el descriptor como parámetro. (4) Una variante cuyo programa no está analizado (`program_known = 0`) no arranca: el
+núcleo lo dice en vez de correr sin punto de muestra ni pistas. (5) Los mods son de WW (`has_mods`): con otra variante `gen_c.py` no
+aplica `mod_patches.txt`. (6) `tools/games.py` repite en Python lo que necesitan las herramientas; `runtime/game.c` es la referencia.
+Comprobado: con `sf2` la salida es idéntica byte a byte a la de antes (resumen, audio, comandos de sonido, capturas, traza de estado),
+`make test` 8/8 y las 14 secuencias reproducen su CRC.

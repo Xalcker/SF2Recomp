@@ -316,8 +316,9 @@ static void bus_write(void *ctx, uint16_t a, uint8_t v, uint64_t t) {
 int sound_init(Cps1Sound *s, const RomSet *rs) {
     memset(s, 0, sizeof *s);
     s->trace_from = UINT64_MAX;
-    for (int i = 0; i < ROMSET_COUNT; i++) {
-        const RomInfo *ri = &romset_catalogue[i];
+    s->m68k_hz = rs->game->cpu_hz;
+    for (int i = 0; i < rs->game->nroms; i++) {
+        const RomInfo *ri = &rs->game->roms[i];
         if (ri->kind != ROMKIND_Z80 && ri->kind != ROMKIND_OKI)
             continue;
         if (!rs->data[i])
@@ -445,7 +446,7 @@ void sound_free(Cps1Sound *s) {
 
 void sound_latch_write(Cps1Sound *s, int which, uint8_t val, uint64_t cyc68) {
     s->latch_writes++;
-    uint64_t tz = sound_z80_cycle(cyc68);
+    uint64_t tz = sound_z80_cycle(s, cyc68);
     if (s->f_events)
         fprintf(s->f_events, "L %d %02x %llu %llu\n", which, val, (unsigned long long)cyc68, (unsigned long long)tz);
     if (s->lq_count == SOUND_LATCH_QUEUE) {
@@ -490,7 +491,7 @@ void sound_set_trace(Cps1Sound *s, FILE *f, uint64_t from, uint64_t to) {
 }
 
 void sound_run_until(Cps1Sound *s, uint64_t cyc68) {
-    uint64_t target = sound_z80_cycle(cyc68);
+    uint64_t target = sound_z80_cycle(s, cyc68);
     Z80 *z = &s->z;
     while (z->cycles < target) {
         process_events(s, z->cycles);

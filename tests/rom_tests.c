@@ -22,7 +22,7 @@ static int g_fail, g_checks;
 
 static int load_all(const char *path, RomSet *rs) {
     char report[4096];
-    romset_init(rs);
+    romset_init(rs, sf2_game());
     int missing = hostio_load_romset(path, rs, report, sizeof report);
     if (missing) fprintf(stderr, "%s: %s", path, report);
     return missing;
@@ -34,15 +34,16 @@ typedef struct Hide { RomSource inner; uint32_t crc; const char *tmp_name; } Hid
 static void test_roms(const char *path, const char *path2) {
     RomSet rs;
     CHECK(load_all(path, &rs) == 0);
-    for (int i = 0; i < ROMSET_COUNT; i++) CHECK(rs.data[i] != NULL);
-    static uint8_t prog[ROM_SIZE];
+    const GameDef *g = sf2_game();
+    CHECK(romset_complete(&rs));
+    static uint8_t prog[ROM_SIZE_MAX];
     romset_build_program(&rs, prog);
-    CHECK(sf2_crc32(0, prog, ROM_SIZE) == recomp_rom_crc32);          /* las ROMs son las del codigo recompilado */
+    CHECK(sf2_crc32(0, prog, g->prog_size) == recomp_rom_crc32);      /* las ROMs son las del codigo recompilado */
     if (path2) {
         RomSet rs2;
         CHECK(load_all(path2, &rs2) == 0);
-        for (int i = 0; i < ROMSET_COUNT; i++)
-            CHECK(rs.data[i] && rs2.data[i] && memcmp(rs.data[i], rs2.data[i], romset_catalogue[i].size) == 0);
+        for (int i = 0; i < g->nroms; i++)
+            CHECK(rs.data[i] && rs2.data[i] && memcmp(rs.data[i], rs2.data[i], g->roms[i].size) == 0);
         romset_free(&rs2);
     }
     romset_free(&rs);
@@ -67,13 +68,17 @@ static void test_missing(const char *path) {
     CHECK(zip_open(&z, data, len, err, sizeof err) == 0);
     Hide h;
     romset_source_from_zip(&h.inner, &z);
-    g_hide_crc = (int)romset_catalogue[ROMSET_COUNT - 1].crc;          /* sf2_19.12c */
+    const GameDef *g = sf2_game();
+    const RomInfo *last = &g->roms[g->nroms - 1];                      /* sf2_19.12c en sf2 */
+    g_hide_crc = (int)last->crc;
     RomSource src = { &h, hide_get, hide_read };
     RomSet rs;
-    romset_init(&rs);
+    romset_init(&rs, g);
     int missing = romset_load(&rs, &src, report, sizeof report);
     CHECK(missing == 1);
-    CHECK(strstr(report, "Faltan 1 de las 23") != NULL && strstr(report, "sf2_19.12c") != NULL);
+    char want[64];
+    snprintf(want, sizeof want, "Faltan 1 de las %d", g->nroms);
+    CHECK(strstr(report, want) != NULL && strstr(report, last->name) != NULL);
     /* con una ROM menos el nucleo no arranca y lo dice */
     Sf2 *s = NULL;
     char e2[512];

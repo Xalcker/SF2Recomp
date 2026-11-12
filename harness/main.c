@@ -279,7 +279,7 @@ void rt_hook(M68K *c) {
     }
     if (g_finish)
         finish(c);
-    if (c->pc == CPS1_SAMPLE_PC)
+    if (c->pc == recomp_game()->sample_pc)
         cps1_sample(&g_machine, c);
     if (g_trace) {
         char buf[128];
@@ -329,7 +329,7 @@ static void run(M68K *c) {
 
 int main(int argc, char **argv) {
     const char *rom_path = NULL, *inputs = NULL, *summary = NULL;
-    uint64_t frame_cycles = CPS1_FRAME_CYCLES;
+    uint64_t frame_cycles = recomp_game()->frame_cycles;
     int log_io = 0, detail = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) g_max_frames = strtoull(argv[++i], NULL, 0);
@@ -356,7 +356,7 @@ int main(int argc, char **argv) {
     uint8_t *rom = load_rom(rom_path);
     if (!rom) return 1;
 
-    mem_init(&g_mem, rom, "recomp");
+    mem_init(&g_mem, recomp_game(), rom, "recomp");
     g_mem.log_io = log_io;
     g_mem.log_file = stderr;
     cps1_init(&g_machine, &g_mem);
@@ -377,7 +377,7 @@ int main(int argc, char **argv) {
     if (g_cpu.pc != recomp_reset_pc)
         fprintf(stderr, "aviso: vector de reset %06x distinto del usado al generar (%06x)\n", g_cpu.pc, recomp_reset_pc);
 
-    mem_init(&g_musashi_mem, rom, "musashi");
+    mem_init(&g_musashi_mem, recomp_game(), rom, "musashi");
     g_musashi_mem.log_io = 0;
     mem_copy_inputs(&g_musashi_mem, &g_mem);
     g_musashi_mem_ptr = &g_musashi_mem;
