@@ -794,4 +794,10 @@ de 0x400; esos manejadores solo correrían ante una excepción o una IRQ distint
 (D49 pide 0): la `bmi.w` de 0x23B54 lleva a 0x23B60, `addq.l #1,$0001.w` (escritura long a dirección impar: error de dirección en un
 68000), que cae en la tabla de saltos de 0x23B64. Solo se toma si el byte leído en 0x23B52 es negativo; en la máquina real terminaría
 igual en una excepción, y el código generado se detiene con el mensaje de D46. Ninguna pista actual lo expresa; se deja documentado.
-No se ha comparado con MAME (no había MAME en la máquina donde se hizo).
+Al compararla con MAME 0.289 (compilado en Windows): (6) `RESET` cuesta 132 ciclos y no 4 (`mame_fix` en `recompiler/gen_c.py`; Musashi
+los suma al ejecutarla, no en su tabla). sfzch la ejecuta al arrancar; con 4 ciclos la IRQ caía en otra instrucción del planificador
+durante los primeros 433 cuadros (la pila quedaba distinta) aunque la partida coincidía. WW, CE y HF no la ejecutan y no cambian; (7) los
+scripts de MAME toman de `tools/mame_game.lua` el contador de cuadros y la tabla de teclas de cada variante (en sfzch, los puertos del
+Changer). Resultado con `inputs_sf2.txt` (12.000 cuadros): estado, registros, RAM gráfica, comandos de sonido y 17 capturas idénticos. El
+audio difiere en dos tramos: D29 cambia el latch al final de la instrucción del 68000 y MAME al empezar la escritura en el bus, 8-12
+ciclos antes (medido igual en WW, CE y HF, donde el Z80 nunca lee en esa ventana); el Z80 de sfzch lee el latch 2 dentro de ella.

@@ -87,7 +87,7 @@ cmake --build build -j8
 Las instrucciones de Linux, Windows y Web de abajo son las de *The World Warrior*; las demás variantes se compilan igual añadiendo
 `-DSF2_GAME=` (o `GAME=` en `make web`), pero **solo se han probado en macOS** y en Windows nativo (las tres variantes, `ctest` 8/8).
 Además se puede compilar *Street Fighter Zero* en la versión de CPS Changer (`-DSF2_GAME=sfzch` con `sfzch.zip`): es jugable en
-vanilla y sin mods, pero no se ha comparado con MAME (`docs/VARIANTES.md`, D71).
+vanilla y sin mods, e idéntico a MAME en estado, vídeo y comandos de sonido; el audio difiere en dos tramos (`docs/VARIANTES.md`, D71).
 
 ### Linux
 

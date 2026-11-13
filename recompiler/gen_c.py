@@ -68,6 +68,9 @@ def mame_fix(ins: Insn) -> int:
         return 2
     if sz == 2 and m == "addq" and ops[1].kind == AN:
         return 4                    # addq.w #,An es una suma de 32 bits: 8 ciclos como subq.w (Musashi pone 4)
+    if m == "reset":
+        return 128                  # RESET cuesta 132 (124 con la línea de reset afirmada); Musashi los suma al ejecutarla, no en
+                                    # su tabla, que da 0 (-> 4).  sfzch la ejecuta al arrancar (D71); WW, CE y HF no
     return 0
 
 

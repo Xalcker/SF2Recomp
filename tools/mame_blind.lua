@@ -126,6 +126,7 @@ local KEYS = {
   p1_lk = {":IN2", 0x01}, p1_mk = {":IN2", 0x02}, p1_hk = {":IN2", 0x04},
   p2_lk = {":IN2", 0x10}, p2_mk = {":IN2", 0x20}, p2_hk = {":IN2", 0x40},
 }
+KEYS = G.keys(KEYS)   -- puertos de la variante (CPS Changer, D71)
 
 local events = {}
 if inputs_path then
@@ -225,7 +226,7 @@ local function sample(frame)
   local line = string.format("f=%d pc=%06x sr=%04x d=%s a=%s in=%02x,%04x,%02x fc=%02x w=%08x v=%08x g=%08x",
     frame, pushed_pc & 0xffffff, pushed_sr, table.concat(d, ","), table.concat(a, ","),
     ioport.ports[":IN0"]:read() & 0xff, ioport.ports[":IN1"]:read() & 0xffff, ioport.ports[":IN2"]:read() & 0xff,
-    string.byte(w, 0x801c + 1), wh, vh, fnv(g, FNV_INIT))
+    string.byte(w, G.frame_ctr - 0xff0000 + 1), wh, vh, fnv(g, FNV_INIT))
   if detail then
     local wb, gb = {}, {}
     for b = 0, 15 do

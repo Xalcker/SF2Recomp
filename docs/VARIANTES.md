@@ -28,7 +28,7 @@ Las prioridades (0x800168-0x80016E), el control de capas (0x800166) y el de pale
 | 1 | CE en vanilla: generar con `-DSF2_GAME=sf2ce`, buscar el manejador de la IRQ2, el punto de muestra y el contador de cuadros (`program_known`), llenar `tools/hints_sf2ce.txt` hasta 0 fallos de despacho y `compare-*` idénticos a MAME | **jugable e idéntica a MAME** en las partidas probadas (2026-11-12, D64-D66); falta cobertura: secuencias propias de CE (`playgen.py`, 12 personajes) y `compare-coverage` |
 | 2 | HF en vanilla: catálogo `sf2hf`, el resto como CE | **jugable e idéntica a MAME** en las partidas probadas (2026-11-12, D67); falta cobertura, como en CE |
 | 3 | Mods por variante: direcciones de `recompiler/mod_patches.txt`, `runtime/training.c`, la cola de sonido del estéreo, la RAM de la escena ancha... | **hecha** (2026-11-12, D68) salvo las herramientas de desarrollo (solo WW); límites en la bitácora `2026-11-12-variantes-fase-3` |
-| 4 | *Street Fighter Zero* (CPS Changer, `sfzch`) en vanilla: programa de 2 MiB, gráficos de 8 MiB, entradas del Changer | **jugable** (2026-11-13, D71); sin comparar con MAME (no hay MAME en la máquina donde se hizo) |
+| 4 | *Street Fighter Zero* (CPS Changer, `sfzch`) en vanilla: programa de 2 MiB, gráficos de 8 MiB, entradas del Changer | **jugable e idéntica a MAME** en estado, vídeo y comandos de sonido (2026-11-13, D71); el audio difiere en dos tramos (latch 2, D29) |
 
 ## Cómo se elige la variante
 
@@ -93,5 +93,8 @@ Sin mods (no hay `recompiler/mod_patches_sfzch.txt`): pantalla ancha, entrenamie
 mods (D66). Pistas en `tools/hints_sfzch.txt`. Bitácora `2026-11-13-sfzch`.
 
 Probado en Windows (GCC 16.2): `ctest` 8/8, 40.000 cuadros de atracción sin fallos de despacho, una partida (start, selección, combate)
-con los seis botones distinguibles, y sonido (YM2151 y OKI). **No se ha comparado con MAME**. Queda un conflicto en el análisis
+con los seis botones distinguibles, y sonido (YM2151 y OKI). **Contra MAME 0.289** (compilado en Windows, ver `tools/README.md`), con
+`inputs_sf2.txt` y 12.000 cuadros: estado, registros, RAM gráfica y comandos de sonido idénticos en todos los cuadros, y 17 de 17
+capturas idénticas. El audio es idéntico salvo en dos tramos donde el Z80 lee el latch 2 en los 12 ciclos en que nuestro latch cambia
+más tarde que el de MAME (D29, ver D71): mismo nivel y espectro, muestras distintas. Queda un conflicto en el análisis
 (`023b64<-023b60`, ver D71).

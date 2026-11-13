@@ -13,14 +13,34 @@ local GAMES = {
   sf2   = { sample_pc = 0x000ad0, addr = 0x800172, write = false, cpu_hz = 10000000 },
   sf2ce = { sample_pc = 0x0005da, addr = 0x800100, write = true,  cpu_hz = 12000000 },
   sf2hf = { sample_pc = 0x01d264, addr = 0x800122, write = true,  cpu_hz = 12000000 },
-  sfzch = { sample_pc = 0x001076, addr = 0x800100, write = true,  cpu_hz = 12000000 },
+  -- CPS Changer (D71): contador de cuadros en 0xFF8018 y otras entradas.  Los nombres de tecla son los de siempre y aquí se
+  -- traducen a los puertos del Changer igual que cps1_apply_inputs en runtime/cps1.c (INPUT_PORTS_START( sfzch ) de MAME):
+  -- la moneda es Select, MK y HK van a IN0 y LK al bit 7/15 de IN1.  service y test no existen (false = tecla no admitida).
+  sfzch = { sample_pc = 0x001076, addr = 0x800100, write = true,  cpu_hz = 12000000, frame_ctr = 0xff8018,
+            keys = {
+              coin1 = {":IN0", 0x04}, coin2 = {":IN0", 0x08}, service = false, test = false,
+              p1_mk = {":IN0", 0x01}, p2_mk = {":IN0", 0x02}, p1_hk = {":IN0", 0x40}, p2_hk = {":IN0", 0x80},
+              p1_lk = {":IN1", 0x0080}, p2_lk = {":IN1", 0x8000},
+            } },
 }
 
 local id = os.getenv("SF2_GAME") or "sf2"
 local g = GAMES[id]
 if not g then error("SF2_GAME: variante desconocida '" .. id .. "'") end
 
-local M = { id = id, sample_pc = g.sample_pc, sample_addr = g.addr, cpu_hz = g.cpu_hz }
+local M = { id = id, sample_pc = g.sample_pc, sample_addr = g.addr, cpu_hz = g.cpu_hz,
+            frame_ctr = g.frame_ctr or 0xff801c }   -- GameDef.frame_counter
+
+-- tabla de teclas de la variante: la de SF2 (`base`, la de cada script) con los cambios de la variante
+function M.keys(base)
+  if not g.keys then return base end
+  local t = {}
+  for k, v in pairs(base) do t[k] = v end
+  for k, v in pairs(g.keys) do
+    if v then t[k] = v else t[k] = nil end
+  end
+  return t
+end
 
 -- tap sobre la dirección del punto de muestra; `fn(at_sample)` recibe true si el acceso es el del manejador (CURPC = punto de
 -- muestra) y false si es otro acceso a esa dirección
