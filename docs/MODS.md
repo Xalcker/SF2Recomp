@@ -4,7 +4,8 @@ Catálogo de lo que el port añade al juego original. Todo está implementado y 
 con opciones de línea de comandos o desde `sf2recomp.ini`. Última revisión: 2026-10-21.
 
 **Variantes (D68):** en *Champion Edition* y *Hyper Fighting* están todos menos las herramientas de desarrollo (propias de WW); límites en
-`docs/VARIANTES.md` y en la bitácora `2026-11-12-variantes-fase-3`.
+`docs/VARIANTES.md` y en la bitácora `2026-11-12-variantes-fase-3`. En *Street Fighter Zero* (CPS Changer, `sfzch`) solo el sonido estéreo
+(D73).
 
 **Regla de todos los mods:** son interruptores y, **apagados, el juego es idéntico a MAME** (`make compare-video` 17/17, las 14 secuencias con el mismo CRC de
 estado, `make test`). Se distinguen dos clases:

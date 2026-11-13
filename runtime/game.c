@@ -173,11 +173,24 @@ static const ModRam mod_ram_sf2ce = {
     0xFF8BC4u, 0xFF8BC8u, 0xFF89C4u, 0xFF89C6u, 0xFF8660u, 0xFF9376u, 0xFF819Eu, 0xFF8024u, 0xFF9000u, 0xFFE000u,
 };
 
+/* estéreo (D73).  WW, CE y HF: a6 = luchador + 6 u objeto del combate, X en 0x6(a6), ranura en d1, cola de 64 palabras (la RAM de cada
+ * una, la de su ModRam).  sfzch (medido con un tap de escritura sobre la cola en MAME): la rutina 0x11350 encola en 0x11364
+ * (`move.w d1,0x0(a4,d0.w)`, ranura en d0) en una cola de 256 palabras en 0xFF261A; a6 = luchador (0xFF8400, 0xFF8800) u objeto
+ * del combate (0xFF9000-0xFF9FFF, los golpes y proyectiles), X de mundo en 0x10(a6); cámara principal 0xFF8290 (la que centra a los
+ * dos luchadores); índice de lectura -0x49E4(a5) = 0xFF361C.  Tras cada sonido encola 0xFF00 («sin comando»: latch 1 = 0x00, que
+ * no debe quitar la posición al sonido anterior); en SF2 ese «sin comando» es el latch 1 = 0xFF y lo reconoce sound.c.  Fuera del
+ * combate los «luchadores» piden los sonidos de la selección con la cámara a 0: solo se panea con el luchador 1 en juego, el byte
+ * 0x4 de su estructura = 2 (partida, combates de la demostración y el de la intro; 0 en título, selección e ilustraciones). */
+static const StereoRam stereo_sf2 = { 0xFF83C6u, 0xFF86C6u, 0xFF9000u, 0xFFE000u, 6, 0xFF8BD8u, 0xFF8024u, 1, 64, 0, 0, 0, 0 };
+static const StereoRam stereo_sf2ce = { 0xFF83BEu, 0xFF86BEu, 0xFF9000u, 0xFFE000u, 6, 0xFF8BC4u, 0xFF8024u, 1, 64, 0, 0, 0, 0 };
+static const StereoRam stereo_sfzch = { 0xFF8400u, 0xFF8800u, 0xFF9000u, 0xFFA000u, 0x10, 0xFF8290u, 0xFF361Cu, 0, 256, 0xFF261Au, 0xFF00u,
+                                         0xFF8404u, 2 };
+
 const GameDef game_sf2 = {
     "sf2", "Street Fighter II: The World Warrior (World 910522)",
     10000000u, 167680u,                 /* 10 MHz * 512 * 262 / 8 MHz */
     0x100000u, 0x600000u, &cpsb_11, &mapper_stf29, COUNT(roms_sf2), roms_sf2,
-    1, 0x000AB8u, 0x000AD0u, 0xFF801Cu, 1, &mod_ram_sf2, 1, 0,
+    1, 0x000AB8u, 0x000AD0u, 0xFF801Cu, 1, &mod_ram_sf2, 1, 0, &stereo_sf2,
 };
 
 const GameDef game_sf2ce = {
@@ -188,7 +201,7 @@ const GameDef game_sf2ce = {
      * es su primer acceso de E/S, la escritura de la base de OBJ (`move.w 0x26(a5),$800100.l`) en 0x5DA; contador de cuadros
      * 0x1C(a5) (0x6AC) y bandera de VBlank 0xFF020E (0x6B0) en las mismas direcciones que WW.  Mods con recompiler/mod_patches_sf2ce.txt
      * y su RAM (D68); sin herramientas de desarrollo. */
-    1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0,
+    1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0, &stereo_sf2ce,
 };
 
 const GameDef game_sf2hf = {
@@ -199,7 +212,7 @@ const GameDef game_sf2hf = {
      * los registros (movem en 0x1D24C); el punto de muestra es el primer acceso de E/S tras el movem, para que el SR y el PC apilados
      * estén en SP+60/62 como en las demás: la escritura de 0x800122 en 0x1D264.  Contador de cuadros 0xFF801C (0x1D52E); la bandera
      * de VBlank se mueve a 0xFF04CE (0x1D532).  Mods como CE (recompiler/mod_patches_sf2hf.txt, la RAM de CE). */
-    1, 0x01D1E0u, 0x01D264u, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0,
+    1, 0x01D1E0u, 0x01D264u, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0, &stereo_sf2ce,
 };
 
 const GameDef game_sfzch = {
@@ -207,8 +220,8 @@ const GameDef game_sfzch = {
     12000000u, 201216u,                 /* cps1_12MHz */
     0x200000u, 0x800000u, &cpsb_21_sfz, &mapper_sfz63b, COUNT(roms_sfzch), roms_sfzch,
     /* manejador de la IRQ2 en 0x1068; primer acceso de E/S tras movem: escritura de 0x800100 en 0x1076; contador de cuadros
-     * 0xFF8018 (`addq.b #$1,0x18(a5)` en 0x10DC); bandera de VBlank en 0xFF049E.  Sin mods ni bloqueo de monedas (CPS Changer). */
-    1, 0x001068u, 0x001076u, 0xFF8018u, 0, NULL, 0, 1,
+     * 0xFF8018 (`addq.b #$1,0x18(a5)` en 0x10DC); bandera de VBlank en 0xFF049E.  Sin bloqueo de monedas (CPS Changer); de los mods, solo el estéreo (D73). */
+    1, 0x001068u, 0x001076u, 0xFF8018u, 0, NULL, 0, 1, &stereo_sfzch,
 };
 
 static const GameDef *const games[] = { &game_sf2, &game_sf2ce, &game_sf2hf, &game_sfzch };

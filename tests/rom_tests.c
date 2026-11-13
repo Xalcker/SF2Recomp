@@ -534,11 +534,23 @@ static void test_no_mods(const char *rom, const char *script) {
     sf2_set_wide_logic(b, 1);
     sf2_set_stage_full(b, 1);
     sf2_set_stereo(b, 1);
-    CHECK(sf2_wide_logic_extra(b) == 0 && !sf2_stereo(b));
+    /* el estéreo va aparte (D73): lo tiene la variante que declara su StereoRam (sfzch) y, encendido, no cambia la partida */
+    CHECK(sf2_wide_logic_extra(b) == 0 && sf2_stereo(b) == (sf2_has_stereo() ? 1 : 0));
+    long panned = 0;
     for (int i = 0; i < 3000; i++) {
         CHECK(sf2_run_frame(a) > 0 && sf2_run_frame(b) > 0);
+        size_t n = 0;
+        const float *s = sf2_audio(b, &n);
+        if (sf2_audio_channels(b) == 2)
+            for (size_t k = 0; k + 1 < n; k += 2)
+                panned += s[k] != s[k + 1];
         sf2_audio_clear(a); sf2_audio_clear(b);
     }
+    if (sf2_has_stereo()) {
+        fprintf(stderr, "estereo: %ld muestras con L != R en 3000 cuadros\n", panned);
+        CHECK(panned > 0);
+    }
+    CHECK(sf2_game_crc(a) == sf2_game_crc(b));
     CHECK(sf2_state_crc(a) == sf2_state_crc(b));
     Sf2Box box[8];
     CHECK(sf2_training_boxes(b, box, 8) == 0);

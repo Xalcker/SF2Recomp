@@ -86,6 +86,24 @@ typedef struct ModRam {
     uint32_t obj_lo, obj_hi;            /* objetos del combate (proyectiles, chispas): [obj_lo, obj_hi) */
 } ModRam;
 
+/* Mod de sonido estéreo (docs/ESTEREO.md, D73): lo que necesita, aparte del resto de los mods para que una variante pueda tenerlo
+ * sola.  El parche de la instrucción que encola un sonido (recompiler/mod_patches*.txt) llama a mod_sound_tag (runtime/cpu.h) con
+ * a6 apuntando al objeto que lo pide; al escribir el latch 1, machine.c toma la ranura que indica el índice de lectura. */
+#define STEREO_SLOTS_MAX 256
+typedef struct StereoRam {
+    uint32_t p1_obj, p2_obj;            /* valor de a6 cuando pide el sonido un luchador */
+    uint32_t obj_lo, obj_hi;            /* o un objeto del combate: a6 en [obj_lo, obj_hi) */
+    uint32_t x_off;                     /* desplazamiento de la X de mundo (palabra) desde a6 */
+    uint32_t cam_x;                     /* borde izquierdo de la cámara principal (palabra) */
+    uint32_t snd_read;                  /* índice de lectura de la cola (palabra, en bytes) */
+    int slot_reg;                       /* registro de datos con el índice de la ranura al encolar (en bytes) */
+    int slots;                          /* palabras de la cola (potencia de 2, como mucho STEREO_SLOTS_MAX) */
+    uint32_t queue;                     /* comienzo de la cola, para reconocer el «sin comando» (0: no hace falta) */
+    uint32_t nocmd;                     /* palabra de la cola que es el «sin comando» que sigue a cada sonido */
+    uint32_t active;                    /* byte que vale active_val cuando hay luchadores en juego (0: siempre); fuera, al centro */
+    uint32_t active_val;
+} StereoRam;
+
 typedef struct GameDef {
     const char *id;                 /* nombre del set de MAME: "sf2", "sf2ce" */
     const char *title;              /* para los mensajes */
@@ -106,6 +124,7 @@ typedef struct GameDef {
     const ModRam *mod_ram;          /* RAM que usan los mods (NULL sin mods) */
     int has_dev_tools;              /* herramientas de desarrollo de Capcom (docs/HERRAMIENTAS_DEV.md): solo WW */
     int changer_inputs;             /* 1 en CPS Changer (sfzch): botones 4-6 y select en IN0/IN1, sin bloqueo de monedas */
+    const StereoRam *stereo;        /* mod estéreo (NULL si la variante no lo tiene; D73) */
 } GameDef;
 
 extern const GameDef game_sf2;      /* The World Warrior (World 910522) */

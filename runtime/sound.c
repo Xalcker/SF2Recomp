@@ -231,7 +231,8 @@ static void process_events(Cps1Sound *s, uint64_t t) {
         if (best == t_l) {
             SoundLatchWrite *w = &s->lq[s->lq_head];
             s->latch[w->which - 1] = w->val;
-            if (s->stereo && w->which == 1 && w->val != 0xff) {     /* 0xFF = «sin comando» tras cada uno */
+            /* «sin comando» tras cada uno: en SF2 el latch 1 vale 0xFF; en sfzch es la palabra 0xFF00 de la cola, que machine.c marca */
+            if (s->stereo && w->which == 1 && w->val != 0xff && w->pos_ok != SOUND_POS_NOCMD) {
                 s->cmd_pos_ok = w->pos_ok;
                 s->cmd_pos = w->pos;
                 s->cmd_t = w->t;
@@ -442,7 +443,7 @@ void sound_set_pan_half(Cps1Sound *s, int half) {
 }
 
 void sound_latch_pos(Cps1Sound *s, int pos_ok, int16_t pos) {
-    s->next_pos_ok = pos_ok != 0;
+    s->next_pos_ok = pos_ok == SOUND_POS_NOCMD ? SOUND_POS_NOCMD : pos_ok != 0;
     s->next_pos = pos;
 }
 

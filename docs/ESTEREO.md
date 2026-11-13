@@ -51,6 +51,30 @@ que con 16:9 o ultraancho el borde de la ventana es el extremo.
 - Separación (fachada, 6.000 cuadros): con 0 % las 4.828.801 muestras tienen L = R = mono; con 100 %, 1.333.178 con L ≠ R.
 - Aplicación (`SDL_AUDIO_DRIVER=disk`): con `--stereo` el dispositivo recibe L ≠ R; sin él, L = R en todas las muestras.
 
+## Street Fighter Zero (CPS Changer, D73)
+
+Lo que necesita el mod está en un descriptor propio por variante (`StereoRam` en `runtime/game.h`/`game.c`), aparte del resto de los mods,
+así que sfzch lo tiene sin tener los demás. Diferencias con SF2, medidas en MAME con un tap de escritura sobre la cola:
+
+| | SF2 (WW) | sfzch |
+|---|---|---|
+| Instrucción que encola (parche) | 0x62AC `move.w d0,0x0(a4,d1.w)` | 0x11364 `move.w d1,0x0(a4,d0.w)` |
+| Cola | 64 palabras en 0xFF81A2, ranura en d1 | 256 palabras en 0xFF261A, ranura en d0 |
+| Quién lo pide (a6) | luchador + 6 (0xFF83C6, 0xFF86C6) u objeto 0xFF9000-0xFFDFFF | luchador (0xFF8400, 0xFF8800) u objeto 0xFF9000-0xFF9FFF |
+| X de mundo | 0x6(a6) | 0x10(a6) |
+| Cámara | 0xFF8BD8 | 0xFF8290 |
+| Índice de lectura | 0x24(a5) | -0x49E4(a5) = 0xFF361C |
+| «Sin comando» tras cada sonido | latch 1 = 0xFF | palabra 0xFF00 (latch 1 = 0x00) |
+
+- **«Sin comando».** En sfzch el latch 1 del «sin comando» vale 0x00, que la placa tomaba por un comando nuevo sin posición: un cuadro
+  después de cada sonido le quitaba el paneo antes de que el Z80 arrancara la frase. `machine.c` lee la palabra de la ranura que se saca y,
+  si es 0xFF00, la marca (`SOUND_POS_NOCMD`) para que no toque la posición.
+- **Solo en juego.** En la selección los «luchadores» piden los sonidos con la cámara a 0; en sfzch solo se panea si el luchador 1 está en
+  juego (byte 0x4 de su estructura = 2: partida, combates de la demostración y el combate de la intro).
+- Comprobado con una partida de hadokens (3.600 cuadros): L ≠ R en el combate y en los de la demostración, con más energía del lado de
+  Ryu; con el mod encendido la partida es la misma (`sf2_game_crc` y `sf2_state_crc` iguales, `test_no_mods`), y apagado el audio sigue
+  idéntico a MAME.
+
 ## Límites
 
 - El paneo de una frase se fija al empezar; no sigue al objeto mientras suena.

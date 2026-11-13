@@ -65,7 +65,7 @@ GAMES = {
             ("sfza20",  "sfza20",  0x806e8f38, 0x80000, 0x180000, LANE_WORD),
         ],
         "hints": "hints_sfzch.txt",
-        "mods": False,
+        "mods": True,                      # recompiler/mod_patches_sfzch.txt: solo el estéreo (D73)
     },
 }
 

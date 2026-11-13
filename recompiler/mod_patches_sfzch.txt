@@ -1,0 +1,9 @@
+# recompiler/mod_patches_sfzch.txt - parches de los mods de Street Fighter Zero (CPS Changer).  Mismo formato que mod_patches.txt.
+# De los mods, sfzch solo tiene el sonido estéreo (D73): los demás necesitan rutinas y RAM de SFZ que no se han buscado (D71).
+#
+# Sonido estéreo (docs/ESTEREO.md): no cambia la partida.  La rutina 0x11350 encola el comando d1 en la ranura d0 de la cola de 256
+# palabras -0x59E6(a5) = 0xFF261A (y detrás un 0xFF00, «sin comando»); quien llama deja en a6 el objeto que lo pide (medido con un tap
+# de escritura sobre la cola en MAME).  Con c->mod_stereo != 0, mod_sound_tag (runtime/cpu.h, StereoRam de runtime/game.c) anota la
+# X en pantalla de ese objeto.  Solo lee la RAM y escribe en campos del anfitrión (snd_x/snd_ok).
+#   0x11364  move.w d1,0x0(a4,d0.w)
+0x11364 | { uint32_t v = (c->d[1] & 0xffffu); | { if (c->mod_stereo) mod_sound_tag(c); uint32_t v = (c->d[1] & 0xffffu);

@@ -92,6 +92,7 @@ void rt_hook(M68K *c) {
     Machine *mc = mach(c);
     if (SF2_UNLIKELY(mc->skip_hook)) {
         mc->skip_hook = 0;              /* reanudación tras ceder: el gancho de esta instrucción ya se ejecutó */
+        mc->last_pc = c->pc;            /* la instrucción que sigue (D72 la usa; tras cargar un estado valdría 0) */
         return;
     }
     c->icount++;
@@ -205,12 +206,18 @@ static void sound_latch_hook(void *ctx, int which, uint8_t val) {
      * comenzar la escritura en el bus, como en MAME (D72): rt_write_lead dice cuántos ciclos antes del final empieza */
     if (mc->sound) {
         if (mc->cpu.mod_stereo && which == 1) {
-            /* mod estéreo: 0x6264 saca de la cola la ranura 0x24(a5) y escribe el latch antes de avanzar el índice; la posición
-             * la anotó el parche de 0x62AC al encolarla (solo lectura de la RAM, la partida no cambia) */
+            /* mod estéreo: WW 0x6264 (sfzch 0x11322) saca de la cola la ranura del índice de lectura y escribe el latch antes de
+             * avanzarlo; la posición la anotó el parche de la instrucción que encola (solo lectura de la RAM, la partida no cambia) */
+            const StereoRam *st = mc->mem.game->stereo;
             const uint8_t *w = mc->mem.wram;
-            const uint32_t ri = mc->mem.game->mod_ram->snd_read & 0xffffu;      /* índice de lectura de la cola (WW 0x24(a5), D68) */
-            const unsigned slot = ((unsigned)(w[ri] << 8 | w[(ri + 1) & 0xffffu]) >> 1) & 63u;
-            sound_latch_pos(mc->sound, mc->cpu.snd_ok[slot], mc->cpu.snd_x[slot]);
+            const uint32_t ri = st->snd_read & 0xffffu;      /* índice de lectura de la cola (WW 0x24(a5); D68, D73) */
+            const unsigned idx = (unsigned)(w[ri] << 8 | w[(ri + 1) & 0xffffu]);
+            const unsigned slot = (idx >> 1) & (unsigned)(st->slots - 1);
+            const uint32_t qa = (st->queue + 2u * slot) & 0xffffu;
+            if (st->queue && (unsigned)(w[qa] << 8 | w[(qa + 1) & 0xffffu]) == st->nocmd)
+                sound_latch_pos(mc->sound, SOUND_POS_NOCMD, 0);      /* «sin comando» (sfzch 0xFF00): no quita la posición */
+            else
+                sound_latch_pos(mc->sound, mc->cpu.snd_ok[slot], mc->cpu.snd_x[slot]);
         }
         sound_latch_write(mc->sound, which, val, mc->cpu.cycles - rt_write_lead(mc->last_pc));
     }
