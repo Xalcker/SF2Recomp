@@ -64,7 +64,14 @@ de sprite de la tabla latcheada según su X respecto a los bordes de la vista, y
 
 ## Pendiente
 
-- Repetir las medidas en WW y en CE (mismo código, mismos parches; aquí no hay ROMs de esas variantes) y `make compare-video` y
-  `playgen.py --verify` en macOS, que con los mods apagados no deberían notar nada.
+- ~~Repetir las medidas en WW y en CE~~: hecho el 2026-11-13 (ver «Seguimiento»).
+- `make compare-video` y `playgen.py --verify` en macOS, que con los mods apagados no deberían notar nada.
 - Que el usuario lo vea jugando en 512, 688 y 768.
 - No se ha tocado la incidencia #4 (elefantes de Dhalsim en el stage completo).
+
+## Seguimiento (2026-11-13)
+
+Con las ROMs de WW y CE ya en la máquina, `main` tras la fusión (PR #7) se compiló en Windows (GCC 16.2) con `SF2_GAME=sf2` y `sf2ce`:
+`ctest` 8/8 en las dos. `test_widescreen` (512 px, `inputs_sf2.txt`, 3.000 cuadros) informa 336 tiles que cruzan el borde izquierdo en WW
+y 660 en CE, y 0 líneas del centro de 384 columnas distintas en las dos: el margen funciona igual en las tres variantes y, con la lógica
+original, no cambia la imagen central.

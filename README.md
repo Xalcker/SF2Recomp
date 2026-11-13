@@ -8,7 +8,7 @@
 > into portable C, in the spirit of N64Recomp: *The World Warrior* (World 910522), *Champion Edition* (World 920513) and *Hyper
 > Fighting* (World 921209). It runs natively on macOS, Linux, Windows and the browser (WebAssembly) and is frame-exact against
 > MAME 0.289 (fourteen full playthroughs of *The World Warrior*; attract mode, a scripted game and audio for the other two, which
-> have only been tested on macOS, plus a native Windows build of *Hyper Fighting* with MSYS2).
+> have only been tested on macOS; all three also build and pass the tests natively on Windows with MSYS2).
 > **No ROMs or Capcom assets are included**: you supply your own MAME zip (`sf2.zip`, `sf2ce.zip` or `sf2hf.zip`), and the
 > recompiler generates the C code at build time on your machine. Build instructions are below (in Spanish); `make
 > ROMDIR=/path/to/sf2.zip` is the short version, and `make GAME=sf2ce BUILD=build-ce ROMDIR=/path/to/sf2ce.zip` builds
@@ -85,8 +85,7 @@ cmake --build build -j8
 ```
 
 Las instrucciones de Linux, Windows y Web de abajo son las de *The World Warrior*; las demás variantes se compilan igual añadiendo
-`-DSF2_GAME=` (o `GAME=` en `make web`), pero **solo se han probado en macOS**, salvo *Hyper Fighting*, que también se ha compilado y
-probado en Windows nativo.
+`-DSF2_GAME=` (o `GAME=` en `make web`), pero **solo se han probado en macOS** y en Windows nativo (las tres variantes, `ctest` 8/8).
 
 ### Linux
 
@@ -105,7 +104,7 @@ con SDL3 y pantalla; el contenedor corre con los controladores de vídeo y audio
 
 ### Windows
 
-**Nativo, con MSYS2** (probado en Windows 11 x86-64 con *Hyper Fighting*: `ctest` 8/8). Hace falta el GCC del entorno UCRT64 de
+**Nativo, con MSYS2** (probado en Windows 11 x86-64 con las tres variantes: `ctest` 8/8). Hace falta el GCC del entorno UCRT64 de
 [MSYS2](https://www.msys2.org/) (`pacman -S mingw-w64-ucrt-x86_64-gcc`; es GCC ≥ 15), CMake, Ninja y Python 3 (los de `winget` valen:
 `Kitware.CMake`, `Ninja-build.Ninja`, `Python.Python.3.13`) y las bibliotecas de SDL3 para MinGW, que el guion deja en `external/`.
 Desde Git Bash o la consola de MSYS2, en la carpeta del proyecto:

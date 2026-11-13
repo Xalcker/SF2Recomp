@@ -257,8 +257,8 @@ resto (entrada `2026-10-20-hito6-plataformas`).
 - El 26 % de las instrucciones no lo ha ejecutado ninguna partida; depende del análisis estático (sin conflictos) y, si fallara,
   el juego lo dice con el remedio (D46). Más partidas con el mismo generador lo reducirían.
 - Probar en Firefox, Safari, un Linux con pantalla y móviles; empaquetado (bundle de macOS, instalador, `.deb`); MSVC (sin
-  `musttail`). En un Windows real y con GCC ≥ 15 ya se probó *Hyper Fighting* (2026-11-12, GCC 16.2 de MSYS2, `ctest` 8/8, D70,
-  bitácora `2026-11-12-windows-nativo`); faltan WW y CE, y comparar con MAME desde Windows.
+  `musttail`). En un Windows real y con GCC ≥ 15 ya se probaron las tres variantes (HF el 2026-11-12, WW y CE el 2026-11-13; GCC 16.2
+  de MSYS2, `ctest` 8/8, D70, bitácora `2026-11-12-windows-nativo`); falta comparar con MAME desde Windows.
 - La capa de estrellas y el volteo de pantalla (D24); DIVU/DIVS con la temporización exacta (el juego no ejecuta su único DIVU).
 - Rendimiento opcional: sonido (ymfm, Z80 interpretado), la llamada a `rt_hook` por instrucción, recompilar el Z80.
 - Extensiones del plan original: netplay con rollback (los estados exactos y deterministas ya lo permitirían);

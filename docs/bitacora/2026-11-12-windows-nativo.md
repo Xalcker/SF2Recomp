@@ -53,8 +53,8 @@ del mismo desensamblador (el `break` va después del `if`/`else` y es correcto) 
 ## Pendiente
 
 - No se comparó con MAME en Windows (`compare-*` necesitan el MAME local de `external/mame` y `tools/mame.sh`, que son de macOS).
-- WW y CE no se compilaron aquí (sin ROMs). Lo que cambia para ellas (enlace, rutas, nombres de estado, margen de sprites) habría que pasarlo
-  por `make test` en macOS, sobre todo `sound.c` con GCC en arm64 si se usa ese compilador.
+- ~~WW y CE no se compilaron aquí~~: el 2026-11-13, ya con sus ROMs, `main` (PR #7) compila en Windows con `SF2_GAME=sf2` y `sf2ce` y
+  pasa `ctest` 8/8 en las dos. Sigue faltando `make test` en macOS, sobre todo `sound.c` con GCC en arm64 si se usa ese compilador.
 - El audio no se comparó bit a bit: en x86-64 no hay FMA por omisión y ya se sabía que difiere en 1 LSB en unas pocas muestras (D33).
 - Probar `tools/windows-wine-docker.sh` y la cadena cruzada tras el cambio de enlace (la cadena cruzada ya pasaba sus propias opciones
   estáticas y no recibe `-static`).
