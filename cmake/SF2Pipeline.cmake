@@ -61,8 +61,10 @@ function(sf2_generation_pipeline OUTDIR)
   else()
     set(mods_file "${SF2_ROOT}/recompiler/mod_patches_${SF2_GAME}.txt")
   endif()
-  if(SF2_USE_MODS)
+  set(mods_dep "")
+  if(SF2_USE_MODS AND EXISTS "${mods_file}")
     set(mods_args --mods "${mods_file}")
+    set(mods_dep "${mods_file}")
     set(mods_value ON)
   else()
     set(mods_args --no-mods)
@@ -76,8 +78,8 @@ function(sf2_generation_pipeline OUTDIR)
     COMMAND "${Python3_EXECUTABLE}" "${SF2_ROOT}/recompiler/gen_c.py" "${rom_bin}" "${gen}" --game ${SF2_GAME}
             --hints "${hints}" ${mods_args} --cycles "${cycles_bin}" --parts ${SF2_PARTS}
             --report "${OUTDIR}/coverage.txt"
-    DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/games.py" "${mods_file}"
-            ${hints_dep}
+    DEPENDS "${SF2_ROOT}/recompiler/gen_c.py" "${SF2_ROOT}/recompiler/m68000_ack.txt" "${tools}/m68k.py" "${tools}/analyze.py" "${tools}/games.py"
+            ${mods_dep} ${hints_dep}
             "${rom_bin}" "${cycles_bin}" "${mods_stamp}"
     COMMENT "Recompilando el 68000 a C (gen_c.py, 16 partes)"
     VERBATIM)

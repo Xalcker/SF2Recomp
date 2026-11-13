@@ -16,6 +16,11 @@ static const CpsbConfig cpsb_21_def = {
     "CPS-B-21", 0x32, -1, 0x00, 0x02, 0x04, 0x06, 0x36,
     0x26, { 0x28, 0x2a, 0x2c, 0x2e }, 0x30, { 0x02, 0x04, 0x08 },
 };
+/* {"sfzch", CPS_B_21_DEF, mapper_SFZ63B}: CPS-B-21 sin puerto IN2 (botones 4-6 van por IN0/IN1) */
+static const CpsbConfig cpsb_21_sfz = {
+    "CPS-B-21", 0x32, -1, 0x00, 0x02, 0x04, 0x06, 0,
+    0x26, { 0x28, 0x2a, 0x2c, 0x2e }, 0x30, { 0x02, 0x04, 0x08 },
+};
 
 #define T_SPR 1     /* GFXTYPE_* de gfx.h */
 #define T_S1  2
@@ -41,6 +46,15 @@ static const GfxMapper mapper_s9263b = {
         { T_S3,  0x02000, 0x03fff, 2 },
         { T_S1,  0x04000, 0x04fff, 2 },
         { T_S2,  0x05000, 0x07fff, 2 },
+    },
+};
+/* mapper_SFZ63B: 8 MiB de ROMs gráficas en 4 bancos lineales de 2 MiB (0x8000 unidades de 8x8 cada uno) */
+static const GfxMapper mapper_sfz63b = {
+    "SFZ63B", { 0x8000, 0x8000, 0x8000, 0x8000 }, 4, {
+        { T_SPR | T_S1 | T_S2 | T_S3, 0x00000, 0x07fff, 0 },
+        { T_SPR | T_S1 | T_S2 | T_S3, 0x08000, 0x0ffff, 1 },
+        { T_SPR | T_S1 | T_S2 | T_S3, 0x10000, 0x17fff, 2 },
+        { T_SPR | T_S1 | T_S2 | T_S3, 0x18000, 0x1ffff, 3 },
     },
 };
 
@@ -118,6 +132,33 @@ static const RomInfo roms_sf2hf[] = {
     { "s92_19.12c",  "s92_19.12c",  0xbeade53fu, 0x20000, ROMKIND_OKI, 0x20000, 0 },
 };
 
+/* ROM_START( sfzch ): programa de 2 MiB (4 ROMs de palabras), gráficos de 8 MiB (16 ROMs), Z80 y OKI */
+static const RomInfo roms_sfzch[] = {
+    { "sfzch23",    "sfzch23",    0x1140743fu, 0x80000, ROMKIND_PROGRAM, 0x000000, ROMLANE_WORD },
+    { "sfza22",     "sfza22",     0x8d9b2480u, 0x80000, ROMKIND_PROGRAM, 0x080000, ROMLANE_WORD },
+    { "sfzch21",    "sfzch21",    0x5435225du, 0x80000, ROMKIND_PROGRAM, 0x100000, ROMLANE_WORD },
+    { "sfza20",     "sfza20",     0x806e8f38u, 0x80000, ROMKIND_PROGRAM, 0x180000, ROMLANE_WORD },
+    { "sfz_01.3a",  "sfz_01.3a",  0x0dd53e62u, 0x80000, ROMKIND_GFX, 0x000000, 0 },
+    { "sfz_02.4a",  "sfz_02.4a",  0x94c31e3fu, 0x80000, ROMKIND_GFX, 0x000002, 0 },
+    { "sfz_03.5a",  "sfz_03.5a",  0x9584ac85u, 0x80000, ROMKIND_GFX, 0x000004, 0 },
+    { "sfz_04.6a",  "sfz_04.6a",  0xb983624cu, 0x80000, ROMKIND_GFX, 0x000006, 0 },
+    { "sfz_05.7a",  "sfz_05.7a",  0x2b47b645u, 0x80000, ROMKIND_GFX, 0x200000, 0 },
+    { "sfz_06.8a",  "sfz_06.8a",  0x74fd9fb1u, 0x80000, ROMKIND_GFX, 0x200002, 0 },
+    { "sfz_07.9a",  "sfz_07.9a",  0xbb2c734du, 0x80000, ROMKIND_GFX, 0x200004, 0 },
+    { "sfz_08.10a", "sfz_08.10a", 0x454f7868u, 0x80000, ROMKIND_GFX, 0x200006, 0 },
+    { "sfz_10.3c",  "sfz_10.3c",  0x2a7d675eu, 0x80000, ROMKIND_GFX, 0x400000, 0 },
+    { "sfz_11.4c",  "sfz_11.4c",  0xe35546c8u, 0x80000, ROMKIND_GFX, 0x400002, 0 },
+    { "sfz_12.5c",  "sfz_12.5c",  0xf122693au, 0x80000, ROMKIND_GFX, 0x400004, 0 },
+    { "sfz_13.6c",  "sfz_13.6c",  0x7cf942c8u, 0x80000, ROMKIND_GFX, 0x400006, 0 },
+    { "sfz_14.7c",  "sfz_14.7c",  0x09038c81u, 0x80000, ROMKIND_GFX, 0x600000, 0 },
+    { "sfz_15.8c",  "sfz_15.8c",  0x1aa17391u, 0x80000, ROMKIND_GFX, 0x600002, 0 },
+    { "sfz_16.9c",  "sfz_16.9c",  0x19a5abd6u, 0x80000, ROMKIND_GFX, 0x600004, 0 },
+    { "sfz_17.10c", "sfz_17.10c", 0x248b3b73u, 0x80000, ROMKIND_GFX, 0x600006, 0 },
+    { "sfz_09.12a", "sfz_09.12a", 0xc772628bu, 0x10000, ROMKIND_Z80, 0x00000,  0 },
+    { "sfz_18.11c", "sfz_18.11c", 0x61022b2du, 0x20000, ROMKIND_OKI, 0x00000,  0 },
+    { "sfz_19.12c", "sfz_19.12c", 0x3b5886d5u, 0x20000, ROMKIND_OKI, 0x20000,  0 },
+};
+
 #define COUNT(a) ((int)(sizeof (a) / sizeof (a)[0]))
 
 /* RAM de los mods (D68).  WW: la de siempre (training.c, video.c, docs/HITBOXES.md, docs/ESTEREO.md).  CE y HF comparten la suya: deducida
@@ -136,7 +177,7 @@ const GameDef game_sf2 = {
     "sf2", "Street Fighter II: The World Warrior (World 910522)",
     10000000u, 167680u,                 /* 10 MHz * 512 * 262 / 8 MHz */
     0x100000u, 0x600000u, &cpsb_11, &mapper_stf29, COUNT(roms_sf2), roms_sf2,
-    1, 0x000AB8u, 0x000AD0u, 0xFF801Cu, 1, &mod_ram_sf2, 1,
+    1, 0x000AB8u, 0x000AD0u, 0xFF801Cu, 1, &mod_ram_sf2, 1, 0,
 };
 
 const GameDef game_sf2ce = {
@@ -147,7 +188,7 @@ const GameDef game_sf2ce = {
      * es su primer acceso de E/S, la escritura de la base de OBJ (`move.w 0x26(a5),$800100.l`) en 0x5DA; contador de cuadros
      * 0x1C(a5) (0x6AC) y bandera de VBlank 0xFF020E (0x6B0) en las mismas direcciones que WW.  Mods con recompiler/mod_patches_sf2ce.txt
      * y su RAM (D68); sin herramientas de desarrollo. */
-    1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 1, &mod_ram_sf2ce, 0,
+    1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0,
 };
 
 const GameDef game_sf2hf = {
@@ -158,10 +199,19 @@ const GameDef game_sf2hf = {
      * los registros (movem en 0x1D24C); el punto de muestra es el primer acceso de E/S tras el movem, para que el SR y el PC apilados
      * estén en SP+60/62 como en las demás: la escritura de 0x800122 en 0x1D264.  Contador de cuadros 0xFF801C (0x1D52E); la bandera
      * de VBlank se mueve a 0xFF04CE (0x1D532).  Mods como CE (recompiler/mod_patches_sf2hf.txt, la RAM de CE). */
-    1, 0x01D1E0u, 0x01D264u, 0xFF801Cu, 1, &mod_ram_sf2ce, 0,
+    1, 0x01D1E0u, 0x01D264u, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0,
 };
 
-static const GameDef *const games[] = { &game_sf2, &game_sf2ce, &game_sf2hf };
+const GameDef game_sfzch = {
+    "sfzch", "Street Fighter Zero (CPS Changer, Japan 951020)",
+    12000000u, 201216u,                 /* cps1_12MHz */
+    0x200000u, 0x800000u, &cpsb_21_sfz, &mapper_sfz63b, COUNT(roms_sfzch), roms_sfzch,
+    /* manejador de la IRQ2 en 0x1068; primer acceso de E/S tras movem: escritura de 0x800100 en 0x1076; contador de cuadros
+     * 0xFF8018 (`addq.b #$1,0x18(a5)` en 0x10DC); bandera de VBlank en 0xFF049E.  Sin mods ni bloqueo de monedas (CPS Changer). */
+    1, 0x001068u, 0x001076u, 0xFF8018u, 0, NULL, 0, 1,
+};
+
+static const GameDef *const games[] = { &game_sf2, &game_sf2ce, &game_sf2hf, &game_sfzch };
 
 int game_count(void) { return COUNT(games); }
 

@@ -60,6 +60,7 @@ local KEYS = {
   p1_lk = {":IN2", 0x01}, p1_mk = {":IN2", 0x02}, p1_hk = {":IN2", 0x04},
   p2_lk = {":IN2", 0x10}, p2_mk = {":IN2", 0x20}, p2_hk = {":IN2", 0x40},
 }
+KEYS = G.keys(KEYS)   -- puertos de la variante (CPS Changer, D71)
 
 local events = {}
 if inputs_path then

@@ -91,7 +91,9 @@ def compile_body(lines):
             i += 1
             continue
         if "_interruptible(" in s:
-            ops.append(("acc",))
+            # una escritura de datos se anota aparte: su instante (W) es el comienzo del acceso, porque MAME llama al
+            # dispositivo antes de descontar los ciclos del acceso (D72)
+            ops.append(("accw",) if ".write_interruptible(" in s else ("acc",))
             i += 1
             continue
         if "m_next_state = m_int_next_state" in s:
@@ -132,15 +134,15 @@ def compile_body(lines):
 
 
 def paths(ops, limit=24):
-    """todos los caminos (cada etiqueta como mucho `limit` veces): {(total, K, E)}; tras ('acc',) el siguiente ('t', n) es
-    la duración del acceso"""
+    """todos los caminos (cada etiqueta como mucho `limit` veces): {(total, K, E, W)}; tras ('acc',) el siguiente ('t', n)
+    es la duración del acceso; W = comienzo de la última escritura de datos"""
     labels = {op[1]: k for k, op in enumerate(ops) if op[0] == "label"}
     results = set()
-    stack = [(0, 0, None, None, None, False, {})]
+    stack = [(0, 0, None, None, None, False, {}, None)]
     steps = 0
     while stack and steps < 400000:
         steps += 1
-        pc, t, last, K, E, pend, visits = stack.pop()
+        pc, t, last, K, E, pend, visits, W = stack.pop()
         while pc < len(ops):
             op = ops[pc]
             kind = op[0]
@@ -161,6 +163,10 @@ def paths(ops, limit=24):
             elif kind == "acc":
                 pend = True
                 pc += 1
+            elif kind == "accw":
+                pend = True
+                W = t
+                pc += 1
             elif kind == "acc_ns":
                 pend = False
                 pc += 1
@@ -171,14 +177,14 @@ def paths(ops, limit=24):
                 pc = labels[op[1]]
             elif kind == "br":
                 for tg in op[1][1:]:
-                    stack.append((labels[tg], t, last, K, E, pend, visits))
+                    stack.append((labels[tg], t, last, K, E, pend, visits, W))
                 pc = labels[op[1][0]]
             elif kind == "end":
-                results.add((t, K, E))
+                results.add((t, K, E, W))
                 pc = None
                 break
         # caminos que agotan las visitas de una etiqueta (bucles largos) se descartan
-    return sorted(results, key=lambda r: (r[0], -1 if r[1] is None else r[1], -1 if r[2] is None else r[2]))
+    return sorted(results, key=lambda r: tuple(-1 if x is None else x for x in r))
 
 
 def decode_order(decode_cpp, sdf):
@@ -208,18 +214,20 @@ def main():
     decode_cpp = sys.argv[3] if len(sys.argv) > 3 else src.replace("m68000-sdf.cpp", "m68000-decode.cpp")
     hs = parse_handlers(src)
     order = decode_order(decode_cpp, src)
-    with open(out, "w") as f:
-        f.write("# m68000_ack.txt - generado por tools/mame_m68000_ack.py desde el microcódigo del 68000 de MAME 0.289 (D47).\n")
+    with open(out, "w", encoding="utf-8", newline="\n") as f:
+        f.write("# m68000_ack.txt - generado por tools/mame_m68000_ack.py desde el microcódigo del 68000 de MAME 0.289 (D47, D72).\n")
         f.write("# Una línea por entrada de la tabla de decodificación de MAME, en su orden (vale la primera con\n")
-        f.write("# opcode & máscara == valor): valor máscara manejador | caminos total/K/E, con K = fin del último acceso al\n")
-        f.write("# bus anterior al último latch de interrupción y E = fin del último acceso, en ciclos desde el comienzo de la\n")
-        f.write("# instrucción ('-' = ninguno en esta instrucción).  Solo números: no contiene código de MAME.\n")
+        f.write("# opcode & máscara == valor): valor máscara manejador | caminos total/K/E[/W], con K = fin del último acceso al\n")
+        f.write("# bus anterior al último latch de interrupción, E = fin del último acceso y W = comienzo de la última escritura\n")
+        f.write("# de datos (solo si la hay), en ciclos desde el comienzo de la instrucción ('-' = ninguno en esta instrucción).\n")
+        f.write("# Solo números: no contiene código de MAME.\n")
         for val, mask, name in order:
             if name not in hs:
                 continue
             ps = paths(compile_body(hs[name][2]))
             f.write("%04x %04x %s | %s\n" % (val, mask, name, " ".join(
-                "%d/%s/%s" % (t, "-" if K is None else K, "-" if E is None else E) for t, K, E in ps)))
+                "%d/%s/%s%s" % (t, "-" if K is None else K, "-" if E is None else E, "" if W is None else "/%d" % W)
+                for t, K, E, W in ps)))
     print("%d entradas de decodificación, %d manejadores, en %s" % (len(order), len(hs), out))
 
 

@@ -16,28 +16,30 @@ static void decode_unit(const uint8_t *b, uint8_t *out) {
 
 int gfx_init(Gfx *g, const RomSet *rs) {
     const GameDef *game = rs->game;
+    const uint32_t gfx_size = game->gfx_size;
+    const uint32_t gfx_units = gfx_size / 8u;
     memset(g, 0, sizeof *g);
-    if (game->gfx_size > GFX_ROM_SIZE) return -1;
+    if (gfx_size == 0 || gfx_size > GFX_ROM_SIZE_MAX || (gfx_size & 7u)) return -1;
     g->mapper = game->mapper;
-    g->rom = calloc(GFX_ROM_SIZE, 1);
-    g->pens = malloc((size_t)GFX_UNITS * 16);
+    g->rom = calloc(gfx_size, 1);
+    g->pens = malloc((size_t)gfx_units * 16);
     if (!g->rom || !g->pens) { gfx_free(g); return -1; }
     /* ROM_LOAD64_WORD del ROM_START: la palabra w de cada ROM va al offset `dest + 8 * w` de la región */
     for (int i = 0; i < game->nroms; i++) {
         const RomInfo *ri = &game->roms[i];
         if (ri->kind != ROMKIND_GFX)
             continue;
-        if (!rs->data[i] || ri->dest + 4u * ri->size - 6u > GFX_ROM_SIZE) { gfx_free(g); return -1; }
+        if (!rs->data[i] || ri->dest + 4u * ri->size - 6u > gfx_size) { gfx_free(g); return -1; }
         const uint8_t *chip = rs->data[i];
         uint8_t *dst = g->rom + ri->dest;
-        for (uint32_t w = 0; w < GFX_ROM_CHIP / 2; w++) {
+        for (uint32_t w = 0; w < ri->size / 2; w++) {
             dst[w * 8] = chip[w * 2];
             dst[w * 8 + 1] = chip[w * 2 + 1];
         }
     }
-    for (uint32_t u = 0; u < GFX_UNITS; u++)
+    for (uint32_t u = 0; u < gfx_units; u++)
         decode_unit(g->rom + (size_t)u * 8, g->pens + (size_t)u * 16);
-    free(g->rom);       /* el renderizador solo usa los pens: la región cruda (6 MiB) ya no hace falta */
+    free(g->rom);       /* el renderizador solo usa los pens: la región cruda ya no hace falta */
     g->rom = NULL;
     static const int types[4] = { GFXTYPE_SPRITES, GFXTYPE_SCROLL1, GFXTYPE_SCROLL2, GFXTYPE_SCROLL3 };
     for (int t = 0; t < 4; t++) {

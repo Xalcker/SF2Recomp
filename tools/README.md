@@ -16,8 +16,22 @@ repositorio.
 
 ## mame.sh
 
-Lanza el MAME mínimo compilado en `external/mame/cps1` con las ROMs de la raíz
-del proyecto (`sf2.zip`) y los datos de MAME en `external/mame-data/`.
+Lanza el MAME mínimo compilado en `external/mame/cps1` (o el ejecutable que diga `SF2_MAME`) con las ROMs de la raíz
+del proyecto (`sf2.zip`) y los datos de MAME en `external/mame-data/`. Es `sh`, no zsh.
+
+**Windows.** MAME 0.289 se compila con MSYS2 (entorno UCRT64, el mismo GCC que el proyecto) en cualquier carpeta, por ejemplo en otro
+disco; hay que pasar `OS=Windows_NT`, que el shell de MSYS2 no hereda:
+
+```bash
+# desde Git Bash, con el código de MAME 0.289 (etiqueta mame0289) descomprimido en E:/mame-sf2recomp/mame-mame0289
+OS=Windows_NT MSYSTEM=UCRT64 /c/msys64/usr/bin/bash.exe -lc 'export OS=Windows_NT; cd /e/mame-sf2recomp/mame-mame0289 &&
+  make SUBTARGET=cps1 SOURCES=src/mame/capcom/cps1.cpp NOWERROR=1 SYMBOLS=0 PYTHON_EXECUTABLE=/ruta/a/python.exe -j12'
+cmake -S . -B build-hf -DSF2_MAME=E:/mame-sf2recomp/mame-mame0289/cps1.exe     # y luego los objetivos compare-*
+```
+
+CMake lanza `mame.sh` con el bash de Git o de MSYS2 (`SF2_BASH`) y le pasa `SF2_MAME`; a mano: `SF2_MAME=... bash tools/mame.sh ...`.
+`-verifyroms` da por malos `sf2ce` y `sf2hf` si el zip trae `ioc1.ic7` de 279 bytes (MAME 0.289 espera 260): es un PAL que no se
+emula y el juego arranca con un aviso.
 
 ```bash
 tools/mame.sh -verifyroms sf2

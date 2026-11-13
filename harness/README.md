@@ -48,7 +48,8 @@ instrucción de esos cuadros (comparación del reloj con MAME, D47). La cobertur
 de verdad va a ejecutarse (tras atender una IRQ que la interrumpe), como el depurador de MAME.
 
 Sonido (hito 4): `machine_attach_sound(mc, placa)` instala el gancho de los latches en `Mem` (cada escritura del 68000 en
-0x800181/0x800189 llega a `sound_latch_write` con `cpu.cycles`, el final de la instrucción) y hace que la placa corra hasta
+0x800181/0x800189 llega a `sound_latch_write` con el ciclo en que empieza la escritura en el bus, `cpu.cycles` menos
+`rt_write_lead`, D72) y hace que la placa corra hasta
 el ciclo del 68000 en cada VBlank, antes de `on_vblank`. `machine_log_sound_cmds(mc, f)` anota en `f` cada escritura de los
 latches como `cuadro latch valor` (la numeración de `tools/mame_sound_cmds.lua`) sin necesitar la placa ni sus ROMs.
 

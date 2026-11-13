@@ -110,9 +110,32 @@ void cps1_apply_inputs(Cps1 *m, uint64_t frame) {
     for (int i = 0; i < 2; i++)
         if (m->dev_in1[i] && frame <= m->dev_until[i])
             dev |= m->dev_in1[i];
-    m->mem->in0 = in0 & (uint16_t)~m->manual_in0;
-    m->mem->in1 = in1 & (uint16_t)~m->manual_in1 & (uint16_t)~dev;
-    m->mem->in2 = in2 & (uint16_t)~m->manual_in2;
+    if (m->mem->game->changer_inputs) {
+        /* CPS Changer (sfzch): IN0 tiene MK P1/P2 (bits 0-1), Select P1/P2 (2-3), Start 1/2 (4-5), HK P1/P2 (6-7);
+         * IN1 tiene LK P1/P2 en los bits 7 y 15 (en vez de IN2 en CPS-B). */
+        const uint16_t p0 = (uint16_t)((~in0 & 0xffu) | m->manual_in0);
+        const uint16_t p1 = (uint16_t)((~in1 & 0xffffu) | m->manual_in1 | dev);
+        const uint16_t p2 = (uint16_t)((~in2 & 0xffu) | m->manual_in2);
+        uint16_t c0 = 0, c1 = p1 & 0x7f7fu;
+        if (p2 & 0x0002u) c0 |= 0x01u;
+        if (p2 & 0x0020u) c0 |= 0x02u;
+        if (p0 & 0x0001u) c0 |= 0x04u;
+        if (p0 & 0x0002u) c0 |= 0x08u;
+        if (p0 & 0x0010u) c0 |= 0x10u;
+        if (p0 & 0x0020u) c0 |= 0x20u;
+        if (p2 & 0x0004u) c0 |= 0x40u;
+        if (p2 & 0x0040u) c0 |= 0x80u;
+        if (p0 & 0x0004u) c0 |= 0x14u;
+        if (p2 & 0x0001u) c1 |= 0x0080u;
+        if (p2 & 0x0010u) c1 |= 0x8000u;
+        m->mem->in0 = (uint16_t)(~c0 & 0xffu);
+        m->mem->in1 = (uint16_t)(~c1 & 0xffffu);
+        m->mem->in2 = 0xffu;
+    } else {
+        m->mem->in0 = in0 & (uint16_t)~m->manual_in0;
+        m->mem->in1 = in1 & (uint16_t)~m->manual_in1 & (uint16_t)~dev;
+        m->mem->in2 = in2 & (uint16_t)~m->manual_in2;
+    }
     mem_latch_inputs(m->mem);
 }
 

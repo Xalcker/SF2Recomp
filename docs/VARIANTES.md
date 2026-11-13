@@ -2,7 +2,8 @@
 
 Objetivo: recompilar también *Street Fighter II': Champion Edition* (set `sf2ce` de MAME, World 920513) y *Street Fighter II':
 Hyper Fighting* (set `sf2hf`, World 921209) con el mismo método que *The World Warrior* (`sf2`): código C generado en la máquina del
-usuario a partir de sus ROMs, idéntico a MAME 0.289 cuadro a cuadro, y con los mods apagados por omisión.
+usuario a partir de sus ROMs, idéntico a MAME 0.289 cuadro a cuadro, y con los mods apagados por omisión. Como primer juego fuera de
+la serie SF2 está además *Street Fighter Zero* en la versión de CPS Changer (`sfzch`), sin mods (ver al final).
 
 ## Qué cambia respecto a WW (MAME 0.289)
 
@@ -27,6 +28,7 @@ Las prioridades (0x800168-0x80016E), el control de capas (0x800166) y el de pale
 | 1 | CE en vanilla: generar con `-DSF2_GAME=sf2ce`, buscar el manejador de la IRQ2, el punto de muestra y el contador de cuadros (`program_known`), llenar `tools/hints_sf2ce.txt` hasta 0 fallos de despacho y `compare-*` idénticos a MAME | **jugable e idéntica a MAME** en las partidas probadas (2026-11-12, D64-D66); falta cobertura: secuencias propias de CE (`playgen.py`, 12 personajes) y `compare-coverage` |
 | 2 | HF en vanilla: catálogo `sf2hf`, el resto como CE | **jugable e idéntica a MAME** en las partidas probadas (2026-11-12, D67); falta cobertura, como en CE |
 | 3 | Mods por variante: direcciones de `recompiler/mod_patches.txt`, `runtime/training.c`, la cola de sonido del estéreo, la RAM de la escena ancha... | **hecha** (2026-11-12, D68) salvo las herramientas de desarrollo (solo WW); límites en la bitácora `2026-11-12-variantes-fase-3` |
+| 4 | *Street Fighter Zero* (CPS Changer, `sfzch`) en vanilla: programa de 2 MiB, gráficos de 8 MiB, entradas del Changer | **jugable e idéntica a MAME** en estado, vídeo, comandos de sonido y audio (2026-11-13, D71, D72) |
 
 ## Cómo se elige la variante
 
@@ -65,3 +67,34 @@ WW y cómo se resolvió está en la bitácora `2026-11-12-variantes-fase-1`: arr
 RAM gráfica (D64), punto de muestra con una escritura y la regla del reloj de la IRQ a 12 MHz (D65). Desde la fase 3 (D68) tiene los mods
 de WW salvo las herramientas de desarrollo. Falta recorrer el resto del juego (cobertura dinámica ~32 %): pueden aparecer más fallos de despacho, que se arreglan
 con pistas en `tools/hints_sf2ce.txt` como dice el propio mensaje de error.
+
+## Street Fighter Zero (CPS Changer)
+
+```bash
+cmake -S . -B build-sfzch -DSF2_GAME=sfzch -DSF2_ROM_DIR=sfzch ...   # o make GAME=sfzch BUILD=build-sfzch ROMDIR=sfzch
+build-sfzch/sf2 sfzch
+```
+
+Set `sfzch` de MAME (Japan 951020): la versión doméstica para el CPS Changer, que es un CPS-1 en una consola. Lo que cambia respecto a CE/HF:
+
+| | `sfzch` |
+|---|---|
+| Máquina | `cps1_12MHz`, 12 MHz / 201.216 ciclos por cuadro |
+| CPS-B | `CPS_B_21_DEF` sin puerto IN2 (`{"sfzch", CPS_B_21_DEF, mapper_SFZ63B}`: 0x800176 lee 0xFFFF) |
+| Mapeador gráfico | `mapper_SFZ63B`: 4 bancos lineales de 0x8000 unidades, todos los tipos en todos |
+| Programa | **2 MiB**, cuatro ROMs de palabras de 512 KiB |
+| Gráficos | **8 MiB**, 16 ROMs (`GFX_ROM_SIZE_MAX`; el núcleo reserva lo que pide cada variante) |
+| Entradas | IN0: MK (bits 0-1), Select (2-3), Start (4-5), HK (6-7); IN1: direcciones, LP/MP/HP y LK en los bits 7 y 15. Sin bloqueo de monedas |
+
+Las entradas del juego son las de siempre: `cps1_apply_inputs` las reordena al formato del Changer (`GameDef.changer_inputs`), así que el
+teclado, el mando, `--inputs` y las secuencias usan los mismos nombres. La tecla de moneda hace de Select. Punto de muestra: la
+escritura de 0x800100 en 0x1076, primer acceso de E/S tras el `movem` del manejador de la IRQ2 (0x1068); contador de cuadros 0xFF8018.
+Sin mods (no hay `recompiler/mod_patches_sfzch.txt`): pantalla ancha, entrenamiento y estéreo se rechazan como en cualquier variante sin
+mods (D66). Pistas en `tools/hints_sfzch.txt`. Bitácora `2026-11-13-sfzch`.
+
+Probado en Windows (GCC 16.2): `ctest` 8/8, 40.000 cuadros de atracción sin fallos de despacho, una partida (start, selección, combate)
+con los seis botones distinguibles, y sonido (YM2151 y OKI). **Contra MAME 0.289** (compilado en Windows, ver `tools/README.md`), con
+`inputs_sf2.txt` y 12.000 cuadros: estado, registros, RAM gráfica y comandos de sonido idénticos en todos los cuadros, y 17 de 17
+capturas idénticas; el audio (Z80, YM2151, OKI y mezcla), idéntico muestra a muestra desde que el latch cambia al comenzar la
+escritura en el bus (D72). Queda un conflicto en el análisis
+(`023b64<-023b60`, ver D71).

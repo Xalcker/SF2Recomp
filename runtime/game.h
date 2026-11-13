@@ -105,11 +105,13 @@ typedef struct GameDef {
     int has_mods;                   /* 1 si los mods existen en esta variante (parches de recompiler/mod_patches*.txt y mod_ram) */
     const ModRam *mod_ram;          /* RAM que usan los mods (NULL sin mods) */
     int has_dev_tools;              /* herramientas de desarrollo de Capcom (docs/HERRAMIENTAS_DEV.md): solo WW */
+    int changer_inputs;             /* 1 en CPS Changer (sfzch): botones 4-6 y select en IN0/IN1, sin bloqueo de monedas */
 } GameDef;
 
 extern const GameDef game_sf2;      /* The World Warrior (World 910522) */
 extern const GameDef game_sf2ce;    /* Champion Edition (World 920513) */
 extern const GameDef game_sf2hf;    /* Hyper Fighting (World 921209) */
+extern const GameDef game_sfzch;    /* Street Fighter Zero (CPS Changer, Japan 951020) */
 
 /* descriptor por id de MAME, o NULL */
 const GameDef *game_find(const char *id);

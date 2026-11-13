@@ -68,6 +68,9 @@ def mame_fix(ins: Insn) -> int:
         return 2
     if sz == 2 and m == "addq" and ops[1].kind == AN:
         return 4                    # addq.w #,An es una suma de 32 bits: 8 ciclos como subq.w (Musashi pone 4)
+    if m == "reset":
+        return 128                  # RESET cuesta 132 (124 con la línea de reset afirmada); Musashi los suma al ejecutarla, no en
+                                    # su tabla, que da 0 (-> 4).  sfzch la ejecuta al arrancar (D71); WW, CE y HF no
     return 0
 
 
@@ -96,8 +99,10 @@ def load_ack(path):
             continue
         head, ps = line.split("|")
         val, mask, name = head.split()
-        paths = [tuple(None if x == "-" else int(x) for x in p.split("/")) for p in ps.split()]
-        rows.append((int(val, 16), int(mask, 16), name, paths))
+        full = [tuple(None if x == "-" else int(x) for x in p.split("/")) for p in ps.split()]
+        paths = [p[:3] for p in full]                                   # (total, K, E)
+        writes = [(p[0], p[3] if len(p) > 3 else None) for p in full]   # (total, W): comienzo de la última escritura
+        rows.append((int(val, 16), int(mask, 16), name, paths, writes))
     return rows
 
 
@@ -142,7 +147,7 @@ class Gen:
         if w in self.ack_cache:
             return self.ack_cache[w]
         res = (0, None)
-        for val, mask, name, paths in self.ack:
+        for val, mask, name, paths, _writes in self.ack:
             if w & mask == val:
                 one = classify_paths(paths)
                 if one is not None:
@@ -156,6 +161,24 @@ class Gen:
                     res = (a, b)
                 break
         self.ack_cache[w] = res
+        return res
+
+    def write_lead(self, ins: Insn) -> int:
+        """ciclos entre el comienzo de la última escritura de datos de la instrucción y su final (D72): MAME llama al
+        dispositivo al empezar el acceso, y el código generado escribe con c->cycles ya en el final.  0 si la instrucción
+        no escribe o si sus caminos no coinciden (entonces vale el final, como antes)"""
+        w = ins.words[0]
+        key = ("w", w)
+        if key in self.ack_cache:
+            return self.ack_cache[key]
+        res = 0
+        for val, mask, name, paths, writes in self.ack:
+            if w & mask == val:
+                leads = {t - W for t, W in writes if W is not None}
+                if len(leads) == 1 and all(W is not None for t, W in writes):
+                    res = next(iter(leads))
+                break
+        self.ack_cache[key] = res
         return res
 
     # ---- utilidades --------------------------------------------------------------------
@@ -931,6 +954,8 @@ def main():
         f.write("extern const DispatchEntry recomp_table[];\nextern const unsigned recomp_table_len;\n")
         f.write("extern const uint32_t recomp_reset_pc;\nextern const unsigned recomp_insn_count;\n")
         f.write("extern const int recomp_clock_mame;\n")
+        f.write("/* D72: instrucciones cuya última escritura empieza antes del final (ordenadas por PC): ciclos de adelanto */\n")
+        f.write("extern const uint32_t recomp_wlead_pc[];\nextern const uint8_t recomp_wlead[];\nextern const unsigned recomp_wlead_len;\n")
         f.write("/* CRC-32 de la imagen de programa con la que se generó este código (lo comprueba el juego al cargar las ROMs) */\n")
         f.write("extern const uint32_t recomp_rom_crc32;\n")
         f.write("/* variante (set de MAME) de ese programa: el núcleo toma su descriptor con recomp_game() (runtime/game.h, D63) */\n")
@@ -969,6 +994,17 @@ def main():
         f.write("const uint32_t recomp_reset_pc = %s;\n" % hx(an.rr.rd32(4)))
         f.write("const unsigned recomp_insn_count = %d;\n" % len(an.insns))
         f.write("const int recomp_clock_mame = %d;\n" % (1 if args.clock == "mame" else 0))
+        # D72: adelanto de la última escritura respecto al final de la instrucción (solo con el reloj de MAME)
+        leads = []
+        if args.clock == "mame":
+            leads = [(a, gen.write_lead(an.insns[a])) for a in sorted(an.insns)]
+            leads = [(a, l) for a, l in leads if l > 0]
+        assert all(l < 256 for a, l in leads)
+        f.write("const uint32_t recomp_wlead_pc[] = {")
+        f.write(",".join(("\n    " if k % 12 == 0 else " ") + hx(a) for k, (a, l) in enumerate(leads)) or " 0u")
+        f.write("\n};\nconst uint8_t recomp_wlead[] = {")
+        f.write(",".join(("\n    " if k % 24 == 0 else " ") + str(l) for k, (a, l) in enumerate(leads)) or " 0")
+        f.write("\n};\nconst unsigned recomp_wlead_len = %d;\n" % len(leads))
         with open(args.rom, "rb") as rf:
             f.write("const uint32_t recomp_rom_crc32 = 0x%08xu;\n" % (zlib.crc32(rf.read()) & 0xffffffff))
         f.write('const char recomp_game_id[] = "%s";\n' % args.game)

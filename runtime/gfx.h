@@ -41,8 +41,7 @@
 #include <stddef.h>
 #include "romset.h"
 
-#define GFX_ROM_SIZE   0x600000u
-#define GFX_UNITS      (GFX_ROM_SIZE / 8)      /* unidades de 16 píxeles */
+#define GFX_ROM_SIZE_MAX 0x800000u
 
 #define GFXTYPE_SPRITES 1
 #define GFXTYPE_SCROLL1 2
@@ -51,8 +50,8 @@
 
 typedef struct Gfx {
     const GfxMapper *mapper;   /* PAL de la placa B de la variante (game.h) */
-    uint8_t *rom;      /* 6 MiB, región "gfx" de MAME: solo existe mientras gfx_init decodifica (después NULL) */
-    uint8_t *pens;     /* GFX_UNITS * 16 pens predecodificados */
+    uint8_t *rom;      /* hasta 8 MiB, región "gfx" de MAME: solo existe mientras gfx_init decodifica (después NULL) */
+    uint8_t *pens;     /* (game->gfx_size / 8) * 16 pens predecodificados */
     /* hito 6 (rendimiento): gfx_map precalculado para cada código de 16 bits de los cuatro tipos (sprites, SCROLL1-3)
      * y la conversión de una palabra de paleta a 0x00RRGGBB con el brillo, para no repetir divisiones por cuadro */
     int32_t *map[4];

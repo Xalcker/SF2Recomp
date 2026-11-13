@@ -277,7 +277,7 @@ referencia la síntesis da los mismos enteros; lo que hay que acertar es solo el
 El 68000 deja sus escrituras en los latches con su ciclo (gancho en `mem.c`) y la placa avanza hasta el
 ciclo del 68000 en cada VBlank (`sound_run_until`). El tiempo se cuenta en ciclos del Z80 desde el
 arranque, y el ciclo c del 68000 es floor(c · 3579545 / 10⁷). El latch cambia desde el ciclo del final de
-la instrucción del 68000. Motivo: en la CPS1 el Z80 no puede afectar al 68000, así que no hace falta
+la instrucción del 68000 (desde D72, desde el comienzo de la escritura en el bus). Motivo: en la CPS1 el Z80 no puede afectar al 68000, así que no hace falta
 intercalarlos instrucción a instrucción; correr detrás es exacto y no toca el código generado. El YM2151
 comparte el cristal del Z80, así que no hay conversiones de reloj dentro de la placa.
 
@@ -777,3 +777,39 @@ Windows a partir de la ruta en UTF-8 (`hostio_fopen`), porque SDL entrega en UTF
 las lee en ANSI: con un acento en el nombre de usuario no se guardaban ni la configuración ni los estados; el reemplazo del archivo es
 `MoveFileExW`, sin borrar antes el anterior; (4) los estados guardados llevan el set en el nombre (`<set>_slotN.sta`; los de WW no
 cambian), porque las tres variantes comparten carpeta y se pisaban las ranuras.
+
+## D71 (2026-11-13): Street Fighter Zero (CPS Changer) como variante sin mods; entradas del Changer traducidas en el núcleo
+
+Primer juego fuera de la serie SF2: set `sfzch` de MAME (Japan 951020), mismo método que CE y HF (bitácora `2026-11-13-sfzch`,
+`docs/VARIANTES.md`). Decisiones: (1) el tamaño de la región gráfica pasa a ser el de cada variante (`GameDef.gfx_size`, hasta
+`GFX_ROM_SIZE_MAX` = 8 MiB) en vez de 6 MiB fijos, y cada ROM gráfica se copia con su propio tamaño; (2) el CPS-B de `sfzch` es el
+`CPS_B_21_DEF` de MAME sin puerto IN2 (`in2_addr` = 0; la lectura del CPS-B solo atiende IN2 con `in2_addr > 0`); (3) las entradas
+del Changer (Select, Start y los botones 4-6 repartidos entre IN0 e IN1, sin bloqueo de monedas) se traducen en `cps1_apply_inputs`
+con `GameDef.changer_inputs`, desde los mismos nombres de entrada que las demás variantes, para que el teclado, los mandos, `--inputs`
+y las herramientas no cambien; la moneda hace de Select; (4) sin mods: no hay `recompiler/mod_patches_sfzch.txt` y
+`cmake/SF2Pipeline.cmake` solo pasa `--mods` si el archivo existe; (5) la prueba de fallo de despacho salta al vector de reset
+(0x000002) en vez de a 0x000102: en `sfzch` la tabla de vectores ocupa solo 0x000-0x0BF y 0xC0-0x148 son los manejadores de las
+excepciones, de las IRQ que no usa y de los `trap` 13-15 (0x102 es el del vector 7, TRAPV). El análisis no decodifica nada por debajo
+de 0x400; esos manejadores solo correrían ante una excepción o una IRQ distinta de la 2, que el CPS-1 no genera. Queda **un conflicto** en el análisis
+(D49 pide 0): la `bmi.w` de 0x23B54 lleva a 0x23B60, `addq.l #1,$0001.w` (escritura long a dirección impar: error de dirección en un
+68000), que cae en la tabla de saltos de 0x23B64. Solo se toma si el byte leído en 0x23B52 es negativo; en la máquina real terminaría
+igual en una excepción, y el código generado se detiene con el mensaje de D46. Ninguna pista actual lo expresa; se deja documentado.
+Al compararla con MAME 0.289 (compilado en Windows): (6) `RESET` cuesta 132 ciclos y no 4 (`mame_fix` en `recompiler/gen_c.py`; Musashi
+los suma al ejecutarla, no en su tabla). sfzch la ejecuta al arrancar; con 4 ciclos la IRQ caía en otra instrucción del planificador
+durante los primeros 433 cuadros (la pila quedaba distinta) aunque la partida coincidía. WW, CE y HF no la ejecutan y no cambian; (7) los
+scripts de MAME toman de `tools/mame_game.lua` el contador de cuadros y la tabla de teclas de cada variante (en sfzch, los puertos del
+Changer). Resultado con `inputs_sf2.txt` (12.000 cuadros): estado, registros, RAM gráfica, comandos de sonido y 17 capturas idénticos. El
+audio difería en dos tramos por el instante del latch, que corrige D72; con D72 también el audio es idéntico.
+
+## D72 (2026-11-13): El latch de sonido cambia al comenzar la escritura en el bus, no al final de la instrucción
+
+D29 fechaba cada escritura del 68000 en los latches con `cpu.cycles`, que el código generado ya tiene en el final de la instrucción
+(suma sus ciclos al empezarla). El núcleo `m68000` de MAME 0.289 llama al dispositivo en la microinstrucción del acceso, antes de
+descontar sus 4 ciclos (`write_interruptible(...)` y luego `m_icount -= 4`): el latch cambia al **comenzar** la escritura, 8-12 ciclos
+antes del final en las instrucciones que escriben los latches (en `move.b (d8,An,Xn),abs.l`, 14 de 26). Las tres variantes de SF2 tenían
+ese desfase sin notarlo, porque su Z80 nunca lee el latch en esa ventana; el de sfzch sí lee el latch 2 (cuadro 410: MAME ya ve 0xF0 y
+aquí aún 0xFF) y el audio se separaba durante segundos. Decisión: `tools/mame_m68000_ack.py` anota por camino W = comienzo de la última
+escritura de datos (cuarto número de `recompiler/m68000_ack.txt`; K y E no cambian); `gen_c.py` emite, para cada instrucción cuyos caminos
+coinciden, el adelanto `total − W` en una tabla ordenada por PC (`recomp_wlead_pc`/`recomp_wlead`), y `sound_latch_hook` resta
+`rt_write_lead(last_pc)` al ciclo. Solo cambia el instante de los latches (el único acceso del 68000 que se fecha); la partida no cambia.
+Resultado: diferencia de instante de los latches 0 en las cuatro variantes y audio de sfzch idéntico a MAME muestra a muestra.
