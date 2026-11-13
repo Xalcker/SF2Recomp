@@ -51,6 +51,7 @@
 
 /* pos_ok/pos: mod estéreo, posición en pantalla del objeto que pidió el comando (no forman parte del estado guardado) */
 typedef struct SoundLatchWrite { uint64_t t; uint8_t which, val; uint8_t pos_ok; int16_t pos; } SoundLatchWrite;
+#define SOUND_POS_NOCMD 2           /* pos_ok: la escritura es el «sin comando» que sigue a cada sonido; no cambia la posición (D73) */
 
 /* mod de sonido estéreo (docs/ESTEREO.md): solo cambia la mezcla del altavoz; la placa, los chips y sus flujos siguen igual */
 #define SOUND_SCREEN_HALF 192         /* mitad de la pantalla de 384: la X en pantalla de un sonido centrado */
@@ -133,8 +134,8 @@ void sound_set_stereo(Cps1Sound *s, int on);
 void sound_set_pan_width(Cps1Sound *s, float width);
 /* mod estéreo: media anchura de la vista en píxeles, para convertir la X en pantalla en paneo */
 void sound_set_pan_half(Cps1Sound *s, int half);
-/* mod estéreo: posición en pantalla (pos_ok = 0: sin posición, al centro) del comando que se escribirá a continuación en el
- * latch 1 con sound_latch_write */
+/* mod estéreo: posición en pantalla (pos_ok = 0: sin posición, al centro; SOUND_POS_NOCMD: es el «sin comando», no cambia la
+ * posición) del comando que se escribirá a continuación en el latch 1 con sound_latch_write */
 void sound_latch_pos(Cps1Sound *s, int pos_ok, int16_t pos);
 
 /* ciclo del Z80 que corresponde a un ciclo del 68000 */

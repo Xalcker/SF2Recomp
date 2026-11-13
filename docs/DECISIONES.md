@@ -813,3 +813,15 @@ escritura de datos (cuarto número de `recompiler/m68000_ack.txt`; K y E no camb
 coinciden, el adelanto `total − W` en una tabla ordenada por PC (`recomp_wlead_pc`/`recomp_wlead`), y `sound_latch_hook` resta
 `rt_write_lead(last_pc)` al ciclo. Solo cambia el instante de los latches (el único acceso del 68000 que se fecha); la partida no cambia.
 Resultado: diferencia de instante de los latches 0 en las cuatro variantes y audio de sfzch idéntico a MAME muestra a muestra.
+
+## D73 (2026-11-13): El estéreo va aparte de los demás mods, con un descriptor por variante; sfzch lo tiene
+
+El estéreo es el mod más fácil de llevar a otro juego: un parche en la instrucción que encola los sonidos y unas pocas direcciones (quién
+pide el sonido, su X, la cámara, la cola). Decisión: `StereoRam` (`runtime/game.h`) en `GameDef.stereo`, independiente de `has_mods` y
+`ModRam`; `mod_sound_tag` (`runtime/cpu.h`) y el gancho de los latches (`machine.c`) lo leen, y la fachada lo ofrece con
+`sf2_has_stereo()` (la aplicación deja de mirar `sf2_has_mods()` para el estéreo). Generaliza: el registro de la ranura y el tamaño de la
+cola (`snd_x`/`snd_ok` pasan a 256 ranuras; no entran en el estado guardado), el desplazamiento de la X, el «sin comando» como palabra de
+la cola (`SOUND_POS_NOCMD`: en sfzch 0xFF00 escribe 0x00 en el latch 1 y borraba la posición del sonido anterior) y un byte de «en juego»
+para no panear fuera del combate. sfzch: `recompiler/mod_patches_sfzch.txt` (un parche, en 0x11364) y `"mods": True` en `tools/games.py`
+(hay archivo de parches), con `has_mods` = 0 (los demás mods siguen rechazados). WW, CE y HF: mismos valores que antes, ahora en su
+`StereoRam`. Bitácora `2026-11-13-sfzch-estereo`.

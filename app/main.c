@@ -1069,7 +1069,7 @@ static void reset_game(App *a) {
 }
 
 static void set_stereo(App *a, int on) {
-    if (on && !sf2_has_mods()) {               /* el estéreo usa la cola de sonido de WW: en otra variante no existe (D66) */
+    if (on && !sf2_has_stereo()) {             /* el estéreo necesita la cola de sonido de la variante (D66, D73) */
         osd(a, "Sonido estereo: no disponible en esta variante");
         return;
     }

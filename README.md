@@ -242,7 +242,7 @@ instrucciones por cuadro).
 
 ## Documentación
 
-`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/VARIANTES.md` (*Champion Edition*, *Hyper Fighting* y *Street Fighter Zero* de CPS Changer), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D72), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
+`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/VARIANTES.md` (*Champion Edition*, *Hyper Fighting* y *Street Fighter Zero* de CPS Changer), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D73), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
 
 ## Contribuir
 

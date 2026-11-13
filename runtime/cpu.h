@@ -32,11 +32,12 @@ struct M68K {
     int32_t mod_wide;     /* mods de lógica (D58): píxeles extra de pantalla ancha por lado, 0 = juego original; lo leen los parches de recompiler/mod_patches.txt */
     int32_t mod_view;     /* pantalla ancha (D62): píxeles extra por lado de las ventanas «¿está a la vista?» de los objetos (solo dibujo); 0 = original */
     int32_t mod_bx;       /* pantalla ancha (D62): margen del constructor de sprites para X fuera de 0-511 (vista de más de 480, D69; X con signo); 0 = original */
-    /* sonido estéreo (docs/ESTEREO.md): 1 = el parche de 0x62AC anota en snd_x/snd_ok la X en pantalla del objeto (a6) que
-     * encola cada sonido; 0 = juego original (el parche no hace nada).  Solo lo lee el anfitrión: no cambia la partida. */
+    /* sonido estéreo (docs/ESTEREO.md): 1 = el parche de la instrucción que encola (WW 0x62AC) anota en snd_x/snd_ok la X en pantalla
+     * del objeto (a6) que encola cada sonido; 0 = juego original (el parche no hace nada).  Solo lo lee el anfitrión: no cambia la
+     * partida ni entra en el estado guardado. */
     int32_t mod_stereo;
-    int16_t snd_x[64];    /* X en pantalla (mundo - cámara) por ranura de la cola de sonido del juego (0xFF81A2, 64 palabras) */
-    uint8_t snd_ok[64];   /* 1 = la ranura tiene posición (la encoló un luchador u objeto del combate) */
+    int16_t snd_x[STEREO_SLOTS_MAX];    /* X en pantalla (mundo - cámara) por ranura de la cola de sonido del juego (D73) */
+    uint8_t snd_ok[STEREO_SLOTS_MAX];   /* 1 = la ranura tiene posición (la encoló un luchador u objeto del combate) */
     uint16_t ke;          /* punto de muestreo de interrupciones de la última instrucción (gen_c.py, D47) */
     uint64_t icount;      /* instrucciones ejecutadas */
     uint64_t cycles;      /* ciclos estimados (modo autónomo) */
@@ -459,23 +460,25 @@ static inline int op_chk(M68K *c, uint32_t dn, uint32_t bound) {
     return 1;
 }
 
-/* ---- mod de sonido estéreo (parche de 0x62AC en recompiler/mod_patches.txt) --------------------------------------
- * 0x62A4 encola el comando d0 en la ranura d1 de la cola 0x1A2(a5); quien llama deja en a6 el objeto que suena: los
+/* ---- mod de sonido estéreo (parche de la instrucción que encola en recompiler/mod_patches*.txt) ---------------------------
+ * WW: 0x62A4 encola el comando d0 en la ranura d1 de la cola 0x1A2(a5); quien llama deja en a6 el objeto que suena: los
  * luchadores (0xFF83C6, 0xFF86C6) y los objetos del combate (proyectiles, chispas de golpe: 0xFF9000-0xFFDFFF; medido con
- * MAME).  Su X de mundo está en 0x6(a6) (como en la rutina de paredes 0x2D98) y la cámara en 0xBD8(a5) = 0xFF8BD8.  Se
- * lee la RAM directamente, sin pasar por el bus: no hay efectos sobre la máquina. */
+ * MAME).  Su X de mundo está en 0x6(a6) (como en la rutina de paredes 0x2D98) y la cámara en 0xBD8(a5) = 0xFF8BD8.  Las demás
+ * variantes, en su StereoRam (runtime/game.c, D73).  Se lee la RAM directamente, sin pasar por el bus: no hay efectos sobre la
+ * máquina. */
 static inline uint16_t mod_wram16(const M68K *c, uint32_t a) {
     const uint8_t *w = c->mem->wram;
     return (uint16_t)(w[(a - WRAM_BASE) & 0xffffu] << 8 | w[(a - WRAM_BASE + 1) & 0xffffu]);
 }
 
 static inline void mod_sound_tag(M68K *c) {
-    const ModRam *r = c->mem->game->mod_ram;          /* RAM de la variante (D68): luchadores, objetos y cámara */
-    const uint32_t slot = (c->d[1] >> 1) & 63u, obj = c->a[6] & 0xffffffu;
-    const int is_obj = obj == r->p1 + 6u || obj == r->p2 + 6u || (obj >= r->obj_lo && obj < r->obj_hi);
+    const StereoRam *r = c->mem->game->stereo;        /* RAM de la variante (D73): luchadores, objetos y cámara */
+    const uint32_t slot = (c->d[r->slot_reg] >> 1) & (uint32_t)(r->slots - 1), obj = c->a[6] & 0xffffffu;
+    const int in_play = !r->active || c->mem->wram[(r->active - WRAM_BASE) & 0xffffu] == r->active_val;
+    const int is_obj = in_play && (obj == r->p1_obj || obj == r->p2_obj || (obj >= r->obj_lo && obj < r->obj_hi));
     c->snd_ok[slot] = 0;
     if (is_obj) {
-        c->snd_x[slot] = (int16_t)(mod_wram16(c, obj + 6u) - mod_wram16(c, r->cam_x));
+        c->snd_x[slot] = (int16_t)(mod_wram16(c, obj + r->x_off) - mod_wram16(c, r->cam_x));
         c->snd_ok[slot] = 1;
     }
 }

@@ -251,6 +251,11 @@ int sf2_has_mods(void) {
     return g && g->has_mods;
 }
 
+int sf2_has_stereo(void) {
+    const GameDef *g = recomp_game();
+    return g && g->stereo;
+}
+
 /* Los mods (pantalla ancha y su lógica, stage completo, entrenamiento y cajas, posición del estéreo, herramientas de desarrollo)
  * leen y escriben RAM y ROM de WW: en otra variante se rechazan y el juego queda original (D65). */
 void sf2_set_dev_tool(Sf2 *s, int tool) {
@@ -451,8 +456,8 @@ static void apply_wide_logic(Sf2 *s) {
 }
 
 void sf2_set_stereo(Sf2 *s, int on) {
-    if (!s->has_sound || !s->game->has_mods)
-        return;
+    if (!s->has_sound || !s->game->stereo)
+        return;                                          /* el estéreo va aparte de los demás mods (D73) */
     s->mc.cpu.mod_stereo = on != 0;
     sound_set_stereo(&s->snd, on);
 }
