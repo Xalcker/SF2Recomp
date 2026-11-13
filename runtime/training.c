@@ -4,14 +4,12 @@
 #include <string.h>
 #include "training_priv.h"
 
-/* RAM de trabajo del juego (docs/bitacora/2026-10-19-hito6-secuencias.md y docs/ENTRENAMIENTO.md): la de la variante, en
- * m->game->mod_ram (D68; en WW: modo 0xFF8001, fase 0xFF8005, subfase 0xFF8009, créditos 0xFF82DD, temporizador 0xFF8ACE en BCD y
- * su subcontador 0xFF8ACF de 30 a 1, jugadores 0xFF83C0 y 0xFF86C0, cámara 0xFF8BD8/DC, proyectiles 0xFF938A) */
+/* RAM de trabajo del juego (docs/bitacora/2026-10-19-hito6-secuencias.md y docs/ENTRENAMIENTO.md): la de la variante.  El
+ * entrenamiento usa m->game->training (D74; en WW: modo 0xFF8001, fase 0xFF8005, subfase 0xFF8009, créditos 0xFF82DD, temporizador
+ * 0xFF8ACE en BCD y su subcontador 0xFF8ACF de 30 a 1, jugadores 0xFF83C0 y 0xFF86C0); las cajas, m->game->mod_ram (D68: cámara
+ * 0xFF8BD8/DC, proyectiles 0xFF938A) */
 #define RAM(m)        ((m)->game->mod_ram)
-#define TIMER_SUB_MAX 30
-#define OFF_X         0x0Cu
-#define OFF_LIFE      0x30u
-#define LIFE_MAX      0x90
+#define TR(m)         ((m)->game->training)
 
 #define REL_FWD  0x1000u             /* en un paso del guion: dirección relativa al rival, se resuelve con la orientación */
 #define REL_BACK 0x2000u
@@ -219,10 +217,11 @@ static uint16_t dummy_step(Training *t, int face_right) {
 }
 
 static void refill(Training *t, Mem *m) {
-    const uint32_t base[2] = { RAM(m)->p1, RAM(m)->p2 };
+    const TrainingRam *r = TR(m);
+    const uint32_t base[2] = { r->p1, r->p2 };
     for (int p = 0; p < 2; p++) {
-        int life = (int16_t)rd16(m, base[p] + OFF_LIFE);
-        if (life <= 0 || life >= LIFE_MAX) {          /* KO o llena: nada que hacer */
+        int life = (int16_t)rd16(m, base[p] + r->life_off);
+        if (life <= 0 || life >= r->life_max) {       /* KO o llena: nada que hacer */
             t->life_prev[p] = life;
             t->life_stable[p] = 0;
             continue;
@@ -230,8 +229,11 @@ static void refill(Training *t, Mem *m) {
         if (life == t->life_prev[p]) t->life_stable[p]++;
         else { t->life_stable[p] = 0; t->life_prev[p] = life; }
         if (t->cfg.refill == 2 || t->life_stable[p] >= t->cfg.refill_delay) {
-            wr16(m, base[p] + OFF_LIFE, LIFE_MAX);
-            t->life_prev[p] = LIFE_MAX;
+            wr16(m, base[p] + r->life_off, (uint16_t)r->life_max);
+            for (int k = 0; k < 2; k++)                 /* las barras que la siguen (sfzch) solo bajan: se llenan también */
+                if (r->life_bar[k])
+                    wr16(m, base[p] + r->life_bar[k], (uint16_t)r->life_max);
+            t->life_prev[p] = r->life_max;
             t->life_stable[p] = 0;
         }
     }
@@ -250,28 +252,33 @@ static void auto_versus(Training *t, const Mem *m, int in_game) {
     /* ciclo de 48 cuadros: 4 con la tecla pulsada; monedas hasta tener 2 créditos y luego start de los dos */
     int on = (t->auto_wait % 48) < 4;
     if (!on) return;
-    if (rd8(m, RAM(m)->credits) < 2) t->pulse = 0x0001;                 /* COIN1 */
-    else t->pulse = 0x0010 | 0x0020;                                  /* START1 y START2 */
+    if (TR(m)->credits && rd8(m, TR(m)->credits) < 2) t->pulse = 0x0001;    /* COIN1 */
+    else t->pulse = 0x0010 | 0x0020;                                  /* START1 y START2 (sin monedas, directamente) */
 }
 
 void training_vblank(Training *t, Mem *m, const uint16_t host[3], uint16_t out[3]) {
     t->tick++;
-    if (!RAM(m)) {                                      /* variante sin mods: entradas tal cual */
+    const TrainingRam *r = TR(m);
+    if (!r) {                                           /* variante sin entrenamiento: entradas tal cual (el visor sí funciona) */
         training_inputs(t, host[0], host[1], host[2], &out[0], &out[1], &out[2]);
+        if (t->cfg.track_inputs) {
+            record(t, 0, training_canon(0, out[1], out[2]));
+            record(t, 1, training_canon(1, out[1], out[2]));
+        }
         return;
     }
-    const int mode = rd8(m, RAM(m)->mode), phase = rd8(m, RAM(m)->phase), sub = rd8(m, RAM(m)->subphase);
-    const int in_game = mode == 2;
-    const int fight = in_game && phase == 4 && sub == 0x0A;
-    const int p1_x = (int16_t)rd16(m, RAM(m)->p1 + OFF_X), p2_x = (int16_t)rd16(m, RAM(m)->p2 + OFF_X);
+    const int mode = rd8(m, r->mode), phase = rd8(m, r->phase), sub = rd8(m, r->sub);
+    const int in_game = mode == r->mode_game;
+    const int fight = in_game && phase == r->phase_fight && sub == r->sub_fight && (!r->sub2 || rd8(m, r->sub2) == r->sub2_fight);
+    const int p1_x = (int16_t)rd16(m, r->p1 + r->x_off), p2_x = (int16_t)rd16(m, r->p2 + r->x_off);
     if (p2_x < p1_x) t->p2_right = 1;
     else if (p2_x > p1_x) t->p2_right = 0;
 
     if (t->cfg.enabled) {
         auto_versus(t, m, in_game);
         if (t->cfg.infinite_time && fight) {
-            wr8(m, RAM(m)->timer, 0x99);
-            wr8(m, RAM(m)->timer_sub, TIMER_SUB_MAX);    /* sin esto el segundo se cumple igual y el marcador se queda en 98 */
+            wr8(m, r->timer, r->timer_full);
+            wr8(m, r->timer_sub, r->timer_sub_full);    /* sin esto el segundo se cumple igual y el marcador se queda en 98 */
         }
         if (t->cfg.refill && fight)
             refill(t, m);
@@ -283,7 +290,7 @@ void training_vblank(Training *t, Mem *m, const uint16_t host[3], uint16_t out[3
         uint16_t d = 0;
         if (t->cfg.lock_p2) {
             if (fight) d = dummy_step(t, t->p2_right);
-            else if (in_game && phase == 0 && t->sel_ticks > 90 && (t->sel_ticks % 30) < 3) d = SF2_PAD_LP;   /* elige el luchador del cursor */
+            else if (in_game && phase == r->phase_select && t->sel_ticks > 90 && (t->sel_ticks % 30) < 3) d = SF2_PAD_LP;   /* elige el luchador del cursor */
         }
         t->dummy_bits = d;
     } else {

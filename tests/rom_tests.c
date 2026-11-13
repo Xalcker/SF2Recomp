@@ -494,19 +494,21 @@ static void test_training(const char *rom, const char *script) {
         sf2_set_input(d, 0, i % 40 < 3 ? (SF2_IN1_LP | (SF2_IN1_HP << 8) | (SF2_IN1_LEFT << 8)) : 0, 0);   /* J1 pulsa LP, "J2 humano" HP e izquierda */
         CHECK(sf2_run_frame(d) > 0);
         sf2_audio_clear(d);
-        const ModRam *r = sf2_game()->mod_ram;             /* RAM de la variante (D68) */
+        const TrainingRam *r = sf2_game()->training;       /* RAM de la variante (D74) */
 #define W8(a) (mem->wram[(a) - 0xFF0000u])
-        const int fight = W8(r->mode) == 2 && W8(r->phase) == 4 && W8(r->subphase) == 0x0A;
+        const int fight = W8(r->mode) == r->mode_game && W8(r->phase) == r->phase_fight && W8(r->sub) == r->sub_fight
+                          && (!r->sub2 || W8(r->sub2) == r->sub2_fight);
         if (fight) {
             fight_frames++;
-            CHECK(W8(r->timer) == 0x99);
-            const int l1 = (int16_t)((W8(r->p1 + 0x30) << 8) | W8(r->p1 + 0x31));
-            const int l2 = (int16_t)((W8(r->p2 + 0x30) << 8) | W8(r->p2 + 0x31));
-            CHECK(l1 == 0x90 && l2 == 0x90);
+            CHECK(W8(r->timer) == r->timer_full);
+            const int l1 = (int16_t)((W8(r->p1 + r->life_off) << 8) | W8(r->p1 + r->life_off + 1));
+            const int l2 = (int16_t)((W8(r->p2 + r->life_off) << 8) | W8(r->p2 + r->life_off + 1));
+            CHECK(l1 == r->life_max && l2 == r->life_max);
         }
     }
+    fprintf(stderr, "entrenamiento: %d cuadros de combate en el versus automatico\n", fight_frames);
     CHECK(fight_frames > 1000);                               /* el versus empezo solo y llego al combate */
-    CHECK(W8(sf2_game()->mod_ram->p2 + 6) != 0 && W8(sf2_game()->mod_ram->p1 + 6) != 0);   /* J1 y J2 existen: no hay rival de la maquina */
+    CHECK(W8(sf2_game()->stereo->p2_obj) != 0 && W8(sf2_game()->stereo->p1_obj) != 0);   /* J1 y J2 existen */
 #undef W8
     /* el historial de J2 solo tiene lo del guion/seleccion: nunca HP ni LEFT del "J2 humano" del anfitrion */
     int n = sf2_training_history(d, 1, ev, SF2_TRAIN_HISTORY);
@@ -520,7 +522,8 @@ static void test_training(const char *rom, const char *script) {
     sf2_destroy(a); sf2_destroy(b); sf2_destroy(c); sf2_destroy(d);
 }
 
-/* variante sin mods (D65): se rechazan y la partida queda idéntica a la de una máquina sin tocar */
+/* variante sin mods (D65): se rechazan y la partida queda idéntica a la de una máquina sin tocar (el estéreo, D73, y el
+ * entrenamiento, D74, van aparte) */
 static void test_no_mods(const char *rom, const char *script) {
     Sf2 *a = make_machine(rom, script), *b = make_machine(rom, script);
     CHECK(a && b);
@@ -529,7 +532,9 @@ static void test_no_mods(const char *rom, const char *script) {
     Sf2Training t;
     memset(&t, 0, sizeof t);
     t.enabled = 1;
-    CHECK(sf2_training_set(b, &t, err, sizeof err) == -1);
+    CHECK(sf2_training_set(b, &t, err, sizeof err) == (sf2_has_training() ? 0 : -1));
+    t.enabled = 0;
+    CHECK(sf2_training_set(b, &t, err, sizeof err) == 0);    /* apagado: la partida de b sigue siendo la de a */
     CHECK(sf2_set_video_width(b, 512) == -1 && sf2_frame_width(b) == SF2_SCREEN_W);
     sf2_set_wide_logic(b, 1);
     sf2_set_stage_full(b, 1);
@@ -569,11 +574,12 @@ int main(int argc, char **argv) {
     test_reset_and_dips(argv[1], (const char *)script);
     test_dispatch_failure(argv[1], (const char *)script);
     test_hfr_snapshot(argv[1], (const char *)script);
+    if (sf2_has_training())
+        test_training(argv[1], (const char *)script);
     if (sf2_has_mods()) {
         test_widescreen(argv[1], (const char *)script);
         test_wide_logic(argv[1], (const char *)script);
         test_stage_full(argv[1], (const char *)script);
-        test_training(argv[1], (const char *)script);
     } else {
         test_no_mods(argv[1], (const char *)script);
     }

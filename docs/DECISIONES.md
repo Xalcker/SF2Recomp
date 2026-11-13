@@ -825,3 +825,16 @@ la cola (`SOUND_POS_NOCMD`: en sfzch 0xFF00 escribe 0x00 en el latch 1 y borraba
 para no panear fuera del combate. sfzch: `recompiler/mod_patches_sfzch.txt` (un parche, en 0x11364) y `"mods": True` en `tools/games.py`
 (hay archivo de parches), con `has_mods` = 0 (los demás mods siguen rechazados). WW, CE y HF: mismos valores que antes, ahora en su
 `StereoRam`. Bitácora `2026-11-13-sfzch-estereo`.
+
+## D74 (2026-11-13): El entrenamiento va aparte, con un descriptor por variante; sfzch lo tiene sin las cajas
+
+`runtime/training.c` tenía fijos los valores de SF2: combate = modo 2, fase 4, subfase 0x0A; selección = fase 0; reloj BCD 0x99 con
+subcontador de 30; X en +0xC y vida en +0x30 de cada jugador, llena a 0x90; créditos. Decisión: `TrainingRam` (`runtime/game.h`) en
+`GameDef.training` con todo eso (direcciones y valores, un segundo byte de subfase, reloj en BCD o binario, copias de la vida que dibujan
+las barras y créditos opcionales), aparte de `ModRam`, que se queda para la pantalla ancha y las cajas. `sf2_training_set` acepta el
+entrenamiento con `TrainingRam` y el visor de entradas en cualquier variante (solo mira las entradas; antes no registraba nada en una
+variante sin mods); las cajas siguen solo con `has_mods`. `sf2_has_training()` en la fachada; `test_training` se corre en toda variante
+con entrenamiento y lee el descriptor. sfzch (RAM medida con `sf2py` guardando cada cuadro de una partida): combate 0xFF8001 = 2,
+0xFF8005 = 4, 0xFF8009 = 4 y 0xFF800D = 2; selección fase 2; reloj 0xFFAE09 en binario con subcontador 0xFFAE0A de 59 a 0; vida en +0x40
+(barras en +0x42 y +0x14A, que solo bajan: al recargar se escriben las tres); X en +0x10; sin monedas (el versus automático pulsa Start 1
+y Start 2). WW, CE y HF: los mismos valores que antes. Bitácora `2026-11-13-sfzch-entrenamiento`.
