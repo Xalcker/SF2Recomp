@@ -5,12 +5,14 @@
 #   tools/setup-local-tools.sh cmake      CMake (binario oficial de Kitware para macOS)
 #   tools/setup-local-tools.sh emsdk      Emscripten (emsdk) para compilar para el navegador
 #   tools/setup-local-tools.sh mingw      llvm-mingw + bibliotecas de SDL3 para mingw (cruzado a Windows)
+#   tools/setup-local-tools.sh sdl3-mingw solo las bibliotecas de SDL3 para mingw (Windows nativo con MSYS2, desde Git Bash o MSYS2)
 #   tools/setup-local-tools.sh all
 #
 # Cada descarga se verifica con un SHA-256 fijado aqui (el que publica el proyecto de origen en la version indicada)
 # y se extrae en una carpeta nueva; nada de lo descargado se ejecuta antes de verificarlo.  Versiones con las que se
 # ha probado el proyecto (2026-10-19): CMake 4.4.4, Emscripten 6.0.13, llvm-mingw 20261006 (clang 23.1.3), SDL3 3.4.18.
-# En Linux y Windows se usan los paquetes de la distribucion (ver README.md); este guion es para macOS.
+# En Linux se usan los paquetes de la distribucion (ver README.md); cmake, emsdk, mingw y all son para macOS, y sdl3-mingw vale
+# tambien en Windows.
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 EXT=${SF2_EXTERNAL:-$ROOT/external}
@@ -60,6 +62,11 @@ install_mingw() {
   else
     echo "external/llvm-mingw ya existe; no se toca"
   fi
+  install_sdl3_mingw
+}
+
+# solo las bibliotecas de SDL3 para MinGW: es lo unico que hace falta en un Windows con MSYS2 (compilacion nativa, ver README.md)
+install_sdl3_mingw() {
   if [ ! -e "$EXT/sdl3-mingw" ]; then
     fetch "https://github.com/libsdl-org/SDL/releases/download/release-$SDL_VERSION/$SDL_MINGW_FILE" "$TMP/$SDL_MINGW_FILE" "$SDL_MINGW_SHA256"
     mkdir -p "$EXT/sdl3-mingw"
@@ -74,7 +81,8 @@ case "${1:-all}" in
   cmake) install_cmake ;;
   emsdk) install_emsdk ;;
   mingw) install_mingw ;;
+  sdl3-mingw) install_sdl3_mingw ;;
   all) install_cmake; install_emsdk; install_mingw ;;
-  *) echo "uso: $0 cmake|emsdk|mingw|all" >&2; exit 2 ;;
+  *) echo "uso: $0 cmake|emsdk|mingw|sdl3-mingw|all" >&2; exit 2 ;;
 esac
 echo "listo"

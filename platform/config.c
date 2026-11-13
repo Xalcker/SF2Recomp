@@ -267,7 +267,7 @@ static void put(Out *o, const char *fmt, ...) {
     if (n > 0) o->len += (size_t)n;
 }
 
-static const char *yn(int v) { return v ? "true" : "false"; }
+static const char *bool_text(int v) { return v ? "true" : "false"; }
 
 size_t config_format(const Sf2Config *c, char *out, size_t cap) {
     Out o = { out, cap, 0 };
@@ -275,10 +275,10 @@ size_t config_format(const Sf2Config *c, char *out, size_t cap) {
             "# Edita este archivo con el juego cerrado.  Los valores no validos se ignoran con un aviso al arrancar.\n\n");
     put(&o, "[video]\n# scale: 0 = ajustar a la pantalla, N = ventana de (384*N) x (224*N)\nscale = %d\n", c->scale);
     put(&o, "# aspect: pixel = pixeles cuadrados (384x224); 4:3 = proporcion de la pantalla de la recreativa\naspect = %s\n", c->aspect43 ? "4:3" : "pixel");
-    put(&o, "fullscreen = %s\n# integer_scale: escalar solo por factores enteros (pixeles sin deformar)\ninteger_scale = %s\n", yn(c->fullscreen), yn(c->integer_scale));
-    put(&o, "# smooth: false = pixeles nitidos, true = filtro lineal\nsmooth = %s\nvsync = %s\n", yn(c->smooth), yn(c->vsync));
+    put(&o, "fullscreen = %s\n# integer_scale: escalar solo por factores enteros (pixeles sin deformar)\ninteger_scale = %s\n", bool_text(c->fullscreen), bool_text(c->integer_scale));
+    put(&o, "# smooth: false = pixeles nitidos, true = filtro lineal\nsmooth = %s\nvsync = %s\n", bool_text(c->smooth), bool_text(c->vsync));
     put(&o, "# hfr: dibuja cuadros intermedios (camara y sprites interpolados) a cada refresco del monitor; el juego sigue a 59,6 Hz y no cambia.\n"
-            "# Pide vsync y un monitor de mas de 60 Hz para notarse; anade un cuadro de latencia.  Tecla: hfr en [hotkeys]\nhfr = %s\n", yn(c->hfr));
+            "# Pide vsync y un monitor de mas de 60 Hz para notarse; anade un cuadro de latencia.  Tecla: hfr en [hotkeys]\nhfr = %s\n", bool_text(c->hfr));
     put(&o, "# widescreen: muestra mas escenario a los lados en los combates (las demas pantallas se centran con barras negras);\n"
             "# la pantalla de la recreativa no se estira.  wide_width: ancho del cuadro, par, de 384 a 800; con aspect = 4:3\n"
             "# 512 da una ventana 16:9.  Tecla: widescreen en [hotkeys]\nwidescreen = %s\nwide_width = %d\n"
@@ -288,19 +288,19 @@ size_t config_format(const Sf2Config *c, char *out, size_t cap) {
             "# stage_full: con widescreen, camara fija en el centro y todo el escenario a la vista (768 de ancho = el recorrido completo, para\n"
             "# monitores ultraanchos: 3440x1440 con aspect = 4:3 pide wide_width = 688; 768 deja franjas finas arriba y abajo).  CAMBIA EL JUEGO.\n"
             "stage_full = %s\n\n",
-        yn(c->widescreen), c->wide_width, c->hud_edges ? "edges" : "center", yn(c->wide_logic), yn(c->stage_full));
+        bool_text(c->widescreen), c->wide_width, c->hud_edges ? "edges" : "center", bool_text(c->wide_logic), bool_text(c->stage_full));
     put(&o, "[audio]\nenabled = %s\n# volume: 0 a 100\nvolume = %d\n# rate: frecuencia del dispositivo de audio; la mezcla es de 48000 Hz y SDL la convierte\nrate = %d\n"
             "# stereo (mod): golpes, gritos y proyectiles suenan del lado de la pantalla donde ocurren; la musica sigue al centro.\n"
             "# No cambia la partida; apagado es el sonido original (mono, identico a MAME)\nstereo = %s\n"
             "# stereo_width: separacion, 0 a 100 (100 = un sonido en el borde de la pantalla no se oye en el lado contrario)\nstereo_width = %d\n\n",
-        yn(c->audio), c->volume, c->audio_rate, yn(c->stereo), c->stereo_width);
+        bool_text(c->audio), c->volume, c->audio_rate, bool_text(c->stereo), c->stereo_width);
     put(&o, "[dip]\n# dipswitches de la placa (los valores de MAME entre parentesis)\n"
             "# difficulty: 0 (mas facil) a 7 (mas dificil); 3 = normal\ndifficulty = %d\n"
             "# coin_a, coin_b: monedas por credito: 4c1c 3c1c 2c1c 1c1c 1c2c 1c3c 1c4c 1c6c\ncoin_a = %s\ncoin_b = %s\n"
             "free_play = %s\ntwo_coins_to_start = %s\ndemo_sounds = %s\nallow_continue = %s\nfreeze = %s\n"
             "# test_mode: arranca en el menu de pruebas de la placa\ntest_mode = %s\n\n",
-        c->difficulty, config_coinage_names[c->coin_a & 7], config_coinage_names[c->coin_b & 7], yn(c->free_play),
-        yn(c->two_coins_to_start), yn(c->demo_sounds), yn(c->allow_continue), yn(c->freeze), yn(c->test_mode));
+        c->difficulty, config_coinage_names[c->coin_a & 7], config_coinage_names[c->coin_b & 7], bool_text(c->free_play),
+        bool_text(c->two_coins_to_start), bool_text(c->demo_sounds), bool_text(c->allow_continue), bool_text(c->freeze), bool_text(c->test_mode));
     put(&o, "[training]\n# Mod de entrenamiento: CAMBIA EL JUEGO mientras enabled = true (false = juego original).  Tecla: training en [hotkeys].\n"
             "# Con auto_vs se mete monedas y se empieza una partida versus en el titulo; J1 elige luchador y J2 (el dummy) elige solo.\n"
             "enabled = %s\ninfinite_time = %s\n"
@@ -310,8 +310,8 @@ size_t config_format(const Sf2Config *c, char *out, size_t cap) {
             "# script: pasos \"botones:cuadros\" en bucle, separados por espacios; direcciones relativas al rival (f b u d df db uf ub; l r absolutas)\n"
             "# y botones lp mp hp lk mk hk; con + se pulsan a la vez; n = nada.  Ejemplo: \"d:30 df:3 f+lp:2 n:30\"\nscript = %s\n"
             "# visores (teclas show_inputs y show_hitboxes): entradas de J1 y J2, y cajas de golpe y de dano\nshow_inputs = %s\nshow_hitboxes = %s\n\n",
-        yn(c->tr_enabled), yn(c->tr_infinite_time), c->tr_refill == 0 ? "off" : c->tr_refill == 1 ? "delay" : "always", c->tr_refill_delay,
-        yn(c->tr_lock_p2), yn(c->tr_auto_vs), config_dummy_names[c->tr_dummy & 7], c->tr_script, yn(c->show_inputs), yn(c->show_hitboxes));
+        bool_text(c->tr_enabled), bool_text(c->tr_infinite_time), c->tr_refill == 0 ? "off" : c->tr_refill == 1 ? "delay" : "always", c->tr_refill_delay,
+        bool_text(c->tr_lock_p2), bool_text(c->tr_auto_vs), config_dummy_names[c->tr_dummy & 7], c->tr_script, bool_text(c->show_inputs), bool_text(c->show_hitboxes));
     put(&o, "[paths]\n# rom: sf2.zip de MAME o carpeta con las ROMs sueltas (vacio = buscar sf2.zip junto al juego)\nrom = %s\n"
             "# state_dir: carpeta de los estados guardados (vacio = la de preferencias)\nstate_dir = %s\n\n", c->rom_path, c->state_dir);
     put(&o, "[keys]\n# nombres de tecla de SDL (Up, Left Shift, Z, F5, Keypad 4...); varias separadas por comas\n");

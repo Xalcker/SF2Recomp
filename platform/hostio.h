@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include "romset.h"
 #include "cps1.h"
 #include "video.h"
@@ -16,6 +17,9 @@
 extern "C" {
 #endif
 
+/* fopen con la ruta en UTF-8 también en Windows (donde fopen la lee en la página de códigos ANSI y falla con acentos); todo el
+ * acceso a archivos de este módulo pasa por aquí */
+FILE *hostio_fopen(const char *path, const char *mode);
 /* lee un archivo entero en un búfer de malloc (con un byte final a 0 que no cuenta en len); 0 o -1 */
 int hostio_read_file(const char *path, uint8_t **data, size_t *len);
 /* escribe el archivo de forma atómica (primero path.tmp y luego renombra); 0 o -1 */

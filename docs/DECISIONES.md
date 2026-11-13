@@ -750,3 +750,30 @@ y la RAM se deduce por votación sobre las instrucciones equivalentes, y luego s
 no encaje exactamente una vez en el C de su instrucción; (4) las herramientas de desarrollo, propias de WW, quedan en `has_dev_tools`; (5)
 `sf2_game_crc` separa la partida de la tabla de sprites latcheada que va en el estado guardado. Apagados, CE y HF siguen idénticas a MAME
 y WW byte a byte igual.
+
+## D69 (2026-11-12): El margen del constructor de sprites se calcula para el borde izquierdo de la vista
+
+Incidencia #3: en todos los modos anchos quedaba una franja de hasta 15 px sin sprites pegada al borde izquierdo. El constructor del juego
+descarta los tiles con X negativa o ≥ 512; la vista ancha empieza en la X cruda `64 − (ancho − 384) / 2`, así que desde 482 px de ancho los
+tiles que cruzan el borde izquierdo tienen X negativa y no se construían. El margen `c->mod_bx` de D62 valía `(ancho − 512) / 2`, lo que
+pide el borde derecho: 0 a 512 px, y 16 px corto a cualquier ancho mayor. Decisión: `sprite_margin` (`runtime/sf2.c`) da
+`(ancho − 384) / 2 − 48` (0 hasta 480 px), que deja 16 px a la izquierda del borde y cubre también el derecho; lo usan igual la máquina
+sombra (lógica original) y la partida (lógica ancha, stage completo), y `Video.xsigned` se enciende siempre que hay margen, porque con
+margen la X se guarda con signo. No se toca ningún parche de `mod_patches*.txt`: solo cambia el valor que leen. Se descartó arreglarlo en
+el renderizador (no puede dibujar un tile que el juego no puso en la tabla). Consecuencias: con la lógica original la partida y el centro
+de 384 columnas siguen idénticos (CRC iguales a los de 384 px en HF); con la lógica ancha o el stage completo el juego construye algún
+tile más por cuadro, lo que cuesta ciclos del 68000, y las partidas grabadas en esos dos modos con la versión anterior dejan de
+reproducirse cuadro a cuadro. Medido solo en HF (Windows); WW y CE usan el mismo código y los mismos parches, pero no se han vuelto a
+correr. Bitácora `2026-11-12-pantalla-ancha-borde-izquierdo`.
+
+## D70 (2026-11-12): Windows nativo con MinGW: runtime de GCC dentro del .exe y rutas en UTF-8
+
+Primera compilación en un Windows real (MSYS2 UCRT64, GCC 16.2, bitácora `2026-11-12-windows-nativo`). Decisiones: (1) la dependencia
+circular entre `sf2_recomp` (código generado, llama a `rt_hook`/`rt_dispatch`/`rt_fatal`) y `sf2_core` (`machine.c`, que los define) se
+declara en CMake, que repite las bibliotecas al enlazar: GNU ld las recorre una vez y `tools/render_dump` no enlazaba (en macOS no se
+veía: su enlazador resuelve en cualquier orden); (2) con MinGW nativo se enlaza con `-static`, como ya hacía la cadena cruzada: el `.exe`
+solo necesita `SDL3.dll`, no las DLL de MSYS2 en el PATH; (3) `platform/hostio.c` abre, borra y renombra con las funciones anchas de
+Windows a partir de la ruta en UTF-8 (`hostio_fopen`), porque SDL entrega en UTF-8 los argumentos y la carpeta de preferencias y `fopen`
+las lee en ANSI: con un acento en el nombre de usuario no se guardaban ni la configuración ni los estados; el reemplazo del archivo es
+`MoveFileExW`, sin borrar antes el anterior; (4) los estados guardados llevan el set en el nombre (`<set>_slotN.sta`; los de WW no
+cambian), porque las tres variantes comparten carpeta y se pisaban las ranuras.

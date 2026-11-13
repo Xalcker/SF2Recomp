@@ -65,6 +65,13 @@ if(SF2_SANITIZE)
   add_link_options(-fsanitize=${SF2_SANITIZE})
 endif()
 
+# Windows nativo con MinGW (MSYS2): el runtime de GCC y de C++ va enlazado dentro de cada .exe, como en la compilacion cruzada
+# (cmake/toolchains/mingw-x86_64.cmake).  Sin esto sf2.exe pedia libstdc++-6.dll y libgcc_s_seh-1.dll, que solo aparecen si la
+# carpeta de MSYS2 esta en el PATH (o, peor, se cargan las de otro programa que si lo este).  SDL3.dll sigue siendo dinamica.
+if(MINGW AND NOT CMAKE_CROSSCOMPILING)
+  add_link_options(-static)
+endif()
+
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
   message(FATAL_ERROR "Compilador no soportado (${CMAKE_C_COMPILER_ID}): se necesita clang >= 13 o GCC >= 15 (musttail, ver runtime/sf2_port.h)")
 endif()

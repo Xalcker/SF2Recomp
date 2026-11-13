@@ -95,7 +95,8 @@ int sf2_run_frame(Sf2 *s);
 const char *sf2_error(const Sf2 *s);
 /* 1 si el juego se detuvo porque saltó a una dirección que el recompilador no vio (no está en la tabla de
  * despacho), con la instrucción de origen y el destino; 0 si el fallo fue otro o no lo hubo.  El remedio es
- * añadir "entry <destino>" a tools/hints.txt y regenerar (sf2_error lo dice en una frase). */
+ * añadir "entry <destino>" a las pistas de la variante (tools/hints.txt en sf2, tools/hints_<set>.txt en las demás) y
+ * regenerar (sf2_error lo dice en una frase, con el archivo). */
 int sf2_dispatch_failure(const Sf2 *s, uint32_t *from, uint32_t *to);
 /* solo pruebas: al reanudar, el 68000 salta a `pc` como si el juego hubiera saltado a una dirección que el
  * recompilador no vio, para comprobar el registro de fallos de despacho (el siguiente sf2_run_frame devuelve -1) */

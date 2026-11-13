@@ -34,8 +34,11 @@ Las prioridades (0x800168-0x80016E), el control de capas (0x800166) y el de pale
   compilación mueve una sola variante: el C generado es de un programa concreto.
 - `tools/interleave.py --game` monta la imagen de programa; `gen_c.py --game` la comprueba (tamaño) y escribe `recomp_game_id` en el C
   generado. El núcleo toma el descriptor con `recomp_game()` y la aplicación busca `<set>.zip` (`sf2ce.zip`) y carga ese catálogo.
-- Las pistas del análisis son `tools/hints.txt` (WW) y `tools/hints_<set>.txt` (las demás). `mod_patches.txt` solo se aplica a WW
-  (`has_mods` / `"mods"` en `tools/games.py`).
+- Las pistas del análisis son `tools/hints.txt` (WW) y `tools/hints_<set>.txt` (las demás); los parches de los mods, `recompiler/mod_patches.txt`
+  (WW) y `recompiler/mod_patches_<set>.txt` (D68).
+- Las tres variantes comparten la carpeta de preferencias y `sf2recomp.ini`; los estados guardados llevan el set en el nombre
+  (`sf2hf_slot0.sta`), así que cada una tiene sus ranuras. Si pones `[paths] rom` en el `.ini`, vale para una sola variante: a las otras pásales
+  la ruta en la línea de comandos.
 
 ## Qué pasa hoy con HF
 

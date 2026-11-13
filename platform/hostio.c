@@ -6,8 +6,60 @@
 #include "png.h"
 #include "zipread.h"
 
+/* Windows: las rutas del juego llegan en UTF-8 (SDL entrega así los argumentos y la carpeta de preferencias) y fopen, remove y
+ * rename las leen en la página de códigos ANSI: con una ñ o un acento en la ruta (el nombre de usuario, sin ir más lejos) no se
+ * podía guardar la configuración ni los estados.  Se pasan a UTF-16 y se usan las funciones anchas.  Si la ruta no es UTF-8
+ * válido (herramientas de consola, que reciben los argumentos en ANSI) se deja a stdio como estaba. */
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <errno.h>
+#include <wchar.h>
+#define HOST_PATH_MAX 1300
+static int wide_path(const char *s, wchar_t *out, int cap) {
+    return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s, -1, out, cap) > 0;
+}
+#endif
+
+FILE *hostio_fopen(const char *path, const char *mode) {
+#ifdef _WIN32
+    wchar_t wp[HOST_PATH_MAX], wm[8];
+    if (wide_path(path, wp, HOST_PATH_MAX) && wide_path(mode, wm, 8))
+        return _wfopen(wp, wm);
+#endif
+    return fopen(path, mode);
+}
+
+static void remove_file(const char *path) {
+#ifdef _WIN32
+    wchar_t wp[HOST_PATH_MAX];
+    if (wide_path(path, wp, HOST_PATH_MAX)) {
+        _wremove(wp);
+        return;
+    }
+#endif
+    remove(path);
+}
+
+/* `tmp` pasa a ser `path`, sustituyendo al que hubiera; 0 o -1 */
+static int replace_file(const char *tmp, const char *path) {
+#ifdef _WIN32
+    /* rename no sobrescribe en Windows; MoveFileEx sí, y sin el instante en que el archivo anterior ya se borró y el nuevo aún no
+     * tiene su nombre */
+    wchar_t wt[HOST_PATH_MAX], wp[HOST_PATH_MAX];
+    if (wide_path(tmp, wt, HOST_PATH_MAX) && wide_path(path, wp, HOST_PATH_MAX)) {
+        if (MoveFileExW(wt, wp, MOVEFILE_REPLACE_EXISTING))
+            return 0;
+        errno = EACCES;
+        return -1;
+    }
+    remove(path);
+#endif
+    return rename(tmp, path);
+}
+
 int hostio_read_file(const char *path, uint8_t **data, size_t *len) {
-    FILE *f = fopen(path, "rb");
+    FILE *f = hostio_fopen(path, "rb");
     if (!f)
         return -1;
     size_t cap = 1 << 16, n = 0;
@@ -36,21 +88,18 @@ int hostio_write_file(const char *path, const void *data, size_t len) {
     char tmp[1100];
     if (snprintf(tmp, sizeof tmp, "%s.tmp", path) >= (int)sizeof tmp)
         return -1;
-    FILE *f = fopen(tmp, "wb");
+    FILE *f = hostio_fopen(tmp, "wb");
     if (!f)
         return -1;
     int ok = fwrite(data, 1, len, f) == len;
     ok = fclose(f) == 0 && ok;
-    if (!ok) { remove(tmp); return -1; }
-#ifdef _WIN32
-    remove(path);                       /* rename no sobrescribe en Windows */
-#endif
-    if (rename(tmp, path) != 0) { remove(tmp); return -1; }
+    if (!ok) { remove_file(tmp); return -1; }
+    if (replace_file(tmp, path) != 0) { remove_file(tmp); return -1; }
     return 0;
 }
 
 int hostio_is_zip(const char *path) {
-    FILE *f = fopen(path, "rb");
+    FILE *f = hostio_fopen(path, "rb");
     if (!f)
         return 0;
     unsigned char b[4] = { 0 };
@@ -82,7 +131,7 @@ static int dir_get(void *ctx, size_t i, RomFile *out) {
 
 static int dir_read(void *ctx, size_t i, uint8_t *dst) {
     DirSource *d = ctx;
-    FILE *f = fopen(d->path[i], "rb");
+    FILE *f = hostio_fopen(d->path[i], "rb");
     if (!f)
         return -1;
     size_t n = fread(dst, 1, d->size[i], f);
@@ -100,7 +149,7 @@ static void dir_scan(DirSource *d, const GameDef *game, const char *dir) {
             continue;                       /* sin nombre antiguo: el mismo archivo no se cuenta dos veces */
         char *p = d->path[d->count];
         snprintf(p, sizeof d->path[0], "%s/%s", dir, romset_candidate_name(game, c));
-        FILE *f = fopen(p, "rb");
+        FILE *f = hostio_fopen(p, "rb");
         if (!f)
             continue;
         long size = -1;

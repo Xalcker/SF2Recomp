@@ -77,6 +77,17 @@ void sf2_options_default(Sf2Options *o) {
 
 static void apply_wide_logic(Sf2 *s);
 
+/* Margen del constructor de sprites (c->mod_bx) para una vista de `width` píxeles.  El juego descarta los tiles con X negativa o
+ * de 512 en adelante: en la recreativa da igual, porque la ventana empieza en la X cruda 64 y un tile de 16 px que asoma por la
+ * izquierda tiene X de 49 a 63.  La vista ancha empieza en 64 - (width - 384) / 2, y en cuanto eso baja de 16 los tiles que cruzan
+ * el borde izquierdo tienen X negativa y no se construían: quedaba una franja de hasta 15 px sin sprites pegada a ese borde (a la
+ * derecha no, porque la X de 9 bits llega a 511).  El margen deja siempre 16 px a la izquierda del borde, y con eso también cubre el
+ * derecho (512 + margen >= borde derecho).  Vale 0 hasta un ancho de 480, donde el constructor original ya basta. */
+static int sprite_margin(int width) {
+    const int view = (width - SF2_SCREEN_W) / 2;
+    return view > 48 ? view - 48 : 0;
+}
+
 static void on_vblank(Machine *mc) {
     Sf2 *s = mc->user;
     if (s->has_video) {
@@ -363,7 +374,7 @@ static void shadow_frame(Sf2 *s) {
     M68K *cpu = &s->shadow.cpu;
     cpu->mod_wide = cpu->mod_fixcam = cpu->mod_stereo = 0;
     cpu->mod_view = (s->video.rw - SF2_SCREEN_W) / 2;
-    cpu->mod_bx = s->video.rw > 512 ? (s->video.rw - 512) / 2 : 0;
+    cpu->mod_bx = sprite_margin(s->video.rw);
     /* la tabla que se latchea en un VBlank se construye en el cuadro anterior: la copia corre dos cuadros y se queda con el segundo
      * latch, que la máquina real usará en su próximo VBlank */
     const uint64_t v0 = s->shadow.vblanks;
@@ -429,12 +440,12 @@ static void apply_wide_logic(Sf2 *s) {
     s->mc.cpu.mod_wide = on ? (s->video.rw - SF2_SCREEN_W) / 2 : 0;
     s->mc.cpu.mod_fixcam = on && s->stage_full;
     /* dibujo (D62), con o sin lógica ancha: las ventanas «¿está a la vista?» se ensanchan lo que la vista, para que los objetos de las
-     * bandas añadidas no aparezcan de golpe; el constructor de sprites admite X fuera de 0-511 solo si la vista pasa de 512 (hasta
-     * 512 la X de 9 bits ya cubre la vista entera) y entonces el renderizador lee la X con signo */
+     * bandas añadidas no aparezcan de golpe; el constructor de sprites admite X fuera de 0-511 cuando la vista lo necesita
+     * (sprite_margin: desde 482 px de ancho, para los tiles que cruzan el borde izquierdo) y entonces el renderizador lee la X con signo */
     /* en la partida real solo con lógica ancha o stage completo (que ya cambian el juego); con la lógica original lo hace la máquina sombra */
     s->mc.cpu.mod_view = on ? (s->video.rw - SF2_SCREEN_W) / 2 : 0;
-    s->mc.cpu.mod_bx = on && s->video.rw > 512 ? (s->video.rw - 512) / 2 : 0;
-    video_set_xsigned(&s->video, s->video.w > 512);
+    s->mc.cpu.mod_bx = on ? sprite_margin(s->video.rw) : 0;
+    video_set_xsigned(&s->video, sprite_margin(s->video.w) > 0);
     if (s->has_sound)
         sound_set_pan_half(&s->snd, s->video.rw / 2);     /* mod estéreo: el borde de la vista es el extremo del paneo */
 }

@@ -1,5 +1,6 @@
 /* wav.c - escritor WAV PCM de 16 bits (ver wav.h). */
 #include "wav.h"
+#include "hostio.h"
 
 static void put32(FILE *f, uint32_t v) { uint8_t b[4] = { v, v >> 8, v >> 16, v >> 24 }; fwrite(b, 1, 4, f); }
 static void put16(FILE *f, uint16_t v) { uint8_t b[2] = { v, v >> 8 }; fwrite(b, 1, 2, f); }
@@ -15,7 +16,7 @@ static void header(WavWriter *w) {
 }
 
 int wav_open(WavWriter *w, const char *path, uint32_t rate, uint16_t channels) {
-    w->f = fopen(path, "wb");
+    w->f = hostio_fopen(path, "wb");
     if (!w->f) return -1;
     w->rate = rate;
     w->channels = channels;

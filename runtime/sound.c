@@ -14,8 +14,15 @@ static int interp_ready;
 
 /* MAME evalúa esta tabla al compilar (queda en __TEXT,__const del binario), sin contracción a FMA; el
  * remuestreo en sí sí se compila con FMA (fmul, fmsub, fmadd, fmsub, fmadd en arm64, igual aquí) */
+/* GCC no implementa el pragma (lo ignora con un aviso) y contrae a FMA por omisión donde el procesador la tiene (arm64): se le pide
+ * lo mismo con un atributo de la función */
+#if defined(__GNUC__) && !defined(__clang__)
+__attribute__((optimize("fp-contract=off")))
+#endif
 static void interp_init(void) {
+#if defined(__clang__) || !defined(__GNUC__)
 #pragma STDC FP_CONTRACT OFF
+#endif
     for (uint32_t i = 1; i != 4096; i++) {
         float p = i / 4096.0;
         interp[0][i] = (p - p*p*p) / 6;

@@ -8,7 +8,7 @@
 > into portable C, in the spirit of N64Recomp: *The World Warrior* (World 910522), *Champion Edition* (World 920513) and *Hyper
 > Fighting* (World 921209). It runs natively on macOS, Linux, Windows and the browser (WebAssembly) and is frame-exact against
 > MAME 0.289 (fourteen full playthroughs of *The World Warrior*; attract mode, a scripted game and audio for the other two, which
-> have only been tested on macOS).
+> have only been tested on macOS, plus a native Windows build of *Hyper Fighting* with MSYS2).
 > **No ROMs or Capcom assets are included**: you supply your own MAME zip (`sf2.zip`, `sf2ce.zip` or `sf2hf.zip`), and the
 > recompiler generates the C code at build time on your machine. Build instructions are below (in Spanish); `make
 > ROMDIR=/path/to/sf2.zip` is the short version, and `make GAME=sf2ce BUILD=build-ce ROMDIR=/path/to/sf2ce.zip` builds
@@ -21,7 +21,7 @@ jugador aporta sus propias ROMs: el repositorio solo contiene herramientas, reco
 (`docs/DECISIONES.md`, D5).
 
 Estado: **hito 6 completado** (cobertura y robustez). El mismo código compila y corre *The World Warrior* completo en **macOS** (arm64),
-**Linux** (arm64 y x86-64), **Windows** (x86-64, compilación cruzada) y el **navegador** (WebAssembly), con configuración,
+**Linux** (arm64 y x86-64), **Windows** (x86-64, nativo con MSYS2 o por compilación cruzada) y el **navegador** (WebAssembly), con configuración,
 dipswitches, remapeo de teclado y mando, estados guardados y carga de las ROMs desde `sf2.zip` o una carpeta. Catorce partidas
 que recorren el juego entero (los ocho personajes hasta el final con los cuatro jefes, bonus, continuar, fin de partida, dos
 jugadores, retador, menú de pruebas y varios dipswitches; 603.050 cuadros) son **idénticas a MAME 0.289 en todos los cuadros**,
@@ -85,7 +85,8 @@ cmake --build build -j8
 ```
 
 Las instrucciones de Linux, Windows y Web de abajo son las de *The World Warrior*; las demás variantes se compilan igual añadiendo
-`-DSF2_GAME=` (o `GAME=` en `make web`), pero **solo se han probado en macOS**.
+`-DSF2_GAME=` (o `GAME=` en `make web`), pero **solo se han probado en macOS**, salvo *Hyper Fighting*, que también se ha compilado y
+probado en Windows nativo.
 
 ### Linux
 
@@ -102,7 +103,29 @@ compila el proyecto con el repositorio y `sf2.zip` montados de solo lectura, pas
 para x86-64, emulado en Apple silicon; `SF2_ROM_DIR=... ` para otra ruta de ROMs). Para jugar hace falta una instalación
 con SDL3 y pantalla; el contenedor corre con los controladores de vídeo y audio `dummy`.
 
-### Windows (compilación cruzada desde macOS o Linux)
+### Windows
+
+**Nativo, con MSYS2** (probado en Windows 11 x86-64 con *Hyper Fighting*: `ctest` 8/8). Hace falta el GCC del entorno UCRT64 de
+[MSYS2](https://www.msys2.org/) (`pacman -S mingw-w64-ucrt-x86_64-gcc`; es GCC ≥ 15), CMake, Ninja y Python 3 (los de `winget` valen:
+`Kitware.CMake`, `Ninja-build.Ninja`, `Python.Python.3.13`) y las bibliotecas de SDL3 para MinGW, que el guion deja en `external/`.
+Desde Git Bash o la consola de MSYS2, en la carpeta del proyecto:
+
+```bash
+tools/setup-local-tools.sh sdl3-mingw              # SDL3 3.4.18 para MinGW en external/sdl3-mingw (SHA-256 verificado)
+export PATH="/c/msys64/ucrt64/bin:$PATH"           # gcc y g++ de MSYS2 (solo para compilar)
+cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
+      -DCMAKE_PREFIX_PATH="$PWD/external/sdl3-mingw/x86_64-w64-mingw32" -DSF2_ROM_DIR=C:/ruta/a/sf2.zip
+cmake --build build                                # build/sf2.exe + SDL3.dll
+build/sf2.exe C:/ruta/a/sf2.zip
+```
+
+Si CMake no encuentra Python, indícalo con `-DPython3_EXECUTABLE=C:/ruta/a/python.exe`. El `.exe` lleva dentro el runtime de GCC: solo
+necesita `SDL3.dll` a su lado, y se puede lanzar desde el Explorador o PowerShell sin MSYS2 en el `PATH`. El `Makefile` no se usa en
+Windows (es de macOS y Linux): se llama a CMake directamente, y las otras variantes se eligen con `-DSF2_GAME=sf2ce` o `sf2hf` y otra
+carpeta (`-B build-hf`). El clang de LLVM para Windows (`x86_64-pc-windows-msvc`) no se ha probado, y Visual Studio no está soportado
+(no tiene `musttail`). No se puede recompilar con el juego abierto: Windows no deja sobrescribir un `.exe` en uso.
+
+**Compilación cruzada desde macOS o Linux:**
 
 ```bash
 tools/setup-local-tools.sh mingw       # llvm-mingw + SDL3 para mingw en external/ (SHA-256 verificados)
@@ -111,8 +134,8 @@ cmake --build build-win -j8            # build-win/sf2.exe + SDL3.dll (es lo ún
 ```
 
 `tools/windows-wine-docker.sh` ejecuta las pruebas y una medida de esos `.exe` con Wine dentro de Docker (prueba de
-humo, no sustituye a Windows). **No se ha probado en un Windows real.** Compilar con Visual Studio no está soportado
-(no tiene `musttail`).
+humo, no sustituye a Windows). Los `.exe` de la compilación cruzada **no se han probado en un Windows real**; la compilación nativa
+de arriba, sí.
 
 ### Web (WebAssembly)
 
@@ -134,7 +157,7 @@ selector).
 |---|---|---|
 | Jugador 1 | flechas · **Z X C** puñetazos · **A S D** patadas · **5** moneda · **1** start | cruceta o stick · X Y R1 · A B R2 · Back · Start |
 | Jugador 2 | **I J K L** · **R T Y** · **F G H** · **6** · **2** | mando 2, igual |
-| Estados | **F5** guardar, **F7** cargar, **F6/F8** ranura (0-9) | |
+| Estados | **F5** guardar, **F7** cargar, **F6/F8** ranura (0-9); cada variante tiene sus ranuras | |
 | Menú | **M** (o el botón guía del mando) abre el menú del juego: ajuste rápido (original, 16:9, ultraancho), pantalla ancha y mods, **entrenamiento**, vídeo, sonido y controles; Enter acepta y Esc vuelve (`docs/MENU.md`) | |
 | Entrenamiento | **7** modo entrenamiento · **8** visor de entradas · **9** cajas de golpe (`docs/ENTRENAMIENTO.md`) | |
 | Otros | **P** pausa · **Tab** avance rápido · **F9** pantalla ancha · **F10** reinicio · **F11** o Alt+Intro pantalla completa · **F12** captura · **Esc** salir | |
@@ -218,7 +241,7 @@ instrucciones por cuadro).
 
 ## Documentación
 
-`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/VARIANTES.md` (*Champion Edition* y *Hyper Fighting*), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D68), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
+`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/VARIANTES.md` (*Champion Edition* y *Hyper Fighting*), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D70), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
 
 ## Contribuir
 

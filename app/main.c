@@ -213,8 +213,10 @@ static int load_roms(App *a, const char *arg, RomSet *rs) {
 }
 
 /* ---- estados guardados ---------------------------------------------------------------------------------------- */
+/* una ranura por variante (sf2_slotN.sta, sf2ce_slotN.sta, sf2hf_slotN.sta): las tres comparten la carpeta de preferencias y un
+ * estado solo vale para el programa con que se guardó; con un nombre común, guardar en una variante pisaba la ranura de otra */
 static void state_path(const App *a, char *out, size_t n) {
-    snprintf(out, n, "%s/sf2_slot%d.sta", a->state_dir, a->slot);
+    snprintf(out, n, "%s/%s_slot%d.sta", a->state_dir, sf2_game()->id, a->slot);
 }
 
 static void save_state(App *a) {
@@ -486,12 +488,15 @@ static void report_failure(App *a) {
     }
     snprintf(log_path, sizeof log_path, "%s/errores.log", a->pref_dir);
     SDL_CreateDirectory(a->pref_dir);
-    FILE *f = fopen(log_path, "a");
+    FILE *f = hostio_fopen(log_path, "a");
     if (f) {
         fprintf(f, "[%s] %s\n", when, sf2_error(a->sf2));
-        if (dispatch)
+        if (dispatch) {
+            const char *id = sf2_game()->id;            /* pistas de la variante: tools/hints.txt (sf2) o tools/hints_<set>.txt */
+            const int ww = strcmp(id, "sf2") == 0;
             fprintf(f, "  salto sin codigo recompilado: destino %06x desde la instruccion %06x; remedio: 'entry %06x' en "
-                       "tools/hints.txt y recompilar\n", to, from, to);
+                       "tools/hints%s%s.txt y recompilar\n", to, from, to, ww ? "" : "_", ww ? "" : id);
+        }
         if (st_path[0])
             fprintf(f, "  estado del cuadro %llu (ultimo guardado antes del fallo): %s  (sf2 --load-state para reproducirlo)\n",
                     (unsigned long long)a->rescue_frame, st_path);
@@ -782,8 +787,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_APP_FAILURE;
     }
     romset_free(&rs);
-    if (a->cfg.widescreen && sf2_set_video_width(a->sf2, a->cfg.wide_width) != 0)
-        fprintf(stderr, "wide_width = %d no es valido (par, de 384 a 512): pantalla ancha apagada\n", a->cfg.wide_width);
+    if (a->cfg.widescreen && sf2_set_video_width(a->sf2, a->cfg.wide_width) != 0) {
+        fprintf(stderr, "wide_width = %d no es valido (par, de %d a %d): pantalla ancha apagada\n", a->cfg.wide_width, SF2_SCREEN_W, SF2_SCREEN_W_MAX);
+        a->cfg.widescreen = 0;           /* que el menu y la configuracion que se guarde digan lo que se ve */
+    }
     sf2_set_hud_edges(a->sf2, a->cfg.hud_edges);
     sf2_set_wide_logic(a->sf2, a->cfg.wide_logic);
     sf2_set_stage_full(a->sf2, a->cfg.stage_full);
