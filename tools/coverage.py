@@ -329,7 +329,9 @@ def mame_one(key, path, outdir, blind, rom, roms, every):
     snaps = snap_frames(h, every)
     snapdir = os.path.join(d, "mame_png")
     os.makedirs(snapdir, exist_ok=True)
-    mame = os.path.join(ROOT, "tools", "mame.sh")
+    mame = [os.path.join(ROOT, "tools", "mame.sh")]
+    if os.name == "nt":                         # Windows no ejecuta un .sh: bash de Git o de MSYS2 (SF2_MAME indica el ejecutable)
+        mame.insert(0, "bash")
     lua = os.path.join(ROOT, "tools", "mame_blind.lua")
     log = open(os.path.join(d, "mame.log"), "w")
     t0 = time.time()
@@ -337,11 +339,11 @@ def mame_one(key, path, outdir, blind, rom, roms, every):
     if h["dips"] != DEFAULT_DIPS:
         # pasada corta: deja los dipswitches en el cfg propio para que valgan desde el encendido (ver mame_blind.lua)
         e1 = dict(env, SF2_SUMMARY=os.path.join(d, "summary_mame_prep.txt"), SF2_FRAMES="1")
-        subprocess.run([mame, "sf2"] + MAME_HEADLESS + ["-cfg_directory", cfg, "-str", "30", "-autoboot_script", lua],
+        subprocess.run(mame + ["sf2"] + MAME_HEADLESS + ["-cfg_directory", cfg, "-str", "30", "-autoboot_script", lua],
                        env=e1, stdout=log, stderr=subprocess.STDOUT)
     e2 = dict(env, SF2_SUMMARY=os.path.join(d, "summary_mame.txt"), SF2_FRAMES=str(h["frames"]),
               SF2_CMDS=os.path.join(d, "cmds_mame.txt"), SF2_SNAP_FRAMES=",".join(str(f) for f in snaps))
-    rc = subprocess.run([mame, "sf2"] + MAME_HEADLESS + ["-cfg_directory", cfg, "-snapshot_directory", snapdir,
+    rc = subprocess.run(mame + ["sf2"] + MAME_HEADLESS + ["-cfg_directory", cfg, "-snapshot_directory", snapdir,
                                                          "-str", str(h["frames"] // 55 + 30), "-autoboot_script", lua],
                         env=e2, stdout=log, stderr=subprocess.STDOUT).returncode
     t_mame = time.time() - t0

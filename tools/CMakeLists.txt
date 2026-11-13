@@ -22,18 +22,33 @@ math(EXPR MAME_STR "${BFR} / 55 + 15")
 # MAME sin ventana ni sonido y SIN dispositivos de entrada del anfitrion (D20)
 set(MAME_HEADLESS -video none -sound none -nothrottle -keyboardprovider none -mouseprovider none
                   -joystickprovider none -lightgunprovider none)
+# Python en modo UTF-8: los informes llevan acentos, flechas y ≤, y la consola de Windows (cp1252) no puede imprimirlos
+set(SF2_PY "${Python3_EXECUTABLE}" -X utf8)
+set(SF2_MAME "" CACHE FILEPATH "Ejecutable de MAME (solo driver CPS1) para compare-*; vacio = external/mame/cps1 (tools/mame.sh)")
 set(MAME "${T}/mame.sh")
+if(WIN32)
+  # Windows no ejecuta un .sh: se le pasa al bash de Git o de MSYS2
+  find_program(SF2_BASH bash HINTS "C:/Program Files/Git/bin" "C:/msys64/usr/bin" DOC "bash para tools/mame.sh en Windows")
+  if(SF2_BASH)
+    set(MAME "${SF2_BASH}" "${T}/mame.sh")
+  endif()
+endif()
+# SF2_MAME llega a tools/mame.sh como variable de entorno (va dentro de cada `cmake -E env`)
+set(MAME_ENV "")
+if(SF2_MAME)
+  set(MAME_ENV "SF2_MAME=${SF2_MAME}")
+endif()
 
 # ---- analisis -----------------------------------------------------------------------------------------------
 add_custom_target(analyze
-  COMMAND "${Python3_EXECUTABLE}" "${T}/analyze.py" "${SF2_ROM_BIN}" --hints "${T}/hints.txt"
+  COMMAND ${SF2_PY} "${T}/analyze.py" "${SF2_ROM_BIN}" --hints "${T}/hints.txt"
           --report "${B}/coverage.txt" --disasm "${B}/disasm.txt" --insns "${B}/insns.txt"
   DEPENDS sf2_generate USES_TERMINAL)
 # dasmcheck informa 10 discrepancias de longitud cosmeticas (Musashi desensambla la extension (d8,An,Xn) con el bit 8 en
 # formato 68020; el nucleo 68000 la ignora, ver la bitacora del hito 1) y sale con 1: como en el Makefile original, el
 # resultado se muestra pero no hace fallar el objetivo
 add_custom_target(dasmcheck-run
-  COMMAND "${Python3_EXECUTABLE}" "${T}/analyze.py" "${SF2_ROM_BIN}" --hints "${T}/hints.txt"
+  COMMAND ${SF2_PY} "${T}/analyze.py" "${SF2_ROM_BIN}" --hints "${T}/hints.txt"
           --report "${B}/coverage.txt" --disasm "${B}/disasm.txt" --insns "${B}/insns.txt"
   COMMAND "${CMAKE_COMMAND}" "-DCMD=$<TARGET_FILE:dasmcheck>;${SF2_ROM_BIN};${B}/insns.txt" -P "${T}/run_ignore_status.cmake"
   DEPENDS dasmcheck sf2_generate USES_TERMINAL VERBATIM)
@@ -49,11 +64,11 @@ add_custom_target(run-blind
           --io-table "${B}/io_table.md"
   DEPENDS sf2_blind USES_TERMINAL)
 add_custom_command(OUTPUT "${B}/summary_mame.txt"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_SUMMARY=${B}/summary_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
-          "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_blind.lua"
+  COMMAND "${CMAKE_COMMAND}" -E env ${MAME_ENV} SF2_GAME=${SF2_GAME} SF2_SUMMARY=${B}/summary_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
+          ${MAME} ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_blind.lua"
   DEPENDS "${T}/mame_blind.lua" "${INP}" VERBATIM USES_TERMINAL)
 add_custom_target(compare-mame
-  COMMAND "${Python3_EXECUTABLE}" "${T}/compare_summaries.py" "${B}/summary_recomp.txt" "${B}/summary_mame.txt" --inputs "${INP}"
+  COMMAND ${SF2_PY} "${T}/compare_summaries.py" "${B}/summary_recomp.txt" "${B}/summary_mame.txt" --inputs "${INP}"
   DEPENDS run-blind "${B}/summary_mame.txt" USES_TERMINAL)
 
 # ---- hito 3: video --------------------------------------------------------------------------------------------
@@ -73,14 +88,14 @@ add_custom_target(png-video
   DEPENDS sf2_blind USES_TERMINAL)
 add_custom_command(OUTPUT "${VDIR}/mame/.stamp"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${VDIR}/mame"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_SNAP_FRAMES=${SF2_VFRAMES} SF2_INPUTS=${INP} SF2_FRAMES=${VFRAMES_N}
-          SF2_DUMP_DIR=${VDIR}/mame "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -snapshot_directory "${VDIR}/mame" -str ${VMAME_STR}
+  COMMAND "${CMAKE_COMMAND}" -E env ${MAME_ENV} SF2_GAME=${SF2_GAME} SF2_SNAP_FRAMES=${SF2_VFRAMES} SF2_INPUTS=${INP} SF2_FRAMES=${VFRAMES_N}
+          SF2_DUMP_DIR=${VDIR}/mame ${MAME} ${SF2_GAME} ${MAME_HEADLESS} -snapshot_directory "${VDIR}/mame" -str ${VMAME_STR}
           -autoboot_script "${T}/mame_snap.lua"
   COMMAND "${CMAKE_COMMAND}" -E touch "${VDIR}/mame/.stamp"
   DEPENDS "${T}/mame_snap.lua" "${INP}" "${VDIR}/vframes.txt" VERBATIM USES_TERMINAL)
 add_custom_target(mame-video DEPENDS "${VDIR}/mame/.stamp")
 add_custom_target(compare-video
-  COMMAND "${Python3_EXECUTABLE}" "${T}/compare_frames.py" --dir-a "${VDIR}" --dir-b "${VDIR}/mame"
+  COMMAND ${SF2_PY} "${T}/compare_frames.py" --dir-a "${VDIR}" --dir-b "${VDIR}/mame"
           --frames ${SF2_VFRAMES} --diff-dir "${VDIR}/diff"
   DEPENDS png-video "${VDIR}/mame/.stamp" USES_TERMINAL)
 
@@ -99,23 +114,23 @@ add_custom_target(wav-recomp
   DEPENDS sf2_blind USES_TERMINAL)
 add_custom_command(OUTPUT "${ADIR}/mame/.stamp"
   COMMAND "${CMAKE_COMMAND}" -E make_directory "${ADIR}/mame"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_AUDIO_DIR=${ADIR}/mame SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
-          "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -wavwrite "${ADIR}/mame/sf2_mame.wav"
+  COMMAND "${CMAKE_COMMAND}" -E env ${MAME_ENV} SF2_GAME=${SF2_GAME} SF2_AUDIO_DIR=${ADIR}/mame SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
+          ${MAME} ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -wavwrite "${ADIR}/mame/sf2_mame.wav"
           -autoboot_script "${T}/mame_audio.lua"
   COMMAND "${CMAKE_COMMAND}" -E touch "${ADIR}/mame/.stamp"
   DEPENDS "${T}/mame_audio.lua" "${INP}" "${ADIR}/bframes.txt" VERBATIM USES_TERMINAL)
 add_custom_target(mame-audio DEPENDS "${ADIR}/mame/.stamp")
 add_custom_target(compare-audio
-  COMMAND "${Python3_EXECUTABLE}" "${T}/compare_audio.py" "${ADIR}/recomp" "${ADIR}/mame" --game ${SF2_GAME} --sections
+  COMMAND ${SF2_PY} "${T}/compare_audio.py" "${ADIR}/recomp" "${ADIR}/mame" --game ${SF2_GAME} --sections
           --report "${ADIR}/informe_audio.md"
   DEPENDS run-audio "${ADIR}/mame/.stamp" USES_TERMINAL)
 add_custom_command(OUTPUT "${ADIR}/cmds_mame.txt"
-  COMMAND "${CMAKE_COMMAND}" -E env SF2_GAME=${SF2_GAME} SF2_CMDS=${ADIR}/cmds_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
-          "${MAME}" ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_sound_cmds.lua"
+  COMMAND "${CMAKE_COMMAND}" -E env ${MAME_ENV} SF2_GAME=${SF2_GAME} SF2_CMDS=${ADIR}/cmds_mame.txt SF2_INPUTS=${INP} SF2_FRAMES=${BFR}
+          ${MAME} ${SF2_GAME} ${MAME_HEADLESS} -str ${MAME_STR} -autoboot_script "${T}/mame_sound_cmds.lua"
   DEPENDS "${T}/mame_sound_cmds.lua" "${INP}" "${ADIR}/bframes.txt" VERBATIM USES_TERMINAL)
 add_custom_target(compare-sound-cmds
   COMMAND sf2_blind "${SF2_ROM_BIN}" --frames ${BFR} --inputs "${INP}" --sound-cmds "${ADIR}/cmds_recomp.txt" --quiet
-  COMMAND "${Python3_EXECUTABLE}" "${T}/compare_sound_cmds.py" "${ADIR}/cmds_recomp.txt" "${ADIR}/cmds_mame.txt"
+  COMMAND ${SF2_PY} "${T}/compare_sound_cmds.py" "${ADIR}/cmds_recomp.txt" "${ADIR}/cmds_mame.txt"
   DEPENDS sf2_blind "${ADIR}/cmds_mame.txt" USES_TERMINAL)
 
 # ---- hito 6: cobertura con todas las secuencias de tools/sequences/ y validación contra MAME ----------------------
@@ -124,11 +139,11 @@ add_custom_target(compare-sound-cmds
 # comandos de sonido, capturas) e informe en build/coverage/informe_mame.md.  JOBS=N limita los procesos en paralelo.
 set(SF2_COVERAGE_JOBS 4 CACHE STRING "Procesos en paralelo de make coverage / compare-coverage")
 add_custom_target(coverage
-  COMMAND "${Python3_EXECUTABLE}" "${T}/coverage.py" --blind $<TARGET_FILE:sf2_blind> --rom "${SF2_ROM_BIN}"
+  COMMAND ${SF2_PY} "${T}/coverage.py" --blind $<TARGET_FILE:sf2_blind> --rom "${SF2_ROM_BIN}"
           --hints "${T}/hints.txt" --sequences "${T}/sequences" --out "${B}/coverage" --jobs ${SF2_COVERAGE_JOBS}
   DEPENDS sf2_blind USES_TERMINAL)
 add_custom_target(compare-coverage
-  COMMAND "${Python3_EXECUTABLE}" "${T}/coverage.py" --blind $<TARGET_FILE:sf2_blind> --rom "${SF2_ROM_BIN}"
+  COMMAND ${SF2_PY} "${T}/coverage.py" --blind $<TARGET_FILE:sf2_blind> --rom "${SF2_ROM_BIN}"
           --hints "${T}/hints.txt" --sequences "${T}/sequences" --out "${B}/coverage" --jobs ${SF2_COVERAGE_JOBS}
           --mame --roms "${ROMSRC}"
   DEPENDS sf2_blind USES_TERMINAL)
