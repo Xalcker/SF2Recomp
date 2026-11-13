@@ -763,8 +763,8 @@ margen la X se guarda con signo. No se toca ningún parche de `mod_patches*.txt`
 el renderizador (no puede dibujar un tile que el juego no puso en la tabla). Consecuencias: con la lógica original la partida y el centro
 de 384 columnas siguen idénticos (CRC iguales a los de 384 px en HF); con la lógica ancha o el stage completo el juego construye algún
 tile más por cuadro, lo que cuesta ciclos del 68000, y las partidas grabadas en esos dos modos con la versión anterior dejan de
-reproducirse cuadro a cuadro. Medido solo en HF (Windows); WW y CE usan el mismo código y los mismos parches, pero no se han vuelto a
-correr. Bitácora `2026-11-12-pantalla-ancha-borde-izquierdo`.
+reproducirse cuadro a cuadro. Medido en HF (Windows); el 2026-11-13, `test_widescreen` en WW y CE (Windows): 336 y 660 tiles cruzan el
+borde izquierdo en 3.000 cuadros y el centro de 384 columnas sigue idéntico. Bitácora `2026-11-12-pantalla-ancha-borde-izquierdo`.
 
 ## D70 (2026-11-12): Windows nativo con MinGW: runtime de GCC dentro del .exe y rutas en UTF-8
 
