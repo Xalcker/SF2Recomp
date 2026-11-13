@@ -15,6 +15,20 @@ void rt_check_ram_code(M68K *c, uint32_t addr, const uint8_t *bytes, uint32_t le
     }
 }
 
+unsigned rt_write_lead(uint32_t pc) {
+    unsigned lo = 0, hi = recomp_wlead_len;
+    while (lo < hi) {
+        unsigned mid = (lo + hi) / 2;
+        if (recomp_wlead_pc[mid] == pc)
+            return recomp_wlead[mid];
+        if (recomp_wlead_pc[mid] < pc)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    return 0;
+}
+
 RecompFn rt_lookup(uint32_t addr) {
     unsigned lo = 0, hi = recomp_table_len;
     while (lo < hi) {

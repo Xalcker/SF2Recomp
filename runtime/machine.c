@@ -201,7 +201,8 @@ static void sound_latch_hook(void *ctx, int which, uint8_t val) {
     Machine *mc = ctx;
     if (mc->cmd_log)
         fprintf(mc->cmd_log, "%llu %d %02x\n", (unsigned long long)mc->sample_frame, which, val);
-    /* el código generado suma los ciclos de la instrucción al empezarla: el ciclo es el de su final */
+    /* el código generado suma los ciclos de la instrucción al empezarla, así que c->cycles es su final; el latch cambia al
+     * comenzar la escritura en el bus, como en MAME (D72): rt_write_lead dice cuántos ciclos antes del final empieza */
     if (mc->sound) {
         if (mc->cpu.mod_stereo && which == 1) {
             /* mod estéreo: 0x6264 saca de la cola la ranura 0x24(a5) y escribe el latch antes de avanzar el índice; la posición
@@ -211,7 +212,7 @@ static void sound_latch_hook(void *ctx, int which, uint8_t val) {
             const unsigned slot = ((unsigned)(w[ri] << 8 | w[(ri + 1) & 0xffffu]) >> 1) & 63u;
             sound_latch_pos(mc->sound, mc->cpu.snd_ok[slot], mc->cpu.snd_x[slot]);
         }
-        sound_latch_write(mc->sound, which, val, mc->cpu.cycles);
+        sound_latch_write(mc->sound, which, val, mc->cpu.cycles - rt_write_lead(mc->last_pc));
     }
 }
 

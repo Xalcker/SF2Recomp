@@ -48,6 +48,9 @@ void rt_hook(M68K *c);                     /* llamado antes de cada instrucción
 void rt_fatal(M68K *c, const char *fmt, ...) SF2_NORETURN SF2_PRINTF(2, 3);
 void rt_stopped(M68K *c);                  /* la CPU ejecutó STOP: esperar la siguiente IRQ */
 RecompFn rt_lookup(uint32_t addr);         /* tabla de despacho dirección -> función (NULL si no existe) */
+/* D72: ciclos entre el comienzo de la última escritura de datos de la instrucción de `pc` y su final (0 si no escribe o no se
+ * sabe).  MAME fecha un acceso al empezarlo; el código generado escribe con c->cycles ya en el final de la instrucción */
+unsigned rt_write_lead(uint32_t pc);
 /* código que el juego construye en RAM (hint ram_code, D64): al entrar en su función recompilada se comprueba que la memoria tiene
  * los bytes con los que se generó; si no, rt_fatal (ejecutar otra cosa daría una partida distinta sin avisar) */
 void rt_check_ram_code(M68K *c, uint32_t addr, const uint8_t *bytes, uint32_t len);

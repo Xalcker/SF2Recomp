@@ -87,7 +87,7 @@ cmake --build build -j8
 Las instrucciones de Linux, Windows y Web de abajo son las de *The World Warrior*; las demás variantes se compilan igual añadiendo
 `-DSF2_GAME=` (o `GAME=` en `make web`), pero **solo se han probado en macOS** y en Windows nativo (las tres variantes, `ctest` 8/8).
 Además se puede compilar *Street Fighter Zero* en la versión de CPS Changer (`-DSF2_GAME=sfzch` con `sfzch.zip`): es jugable en
-vanilla y sin mods, e idéntico a MAME en estado, vídeo y comandos de sonido; el audio difiere en dos tramos (`docs/VARIANTES.md`, D71).
+vanilla y sin mods, e idéntico a MAME en estado, vídeo y audio (`docs/VARIANTES.md`, D71).
 
 ### Linux
 
@@ -242,7 +242,7 @@ instrucciones por cuadro).
 
 ## Documentación
 
-`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/VARIANTES.md` (*Champion Edition*, *Hyper Fighting* y *Street Fighter Zero* de CPS Changer), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D71), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
+`docs/README.md` es el índice: `docs/PLAN.md` (hitos), `docs/VARIANTES.md` (*Champion Edition*, *Hyper Fighting* y *Street Fighter Zero* de CPS Changer), `docs/MODS.md` (mods y mejoras), `docs/MENU.md` (menú del juego), `docs/DECISIONES.md` (D1-D72), `docs/bitacora/` (una entrada por paso), un `README.md` en cada carpeta.
 
 ## Contribuir
 

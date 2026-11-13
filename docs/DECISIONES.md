@@ -277,7 +277,7 @@ referencia la síntesis da los mismos enteros; lo que hay que acertar es solo el
 El 68000 deja sus escrituras en los latches con su ciclo (gancho en `mem.c`) y la placa avanza hasta el
 ciclo del 68000 en cada VBlank (`sound_run_until`). El tiempo se cuenta en ciclos del Z80 desde el
 arranque, y el ciclo c del 68000 es floor(c · 3579545 / 10⁷). El latch cambia desde el ciclo del final de
-la instrucción del 68000. Motivo: en la CPS1 el Z80 no puede afectar al 68000, así que no hace falta
+la instrucción del 68000 (desde D72, desde el comienzo de la escritura en el bus). Motivo: en la CPS1 el Z80 no puede afectar al 68000, así que no hace falta
 intercalarlos instrucción a instrucción; correr detrás es exacto y no toca el código generado. El YM2151
 comparte el cristal del Z80, así que no hay conversiones de reloj dentro de la placa.
 
@@ -799,5 +799,17 @@ los suma al ejecutarla, no en su tabla). sfzch la ejecuta al arrancar; con 4 cic
 durante los primeros 433 cuadros (la pila quedaba distinta) aunque la partida coincidía. WW, CE y HF no la ejecutan y no cambian; (7) los
 scripts de MAME toman de `tools/mame_game.lua` el contador de cuadros y la tabla de teclas de cada variante (en sfzch, los puertos del
 Changer). Resultado con `inputs_sf2.txt` (12.000 cuadros): estado, registros, RAM gráfica, comandos de sonido y 17 capturas idénticos. El
-audio difiere en dos tramos: D29 cambia el latch al final de la instrucción del 68000 y MAME al empezar la escritura en el bus, 8-12
-ciclos antes (medido igual en WW, CE y HF, donde el Z80 nunca lee en esa ventana); el Z80 de sfzch lee el latch 2 dentro de ella.
+audio difería en dos tramos por el instante del latch, que corrige D72; con D72 también el audio es idéntico.
+
+## D72 (2026-11-13): El latch de sonido cambia al comenzar la escritura en el bus, no al final de la instrucción
+
+D29 fechaba cada escritura del 68000 en los latches con `cpu.cycles`, que el código generado ya tiene en el final de la instrucción
+(suma sus ciclos al empezarla). El núcleo `m68000` de MAME 0.289 llama al dispositivo en la microinstrucción del acceso, antes de
+descontar sus 4 ciclos (`write_interruptible(...)` y luego `m_icount -= 4`): el latch cambia al **comenzar** la escritura, 8-12 ciclos
+antes del final en las instrucciones que escriben los latches (en `move.b (d8,An,Xn),abs.l`, 14 de 26). Las tres variantes de SF2 tenían
+ese desfase sin notarlo, porque su Z80 nunca lee el latch en esa ventana; el de sfzch sí lee el latch 2 (cuadro 410: MAME ya ve 0xF0 y
+aquí aún 0xFF) y el audio se separaba durante segundos. Decisión: `tools/mame_m68000_ack.py` anota por camino W = comienzo de la última
+escritura de datos (cuarto número de `recompiler/m68000_ack.txt`; K y E no cambian); `gen_c.py` emite, para cada instrucción cuyos caminos
+coinciden, el adelanto `total − W` en una tabla ordenada por PC (`recomp_wlead_pc`/`recomp_wlead`), y `sound_latch_hook` resta
+`rt_write_lead(last_pc)` al ciclo. Solo cambia el instante de los latches (el único acceso del 68000 que se fecha); la partida no cambia.
+Resultado: diferencia de instante de los latches 0 en las cuatro variantes y audio de sfzch idéntico a MAME muestra a muestra.
