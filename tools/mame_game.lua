@@ -13,6 +13,7 @@ local GAMES = {
   sf2   = { sample_pc = 0x000ad0, addr = 0x800172, write = false, cpu_hz = 10000000 },
   sf2ce = { sample_pc = 0x0005da, addr = 0x800100, write = true,  cpu_hz = 12000000 },
   sf2hf = { sample_pc = 0x01d264, addr = 0x800122, write = true,  cpu_hz = 12000000 },
+  sfzch = { sample_pc = 0x001076, addr = 0x800100, write = true,  cpu_hz = 12000000 },
 }
 
 local id = os.getenv("SF2_GAME") or "sf2"

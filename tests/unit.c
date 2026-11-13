@@ -156,8 +156,8 @@ static int fake_read(void *ctx, size_t i, uint8_t *dst) {
 
 static void test_romset(void) {
     /* catalogos: entradas con CRC distintos, tamanos validos, destinos que no se pisan y programa completo */
-    CHECK(game_count() == 3 && game_find("sf2") == &game_sf2 && game_find("sf2ce") == &game_sf2ce && game_find("sf2hf") == &game_sf2hf
-          && game_find("sf2x") == NULL);
+    CHECK(game_count() == 4 && game_find("sf2") == &game_sf2 && game_find("sf2ce") == &game_sf2ce
+          && game_find("sf2hf") == &game_sf2hf && game_find("sfzch") == &game_sfzch && game_find("sf2x") == NULL);
     for (int gi = 0; gi < game_count(); gi++) {
         const GameDef *g = game_at(gi);
         uint64_t total = 0, prog = 0;
@@ -182,6 +182,7 @@ static void test_romset(void) {
         CHECK(romset_candidate_count(g) == 2u * (size_t)g->nroms);
         if (g == &game_sf2) CHECK(g->nroms == 23 && total == 8u * 0x20000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
         if (g == &game_sf2ce || g == &game_sf2hf) CHECK(g->nroms == 18 && total == 3u * 0x80000 + 12u * 0x80000 + 0x10000 + 2u * 0x20000);
+        if (g == &game_sfzch) CHECK(g->nroms == 23 && total == 4u * 0x80000 + 16u * 0x80000 + 0x10000 + 2u * 0x20000);
     }
     /* contenido equivocado en archivos con nombre de ROM: faltan las 23, y el informe nombra el CRC malo */
     FakeSrc fs = { { "sf2e.30g", "sf2_09.bin", "otra_cosa.bin" }, { 0x20000, 0x10000, 0x20000 }, NULL };
@@ -248,6 +249,17 @@ static void test_cpsb(void) {
     romset_build_program(&rs, img);
     CHECK(img[0] == 0x20 && img[1] == 0x10 && img[0x80000] == 0x21 && img[0x100001] == 0x12);
     romset_free(&rs);
+    /* CPS-B-21 sin IN2 (sfzch): 2 MiB de programa, 0x800176 lee 0xFFFF, sin bloqueo de monedas en IN0 y mapeador de 4 bancos */
+    static uint8_t rom2[0x200000];
+    mem_init(&m, &game_sfzch, rom2, "sfz");
+    CHECK(m.rom_size == 0x200000);
+    m.in0 = 0xfe; m.coinctrl = 0; mem_latch_inputs(&m);
+    CHECK(m.in0_live == 0xfe && mem_read16(&m, 0x800176) == 0xffff);
+    rom2[0x1ffffe] = 0x12; rom2[0x1fffff] = 0x34;
+    CHECK(mem_read16(&m, 0x1ffffe) == 0x1234 && mem_read16(&m, 0x200000) == 0);
+    mem_free(&m);
+    CHECK(gfx_map(game_sfzch.mapper, GFXTYPE_SPRITES, 0x0000) == 0x0000 && gfx_map(game_sfzch.mapper, GFXTYPE_SPRITES, 0xc000) == 0xc000);
+    CHECK(gfx_map(game_sfzch.mapper, GFXTYPE_SCROLL3, 0x3fff) == 0x3fff);
 }
 
 static void test_state_stream(void) {

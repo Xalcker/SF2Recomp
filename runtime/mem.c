@@ -69,9 +69,11 @@ void mem_reset_log(Mem *m) { m->nlog = 0; }
  * cps1_coinctrl_w: coin_lockout_w(n, BIT(~data, 10 + n)), es decir bloqueo activo cuando el bit vale 0. */
 void mem_latch_inputs(Mem *m) {
     uint16_t in0 = m->in0 & 0xff;
-    for (int n = 0; n < 2; n++)
-        if (!((m->coinctrl >> (10 + n)) & 1))
-            in0 |= (uint16_t)(1u << n);      /* bloqueada: se lee como no pulsada */
+    if (!m->game->changer_inputs) {
+        for (int n = 0; n < 2; n++)
+            if (!((m->coinctrl >> (10 + n)) & 1))
+                in0 |= (uint16_t)(1u << n);      /* bloqueada: se lee como no pulsada */
+    }
     m->in0_live = in0;
     m->in1_live = m->in1;
     m->in2_live = m->in2 & 0xff;
@@ -116,7 +118,7 @@ static uint32_t io_read16(Mem *m, uint32_t off) {
             v = prod & 0xffff;
         else if (o == b->mult_result_hi / 2)
             v = prod >> 16;
-        else if (b->in2_addr != 0 && o == b->in2_addr / 2)
+        else if (b->in2_addr > 0 && o == b->in2_addr / 2)
             v = m->in2_live & 0xff;              /* puerto de 8 bits: el byte alto lee 0 */
         else
             v = 0xffff;                          /* registros no leíbles */

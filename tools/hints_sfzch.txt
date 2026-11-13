@@ -1,0 +1,40 @@
+# tools/hints_sfzch.txt - correcciones manuales del analisis estatico de Street Fighter Zero (CPS Changer, Japan 951020).
+#
+# Arranque: 0x97C carga a4 = 0x984 y salta a 0xD82, que encadena retornos via jmp (a2) antes de volver por jmp (a4).
+entry 000984
+#
+# Planificador (0x1024): tabla de 3 punteros largos tras el jmp (a1), retorno por pea en 0xFFE.
+entry 001040
+entry 001054
+entry 000ffe
+#
+# Tablas de saltos sobreextendidas:
+table_end 03bca8 03bcac     # 2 entradas; 0x3BCAC es una tabla de bytes leida por 0x3BCC6
+table_end 0462ce 0462d2     # 2 entradas; la 3.a palabra (0xFF4A) cae en datos
+table_end 01a954 01a960     # 3 entradas; la 4.a (0x001A004C) es dato
+table_end 01e328 01e35c     # 13 entradas; la 14.a (0x00040000) es dato
+#
+# Tabla de tareas en 0x001746 (8 entradas con ceros en las posiciones 3 y 4): las 3 ultimas son 0x00F0FE, 0x00F142, 0x00F186.
+entry 00f0fe
+entry 00f142
+entry 00f186
+#
+# Despacho de 0x00E6EA (`jmp (a0)`): destinos de la tabla 0x00E718 y ramas 0x00E6D6 / 0x00E6E4.
+entry 01155a
+entry 01157a
+entry 01159a
+entry 0115da
+entry 0115fa
+entry 01161a
+entry 01163a
+entry 01167a
+entry 0117ba
+entry 0117da
+#
+# Tabla de saltos en 0x02CC62 (9 entradas, la 3.a es 0x0000): las entradas 3..8 son 0x02D700, 0x02CFD0, 0x02DCC6, 0x02D7B6, 0x02DBD4, 0x02DD98.
+entry 02d700
+entry 02cfd0
+entry 02dcc6
+entry 02d7b6
+entry 02dbd4
+entry 02dd98

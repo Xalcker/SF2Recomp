@@ -777,3 +777,21 @@ Windows a partir de la ruta en UTF-8 (`hostio_fopen`), porque SDL entrega en UTF
 las lee en ANSI: con un acento en el nombre de usuario no se guardaban ni la configuración ni los estados; el reemplazo del archivo es
 `MoveFileExW`, sin borrar antes el anterior; (4) los estados guardados llevan el set en el nombre (`<set>_slotN.sta`; los de WW no
 cambian), porque las tres variantes comparten carpeta y se pisaban las ranuras.
+
+## D71 (2026-11-13): Street Fighter Zero (CPS Changer) como variante sin mods; entradas del Changer traducidas en el núcleo
+
+Primer juego fuera de la serie SF2: set `sfzch` de MAME (Japan 951020), mismo método que CE y HF (bitácora `2026-11-13-sfzch`,
+`docs/VARIANTES.md`). Decisiones: (1) el tamaño de la región gráfica pasa a ser el de cada variante (`GameDef.gfx_size`, hasta
+`GFX_ROM_SIZE_MAX` = 8 MiB) en vez de 6 MiB fijos, y cada ROM gráfica se copia con su propio tamaño; (2) el CPS-B de `sfzch` es el
+`CPS_B_21_DEF` de MAME sin puerto IN2 (`in2_addr` = 0; la lectura del CPS-B solo atiende IN2 con `in2_addr > 0`); (3) las entradas
+del Changer (Select, Start y los botones 4-6 repartidos entre IN0 e IN1, sin bloqueo de monedas) se traducen en `cps1_apply_inputs`
+con `GameDef.changer_inputs`, desde los mismos nombres de entrada que las demás variantes, para que el teclado, los mandos, `--inputs`
+y las herramientas no cambien; la moneda hace de Select; (4) sin mods: no hay `recompiler/mod_patches_sfzch.txt` y
+`cmake/SF2Pipeline.cmake` solo pasa `--mods` si el archivo existe; (5) la prueba de fallo de despacho salta al vector de reset
+(0x000002) en vez de a 0x000102: en `sfzch` la tabla de vectores ocupa solo 0x000-0x0BF y 0xC0-0x148 son los manejadores de las
+excepciones, de las IRQ que no usa y de los `trap` 13-15 (0x102 es el del vector 7, TRAPV). El análisis no decodifica nada por debajo
+de 0x400; esos manejadores solo correrían ante una excepción o una IRQ distinta de la 2, que el CPS-1 no genera. Queda **un conflicto** en el análisis
+(D49 pide 0): la `bmi.w` de 0x23B54 lleva a 0x23B60, `addq.l #1,$0001.w` (escritura long a dirección impar: error de dirección en un
+68000), que cae en la tabla de saltos de 0x23B64. Solo se toma si el byte leído en 0x23B52 es negativo; en la máquina real terminaría
+igual en una excepción, y el código generado se detiene con el mensaje de D46. Ninguna pista actual lo expresa; se deja documentado.
+No se ha comparado con MAME (no había MAME en la máquina donde se hizo).

@@ -19,7 +19,7 @@
 #   make compare-coverage -> hito 6: lo mismo y cada secuencia contra MAME (resumen, sonido y video)
 #   make web          -> compilacion para navegador con el Emscripten local (external/emsdk): build-web/index.html
 #
-# Variables: ROMDIR (sf2.zip o carpeta con las ROMs; por omision sf2), GAME (variante: sf2 o sf2ce, D63), BFRAMES, FRAMES,
+# Variables: ROMDIR (sf2.zip o carpeta con las ROMs; por omision sf2), GAME (variante: sf2, sf2ce, sf2hf o sfzch; D63, D71), BFRAMES, FRAMES,
 # INPUTS, VFRAMES, BUILD, CMAKE.
 # Requiere clang, python3 y las ROMs; CMake se toma de external/cmake si existe y si no del sistema (ver README.md).
 # compare-* requieren ademas el MAME local (external/mame/cps1, ver tools/mame.sh) y sf2.zip en la raiz.

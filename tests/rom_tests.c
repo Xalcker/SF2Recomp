@@ -253,12 +253,12 @@ static void test_dispatch_failure(const char *rom, const char *script) {
     CHECK(sf2_state_save(a, st, n) == (int)n);
     uint32_t from = 1, to = 1;
     CHECK(sf2_dispatch_failure(a, &from, &to) == 0);
-    sf2_debug_jump(a, 0x000102);                        /* tabla de vectores: nunca es código */
+    sf2_debug_jump(a, 0x000002);                        /* vector de reset: nunca es código */
     CHECK(sf2_run_frame(a) == -1);
     CHECK(sf2_dispatch_failure(a, &from, &to) == 1);
-    CHECK(to == 0x000102);
-    CHECK(strstr(sf2_error(a), "salto a 000102") != NULL);
-    CHECK(strstr(sf2_error(a), "entry 000102") != NULL);
+    CHECK(to == 0x000002);
+    CHECK(strstr(sf2_error(a), "salto a 000002") != NULL);
+    CHECK(strstr(sf2_error(a), "entry 000002") != NULL);
     CHECK(sf2_run_frame(a) == -1);                      /* sigue detenida */
     char err[256];
     CHECK(sf2_state_load(a, st, n, err, sizeof err) == 0);

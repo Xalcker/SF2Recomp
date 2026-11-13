@@ -53,6 +53,20 @@ GAMES = {
         "hints": "hints_sf2hf.txt",
         "mods": True,                      # recompiler/mod_patches_sf2hf.txt (D68)
     },
+    "sfzch": {
+        "title": "Street Fighter Zero (CPS Changer, Japan 951020)",
+        "prog_size": 0x200000,
+        "cpu_hz": 12_000_000,
+        "frame_cycles": 201_216,
+        "program": [
+            ("sfzch23", "sfzch23", 0x1140743f, 0x80000, 0x000000, LANE_WORD),
+            ("sfza22",  "sfza22",  0x8d9b2480, 0x80000, 0x080000, LANE_WORD),
+            ("sfzch21", "sfzch21", 0x5435225d, 0x80000, 0x100000, LANE_WORD),
+            ("sfza20",  "sfza20",  0x806e8f38, 0x80000, 0x180000, LANE_WORD),
+        ],
+        "hints": "hints_sfzch.txt",
+        "mods": False,
+    },
 }
 
 
