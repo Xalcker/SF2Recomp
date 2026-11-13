@@ -40,7 +40,8 @@ Start start; el mando 1 es el jugador 1 y el 2 el jugador 2.
   4:3; los avisos (estado guardado, errores) salen con `SDL_RenderDebugText`. Con HFR, `hfr_update` pide al núcleo el cuadro intermedio de cada refresco.
 - **Menú** (tecla M, `menu_*` en `main.c`, `docs/MENU.md`): páginas de mods, entrenamiento, vídeo, sonido y controles, con ajuste rápido y guardado del `.ini`.
 - **Visores** (`draw_inputs`, `draw_hitboxes`): se dibujan sobre la ventana con la resolución de la ventana, a partir de datos del núcleo (`sf2_training_history`, `sf2_training_boxes`); no tocan la imagen del juego.
-- **Estados** (D40): `sf2_slotN.sta` en `<preferencias>/states` (en el navegador, IndexedDB), ranuras 0 a 9; las carpetas `states` y
+- **Estados** (D40): `<set>_slotN.sta` (`sf2_slotN.sta`, `sf2ce_slotN.sta`, `sf2hf_slotN.sta`: cada variante tiene sus ranuras, porque un
+  estado solo vale para el programa con que se guardó) en `<preferencias>/states` (en el navegador, IndexedDB), ranuras 0 a 9; las carpetas `states` y
   `screenshots` se crean al guardar por primera vez. Con `--config archivo` el perfil es la carpeta de ese archivo (los estados y
   las capturas van a su lado y no se toca la carpeta de preferencias del usuario).
 - `input.c/.h`: teclado (estado de teclado de SDL por nombre de tecla) y mandos (`SDL_Gamepad`, hasta dos) hacia las tres
@@ -57,7 +58,7 @@ Emscripten.
 Si el núcleo se detiene (por ejemplo, el juego salta a una dirección que el recompilador no vio), el juego lo dice en la
 pantalla y por `stderr`, y añade una entrada a `errores.log` en la carpeta del perfil (la de preferencias, o la del archivo de
 `--config`) con la fecha, el mensaje, el destino y la instrucción de origen del salto y el remedio (`entry XXXXXX` en
-`tools/hints.txt`). Además guarda como `estados/fallo_cuadroN.sta` el último estado bueno (el juego copia el estado en memoria
+`tools/hints.txt`, o `tools/hints_<set>.txt` en las otras variantes). Además guarda como `estados/fallo_cuadroN.sta` el último estado bueno (el juego copia el estado en memoria
 cada 600 cuadros), que se carga con `--load-state` para reproducir el fallo. Con `--frames` (partidas guiadas, pruebas) el
 proceso termina con error en vez de quedarse esperando. `--debug-jump N:DIR` provoca un salto a DIR en el cuadro N (prueba
 `game_dispatch_failure`).

@@ -65,7 +65,7 @@ typedef struct Video {
      * cuadro renderizado (ancho y coordenada cruda X de su columna 0): VIDEO_W y 64 en las escenas que no se ensanchan,
      * que se centran en el cuadro con barras negras */
     int w, rw, rx0;
-    int xsigned;                    /* stage completo (D59): la X de los sprites de la tabla es un entero con signo, sin envolver en 9 bits */
+    int xsigned;                    /* vista de más de 480 px (D59, D69): la X de los sprites de la tabla es un entero con signo, sin envolver en 9 bits */
     int hud_edges;                  /* 1: el HUD de combate se pega a los bordes de la ventana ancha (video_hud_side) */
     VideoSnap prev, cur, mid;       /* mid: la instantánea interpolada que dibuja video_render_t */
     int in_vblank;                  /* video_render lo llama el VBlank (avanza prev) o el anfitrión (refresco: prev = cur, sin interpolar) */            /* instantáneas del cuadro anterior y del actual (cada VBlank, prev = cur antes de renderizar) */
@@ -90,7 +90,7 @@ typedef struct Video {
 } Video;
 
 void video_init(Video *v, const Gfx *gfx);
-/* ancho del cuadro entregado: VIDEO_W (384, como la recreativa) hasta VIDEO_W_MAX (512), par; 0 si es válido, -1 si no.
+/* ancho del cuadro entregado: VIDEO_W (384, como la recreativa) hasta VIDEO_W_MAX (800), par; 0 si es válido, -1 si no.
  * Con más de 384 el combate se dibuja ensanchado y el resto de pantallas centradas (video_scene_wide).  Surte efecto en el
  * siguiente video_render. */
 int video_set_width(Video *v, int w);
@@ -98,7 +98,8 @@ int video_set_width(Video *v, int w);
  * compuso el juego (en el centro de 384 píxeles); el KO y el tiempo se quedan en el centro.  Surte efecto en el siguiente
  * video_render. */
 void video_set_hud_edges(Video *v, int on);
-/* stage completo (D59): la X de los sprites de la tabla de objetos se interpreta con signo (la escribe así el juego parcheado) */
+/* la X de los sprites de la tabla de objetos se interpreta con signo: la escribe así el constructor parcheado cuando tiene margen
+ * (c->mod_bx > 0: stage completo, D59, y toda vista de más de 480 px, D69) */
 void video_set_xsigned(Video *v, int on);
 /* 1 si la pantalla actual del juego se ensancha: combate (presentación de ronda, pelea, victoria y recuento) con
  * oponente; las demás (título, mapa, selección, VS, diálogo, bonus, final) se componen para 384 píxeles */

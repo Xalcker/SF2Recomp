@@ -22,6 +22,11 @@ add_dependencies(sf2_recomp sf2_generate)
 add_library(sf2_core STATIC
   gfx.c video.c sound.c z80.c oki6295.c ym2151.cpp machine.c training.c sf2.c)
 target_link_libraries(sf2_core PUBLIC sf2_recomp ymfm)
+# Dependencia circular entre bibliotecas estaticas: el codigo generado llama a rt_hook, rt_dispatch y rt_fatal, que estan en
+# machine.c (sf2_core).  Declararla hace que CMake repita las bibliotecas en la linea de enlace; sin esto, GNU ld (Linux, MinGW),
+# que las recorre una sola vez y en orden, no encontraba rt_* en los ejecutables que no usan la maquina por su cuenta
+# (tools/render_dump solo pide recomp_game y el video).  sf2_lockstep trae sus propios rt_* y no saca nada de sf2_core.
+target_link_libraries(sf2_recomp INTERFACE sf2_core)
 target_compile_options(sf2_core PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wall -Wno-unused-function>
                                          $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wno-unused-function>)
 if(NOT MSVC AND NOT CMAKE_CROSSCOMPILING AND NOT WIN32)

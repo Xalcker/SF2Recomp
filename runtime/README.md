@@ -228,6 +228,7 @@ Renderizador calcado de `cps1_v.cpp` (decisión D21). `Video` guarda la tabla de
   recreativa (crudas 64-447); `Gfx.blank` marca los tiles transparentes.
 - HFR (`docs/HFR.md`): `Video.prev` / `Video.cur` (`VideoSnap`) guardan dos instantáneas por VBlank y `sf2_render_interp(s, t256)` dibuja entre ambas; ni la partida ni el audio cambian.
 - Stage completo (D59): `sf2_set_stage_full` pone `cpu.mod_fixcam` y `mod_wide`; `Video.xsigned` lee la X de los sprites con signo (`docs/ULTRAWIDE.md`).
+- Margen del constructor de sprites (D69): `sprite_margin` (`sf2.c`) da a `cpu.mod_bx` lo que hace falta para que el juego construya los tiles que cruzan el borde izquierdo de la vista (X negativa desde 482 px de ancho); con margen, `Video.xsigned` va encendido.
 - Mod de entrenamiento (`training.c`, `training_priv.h`, `training.h`, `docs/ENTRENAMIENTO.md`): `on_vblank` de `sf2.c` llama a `training_vblank` justo antes de entregar la IRQ2; retoca el temporizador (`0xFF8ACE/F`), la vida (`jugador+0x30`) y las entradas manuales (`cps.manual_in*`), y calcula el historial de entradas y las cajas (`training_boxes`, `docs/HITBOXES.md`). Fachada: `sf2_training_set/get/history/pad/boxes`. Apagado (`enabled = 0`, `track_inputs = 0`) no toca nada. Fuera del estado guardado.
 - No implementado: capa de estrellas y volteo de pantalla (SF2 no los usa, D24; aviso si se activara).
 - Depuración: `Video.layer_mask` dibuja solo las capas pedidas (bit 0 sprites, bits 1-3 SCROLL1-3); `sf2_blind` lo

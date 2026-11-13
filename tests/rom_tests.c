@@ -338,7 +338,8 @@ static void test_widescreen(const char *rom, const char *script) {
     sf2_set_hud_edges(c, 1);                      /* D55: solo puede mover el marcador, que ocupa las 48 primeras filas */
     const int bar = (TEST_WIDE_W - SF2_SCREEN_W) / 2, wb = TEST_WIDE_W;
     int wide_frames = 0, narrow_frames = 0, bad_centre = 0, bad_state = 0, bad_hud = 0, hud_moved = 0, hud_edge_ink = 0;
-    int bad_centre_frames = 0, centre_rows_before = 0;
+    int bad_centre_frames = 0, centre_rows_before = 0, left_cross = 0;
+    const int left_edge = 64 - bar;                     /* X cruda de la primera columna de la vista ancha */
     const char *env = getenv("SF2_WIDE_FRAMES");        /* corridas largas a mano (por omision 3000 cuadros) */
     const int frames = env && atoi(env) > 0 ? atoi(env) : 3000;
     for (int i = 0; i < frames; i++) {
@@ -359,7 +360,18 @@ static void test_widescreen(const char *rom, const char *script) {
         if (i % 500 == 499 && sf2_game_crc(a) != sf2_game_crc(b)) bad_state++;       /* el ancho no es parte de la partida */
         if (centre_rows_before != bad_centre) bad_centre_frames++;
         centre_rows_before = bad_centre;
+        /* D69: tiles de sprite que cruzan el borde izquierdo de la vista (X cruda de borde - 15 a borde - 1, negativa a 512); el juego
+         * original los descarta y quedaba una franja sin sprites pegada a ese borde */
+        static uint16_t obj[SF2_OBJ_WORDS];
+        sf2_video_snapshot(b, 1, obj, NULL);
+        for (int k = 0; k < SF2_OBJ_WORDS && (obj[k + 3] & 0xff00) != 0xff00; k += 4) {
+            const int x = (int16_t)obj[k];
+            if ((obj[k + 2] || obj[k + 3]) && x > left_edge - 16 && x < left_edge) left_cross++;
+        }
     }
+    fprintf(stderr, "pantalla ancha: %d tiles de sprite cruzan el borde izquierdo de la vista\n", left_cross);
+    /* comprobado en HF con esta secuencia (objetos del escenario de Honda); en WW y CE depende del escenario que toque: solo se informa */
+    if (strcmp(sf2_game()->id, "sf2hf") == 0) CHECK(left_cross > 0);
     /* WW: el centro del cuadro ancho es el de 384 en todos los cuadros.  CE y HF: en unos pocos cuadros la tabla de sprites de la
      * máquina sombra llega sin algún elemento (sus ventanas ensanchadas cuestan ciclos; D62, bitácora 2026-11-12-variantes-fase-3):
      * se tolera hasta un 1 % de cuadros */
