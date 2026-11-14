@@ -488,7 +488,7 @@ static void test_training(const char *rom, const char *script) {
     CHECK(d != NULL);
     if (!d) return;
     CHECK(sf2_training_set(d, &t, err, sizeof err) == 0);
-    int fight_frames = 0, p2_dummy_ok = 0, host_leak = 0;
+    int fight_frames = 0, p2_dummy_ok = 0, host_leak = 0, box_frames = 0, box_out = 0;
     Mem *mem = &((Machine *)d)->mem;                         /* Sf2 empieza por su Machine (runtime/sf2.c) */
     for (int i = 0; i < 4500; i++) {
         sf2_set_input(d, 0, i % 40 < 3 ? (SF2_IN1_LP | (SF2_IN1_HP << 8) | (SF2_IN1_LEFT << 8)) : 0, 0);   /* J1 pulsa LP, "J2 humano" HP e izquierda */
@@ -500,6 +500,15 @@ static void test_training(const char *rom, const char *script) {
                           && (!r->sub2 || W8(r->sub2) == r->sub2_fight);
         if (fight) {
             fight_frames++;
+            Sf2Box box[SF2_MAX_BOXES];                        /* cajas (D75): las de los dos luchadores, dentro de la pantalla */
+            const int nb = sf2_training_boxes(d, box, SF2_MAX_BOXES);
+            int own[2] = { 0, 0 };
+            for (int k = 0; k < nb; k++) {
+                if (box[k].owner < 2) own[box[k].owner]++;
+                if (box[k].x + box[k].w / 2 < -64 || box[k].x + box[k].w / 2 > SF2_SCREEN_W + 64 || box[k].y + box[k].h / 2 < -64
+                    || box[k].y + box[k].h / 2 > SF2_SCREEN_H + 64) box_out++;
+            }
+            if (own[0] && own[1]) box_frames++;
             CHECK(W8(r->timer) == r->timer_full);
             const int l1 = (int16_t)((W8(r->p1 + r->life_off) << 8) | W8(r->p1 + r->life_off + 1));
             const int l2 = (int16_t)((W8(r->p2 + r->life_off) << 8) | W8(r->p2 + r->life_off + 1));
@@ -508,6 +517,9 @@ static void test_training(const char *rom, const char *script) {
     }
     fprintf(stderr, "entrenamiento: %d cuadros de combate en el versus automatico\n", fight_frames);
     CHECK(fight_frames > 1000);                               /* el versus empezo solo y llego al combate */
+    fprintf(stderr, "cajas: %d cuadros de combate con cajas de los dos luchadores, %d cajas fuera de la pantalla\n", box_frames, box_out);
+    CHECK(box_frames > fight_frames * 9 / 10);
+    CHECK(box_out == 0);
     CHECK(W8(sf2_game()->stereo->p2_obj) != 0 && W8(sf2_game()->stereo->p1_obj) != 0);   /* J1 y J2 existen */
 #undef W8
     /* el historial de J2 solo tiene lo del guion/seleccion: nunca HP ni LEFT del "J2 humano" del anfitrion */
@@ -558,7 +570,7 @@ static void test_no_mods(const char *rom, const char *script) {
     CHECK(sf2_game_crc(a) == sf2_game_crc(b));
     CHECK(sf2_state_crc(a) == sf2_state_crc(b));
     Sf2Box box[8];
-    CHECK(sf2_training_boxes(b, box, 8) == 0);
+    if (!sf2_has_training()) CHECK(sf2_training_boxes(b, box, 8) == 0);
     sf2_destroy(a); sf2_destroy(b);
 }
 

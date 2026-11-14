@@ -307,7 +307,7 @@ int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn) {
 
 void sf2_training_get(const Sf2 *s, Sf2Training *t) { *t = s->train.cfg; }
 int sf2_training_history(const Sf2 *s, int player, Sf2InputEvent *out, int max) { return training_history(&s->train, player, out, max); }
-int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max) { return s->game->has_mods ? training_boxes(&s->mc.mem, out, max) : 0; }
+int sf2_training_boxes(const Sf2 *s, Sf2Box *out, int max) { return training_boxes(&s->mc.mem, out, max); }
 uint16_t sf2_training_pad(const Sf2 *s, int player) { return player >= 0 && player <= 1 ? s->train.now[player] : 0; }
 
 int sf2_load_input_script(Sf2 *s, const char *text, const char *name, char *err, size_t errn) {

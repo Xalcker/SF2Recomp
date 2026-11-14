@@ -90,8 +90,8 @@ Las entradas del juego son las de siempre: `cps1_apply_inputs` las reordena al f
 teclado, el mando, `--inputs` y las secuencias usan los mismos nombres. La tecla de moneda hace de Select. Punto de muestra: la
 escritura de 0x800100 en 0x1076, primer acceso de E/S tras el `movem` del manejador de la IRQ2 (0x1068); contador de cuadros 0xFF8018.
 De los mods tiene el **sonido estéreo** (D73, `recompiler/mod_patches_sfzch.txt`, bitácora `2026-11-13-sfzch-estereo`) y el **modo
-entrenamiento** sin las cajas de golpe, con el visor de entradas (D74, `docs/ENTRENAMIENTO.md`, bitácora
-`2026-11-13-sfzch-entrenamiento`); pantalla ancha, lógica ancha y stage completo se rechazan como en cualquier variante sin mods (D66).
+entrenamiento** con el visor de entradas (D74, `docs/ENTRENAMIENTO.md`, bitácora `2026-11-13-sfzch-entrenamiento`) y las
+**cajas de golpe** (D75, `docs/HITBOXES.md` §8, bitácora `2026-11-13-sfzch-cajas`); pantalla ancha, lógica ancha y stage completo se rechazan como en cualquier variante sin mods (D66).
 Pistas en `tools/hints_sfzch.txt`. Bitácora `2026-11-13-sfzch`.
 
 Probado en Windows (GCC 16.2): `ctest` 8/8, 40.000 cuadros de atracción sin fallos de despacho, una partida (start, selección, combate)
