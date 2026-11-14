@@ -40,6 +40,7 @@ Script de `sf2py` en el scratchpad (no está en el repositorio): una partida de 
 - `test_training`: cajas de los dos luchadores en los 3.778 cuadros de combate de sfzch (3.456 en WW) y ninguna fuera de la pantalla.
 - Capturas de la aplicación (`--shot-png` con `show_hitboxes` y el versus automático): Chun-Li contra Ken, con el kikoken de Chun-Li en
   naranja sobre la bola.
+- Probado jugando (tecla 9): visto bueno del usuario.
 - Regresión (Windows): `ctest` en sf2, sf2ce, sf2hf y sfzch. Las cajas solo leen la RAM: con los mods apagados el juego no cambia.
 
 ## Pendiente
