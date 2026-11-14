@@ -256,6 +256,11 @@ int sf2_has_stereo(void) {
     return g && g->stereo;
 }
 
+int sf2_has_training(void) {
+    const GameDef *g = recomp_game();
+    return g && g->training;
+}
+
 /* Los mods (pantalla ancha y su lógica, stage completo, entrenamiento y cajas, posición del estéreo, herramientas de desarrollo)
  * leen y escriben RAM y ROM de WW: en otra variante se rechazan y el juego queda original (D65). */
 void sf2_set_dev_tool(Sf2 *s, int tool) {
@@ -285,9 +290,10 @@ void sf2_set_input(Sf2 *s, uint16_t in0, uint16_t in1, uint16_t in2) {
 }
 
 int sf2_training_set(Sf2 *s, const Sf2Training *t, char *err, size_t errn) {
-    if (!s->game->has_mods && (t->enabled || t->track_inputs)) {
+    /* el visor de entradas solo lee las entradas: vale en cualquier variante; el entrenamiento necesita su RAM (D74) */
+    if (!s->game->training && t->enabled) {
         if (err && errn)
-            snprintf(err, errn, "el modo entrenamiento solo existe en Street Fighter II: The World Warrior");
+            snprintf(err, errn, "el modo entrenamiento no esta disponible en esta variante (%s)", s->game->id);
         return -1;
     }
     int was = s->train.cfg.enabled || s->train.cfg.track_inputs;

@@ -32,6 +32,25 @@ el juego es idéntico a MAME** (`make compare-video` 17/17, `make test` completo
 - `tools/sf2py.c`: `sf2py_training` para probarlo desde Python.
 - `--shot-png RUTA:CUADRO` guarda la ventana con los visores (con `SDL_VIDEO_DRIVER=dummy`) para comprobar el dibujo sin pantalla.
 
+## Variantes (D74)
+
+La RAM que lee y escribe el entrenamiento está en un descriptor por variante (`TrainingRam`, `runtime/game.h`/`game.c`), aparte de la
+de la pantalla ancha. Las direcciones de la tabla de arriba son las de WW; CE y HF tienen las suyas (reloj 0xFF8ABE, jugadores 0xFF83B8 y
+0xFF86B8, créditos 0xFF82D9).
+
+**Street Fighter Zero (CPS Changer, `sfzch`)**: sin límite de tiempo, barras que se recuperan, dummy con guion y versus automático; las
+**cajas de golpe no** (su formato en SFZ no se ha descifrado). El visor de entradas funciona en todas las variantes, porque solo mira las
+entradas.
+
+| | WW | sfzch |
+|---|---|---|
+| Combate | modo 0xFF8001 = 2, fase 0xFF8005 = 4, subfase 0xFF8009 = 0x0A | 0xFF8001 = 2, 0xFF8005 = 4, 0xFF8009 = 4 y 0xFF800D = 2 |
+| Selección | fase 0 | fase 2 |
+| Reloj | 0xFF8ACE en BCD (0x99), subcontador 0xFF8ACF = 30 | 0xFFAE09 en binario (99), subcontador 0xFFAE0A = 59 |
+| Vida | jugador + 0x30 (0x90) | luchador + 0x40 (0x90), y las barras que la siguen en + 0x42 y + 0x14A, que se llenan también |
+| X (orientación del dummy) | jugador + 0x0C | luchador + 0x10 |
+| Versus automático | monedas hasta 2 créditos y Start 1 + Start 2 | sin monedas: Start 1 + Start 2 |
+
 ## Límites conocidos y siguiente
 
 - Las cajas con pantalla ancha se centran sumando medio ancho extra; con `stage_full` el desplazamiento correcto sin resolver. Agarre y bloqueo no tienen caja propia (ver `docs/HITBOXES.md`).

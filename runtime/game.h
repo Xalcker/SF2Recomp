@@ -89,6 +89,23 @@ typedef struct ModRam {
 /* Mod de sonido estéreo (docs/ESTEREO.md, D73): lo que necesita, aparte del resto de los mods para que una variante pueda tenerlo
  * sola.  El parche de la instrucción que encola un sonido (recompiler/mod_patches*.txt) llama a mod_sound_tag (runtime/cpu.h) con
  * a6 apuntando al objeto que lo pide; al escribir el latch 1, machine.c toma la ranura que indica el índice de lectura. */
+/* Modo entrenamiento (docs/ENTRENAMIENTO.md, D74): la RAM de la partida que lee y escribe runtime/training.c, aparte de ModRam para
+ * que una variante pueda tenerlo sin la pantalla ancha.  Las cajas de golpe siguen siendo de las variantes con todos los mods. */
+typedef struct TrainingRam {
+    uint32_t mode, phase, sub, sub2;    /* bytes de estado de la partida (sub2 = 0: no hay) */
+    uint8_t mode_game;                  /* mode en una partida (también en la selección) */
+    uint8_t phase_select, phase_fight;  /* phase en la selección de luchador y en el combate */
+    uint8_t sub_fight, sub2_fight;      /* sub (y sub2) mientras se pelea: ni la presentación del asalto ni el KO */
+    uint32_t timer, timer_sub;          /* reloj del asalto y su subcontador */
+    int timer_bcd;                      /* 1: el reloj está en BCD (WW 0x99); 0: binario (sfzch 99) */
+    uint8_t timer_full, timer_sub_full; /* valores que se escriben para pararlo */
+    uint32_t p1, p2;                    /* estructura de cada luchador */
+    uint32_t x_off, life_off;           /* X de mundo (palabra) y vida (palabra con signo) en la estructura */
+    uint32_t life_bar[2];               /* copias de la vida que dibujan las barras (0: no hay); al recargar se llenan también */
+    int life_max;
+    uint32_t credits;                   /* créditos (0: la máquina no tiene monedas, p. ej. CPS Changer) */
+} TrainingRam;
+
 #define STEREO_SLOTS_MAX 256
 typedef struct StereoRam {
     uint32_t p1_obj, p2_obj;            /* valor de a6 cuando pide el sonido un luchador */
@@ -125,6 +142,7 @@ typedef struct GameDef {
     int has_dev_tools;              /* herramientas de desarrollo de Capcom (docs/HERRAMIENTAS_DEV.md): solo WW */
     int changer_inputs;             /* 1 en CPS Changer (sfzch): botones 4-6 y select en IN0/IN1, sin bloqueo de monedas */
     const StereoRam *stereo;        /* mod estéreo (NULL si la variante no lo tiene; D73) */
+    const TrainingRam *training;    /* modo entrenamiento (NULL si no lo tiene; D74) */
 } GameDef;
 
 extern const GameDef game_sf2;      /* The World Warrior (World 910522) */

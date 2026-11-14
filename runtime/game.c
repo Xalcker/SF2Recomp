@@ -186,11 +186,30 @@ static const StereoRam stereo_sf2ce = { 0xFF83BEu, 0xFF86BEu, 0xFF9000u, 0xFFE00
 static const StereoRam stereo_sfzch = { 0xFF8400u, 0xFF8800u, 0xFF9000u, 0xFFA000u, 0x10, 0xFF8290u, 0xFF361Cu, 0, 256, 0xFF261Au, 0xFF00u,
                                          0xFF8404u, 2 };
 
+/* entrenamiento (D74).  WW, CE y HF: los valores que training.c tenía fijos (combate = modo 2, fase 4, subfase 0x0A; selección = fase
+ * 0; reloj en BCD con subcontador de 30; X en 0xC y vida en 0x30 de cada jugador, llena a 0x90).  sfzch (sf2py, una partida contra la
+ * CPU guardando la RAM de cada cuadro): modo 0xFF8001 = 2 en la partida, fase 0xFF8005 = 2 en la selección y 4 en el combate, que es
+ * 0xFF8009 = 4 con 0xFF800D = 0 presentación del asalto, 2 pelea, 4 KO; reloj 0xFFAE09 en binario (98 en pantalla = 98) con subcontador
+ * 0xFFAE0A de 59 a 0; X en 0x10 y vida en 0x40 de cada luchador (0x90 llena, negativa en el KO; 0x42 y 0x14A son las barras que la
+ * siguen bajando poco a poco y no suben solas: al recargar se escriben las tres); sin monedas. */
+static const TrainingRam training_sf2 = {
+    0xFF8001u, 0xFF8005u, 0xFF8009u, 0, 2, 0, 4, 0x0A, 0, 0xFF8ACEu, 0xFF8ACFu, 1, 0x99, 30,
+    0xFF83C0u, 0xFF86C0u, 0x0C, 0x30, { 0, 0 }, 0x90, 0xFF82DDu,
+};
+static const TrainingRam training_sf2ce = {
+    0xFF8001u, 0xFF8005u, 0xFF8009u, 0, 2, 0, 4, 0x0A, 0, 0xFF8ABEu, 0xFF8ABFu, 1, 0x99, 30,
+    0xFF83B8u, 0xFF86B8u, 0x0C, 0x30, { 0, 0 }, 0x90, 0xFF82D9u,
+};
+static const TrainingRam training_sfzch = {
+    0xFF8001u, 0xFF8005u, 0xFF8009u, 0xFF800Du, 2, 2, 4, 4, 2, 0xFFAE09u, 0xFFAE0Au, 0, 99, 59,
+    0xFF8400u, 0xFF8800u, 0x10, 0x40, { 0x42, 0x14A }, 0x90, 0,
+};
+
 const GameDef game_sf2 = {
     "sf2", "Street Fighter II: The World Warrior (World 910522)",
     10000000u, 167680u,                 /* 10 MHz * 512 * 262 / 8 MHz */
     0x100000u, 0x600000u, &cpsb_11, &mapper_stf29, COUNT(roms_sf2), roms_sf2,
-    1, 0x000AB8u, 0x000AD0u, 0xFF801Cu, 1, &mod_ram_sf2, 1, 0, &stereo_sf2,
+    1, 0x000AB8u, 0x000AD0u, 0xFF801Cu, 1, &mod_ram_sf2, 1, 0, &stereo_sf2, &training_sf2,
 };
 
 const GameDef game_sf2ce = {
@@ -201,7 +220,7 @@ const GameDef game_sf2ce = {
      * es su primer acceso de E/S, la escritura de la base de OBJ (`move.w 0x26(a5),$800100.l`) en 0x5DA; contador de cuadros
      * 0x1C(a5) (0x6AC) y bandera de VBlank 0xFF020E (0x6B0) en las mismas direcciones que WW.  Mods con recompiler/mod_patches_sf2ce.txt
      * y su RAM (D68); sin herramientas de desarrollo. */
-    1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0, &stereo_sf2ce,
+    1, 0x0005C6u, 0x0005DAu, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0, &stereo_sf2ce, &training_sf2ce,
 };
 
 const GameDef game_sf2hf = {
@@ -212,7 +231,7 @@ const GameDef game_sf2hf = {
      * los registros (movem en 0x1D24C); el punto de muestra es el primer acceso de E/S tras el movem, para que el SR y el PC apilados
      * estén en SP+60/62 como en las demás: la escritura de 0x800122 en 0x1D264.  Contador de cuadros 0xFF801C (0x1D52E); la bandera
      * de VBlank se mueve a 0xFF04CE (0x1D532).  Mods como CE (recompiler/mod_patches_sf2hf.txt, la RAM de CE). */
-    1, 0x01D1E0u, 0x01D264u, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0, &stereo_sf2ce,
+    1, 0x01D1E0u, 0x01D264u, 0xFF801Cu, 1, &mod_ram_sf2ce, 0, 0, &stereo_sf2ce, &training_sf2ce,
 };
 
 const GameDef game_sfzch = {
@@ -220,8 +239,8 @@ const GameDef game_sfzch = {
     12000000u, 201216u,                 /* cps1_12MHz */
     0x200000u, 0x800000u, &cpsb_21_sfz, &mapper_sfz63b, COUNT(roms_sfzch), roms_sfzch,
     /* manejador de la IRQ2 en 0x1068; primer acceso de E/S tras movem: escritura de 0x800100 en 0x1076; contador de cuadros
-     * 0xFF8018 (`addq.b #$1,0x18(a5)` en 0x10DC); bandera de VBlank en 0xFF049E.  Sin bloqueo de monedas (CPS Changer); de los mods, solo el estéreo (D73). */
-    1, 0x001068u, 0x001076u, 0xFF8018u, 0, NULL, 0, 1, &stereo_sfzch,
+     * 0xFF8018 (`addq.b #$1,0x18(a5)` en 0x10DC); bandera de VBlank en 0xFF049E.  Sin bloqueo de monedas (CPS Changer); de los mods, el estéreo (D73) y el entrenamiento (D74). */
+    1, 0x001068u, 0x001076u, 0xFF8018u, 0, NULL, 0, 1, &stereo_sfzch, &training_sfzch,
 };
 
 static const GameDef *const games[] = { &game_sf2, &game_sf2ce, &game_sf2hf, &game_sfzch };
