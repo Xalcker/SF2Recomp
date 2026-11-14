@@ -90,7 +90,7 @@ typedef struct ModRam {
  * sola.  El parche de la instrucción que encola un sonido (recompiler/mod_patches*.txt) llama a mod_sound_tag (runtime/cpu.h) con
  * a6 apuntando al objeto que lo pide; al escribir el latch 1, machine.c toma la ranura que indica el índice de lectura. */
 /* Modo entrenamiento (docs/ENTRENAMIENTO.md, D74): la RAM de la partida que lee y escribe runtime/training.c, aparte de ModRam para
- * que una variante pueda tenerlo sin la pantalla ancha.  Las cajas de golpe siguen siendo de las variantes con todos los mods. */
+ * que una variante pueda tenerlo sin la pantalla ancha.  Lleva también lo que leen las cajas de golpe (D75). */
 typedef struct TrainingRam {
     uint32_t mode, phase, sub, sub2;    /* bytes de estado de la partida (sub2 = 0: no hay) */
     uint8_t mode_game;                  /* mode en una partida (también en la selección) */
@@ -104,7 +104,14 @@ typedef struct TrainingRam {
     uint32_t life_bar[2];               /* copias de la vida que dibujan las barras (0: no hay); al recargar se llenan también */
     int life_max;
     uint32_t credits;                   /* créditos (0: la máquina no tiene monedas, p. ej. CPS Changer) */
+    /* cajas de golpe (docs/HITBOXES.md, D75) */
+    int box_fmt;                        /* BOX_NONE, BOX_SF2 o BOX_SFZ: dónde están la pose y las tablas de cajas */
+    uint32_t cam_x, cam_y;              /* cámara de los luchadores (palabras): pantalla x = x - cam_x, y = 240 - (y - cam_y) */
+    uint32_t proj, proj_size;           /* reserva de proyectiles: proj_count objetos de proj_size bytes */
+    int proj_count;
 } TrainingRam;
+
+enum { BOX_NONE, BOX_SF2, BOX_SFZ };
 
 #define STEREO_SLOTS_MAX 256
 typedef struct StereoRam {

@@ -135,3 +135,27 @@ Qué quedó **sin confirmar o con reservas**:
   no se dibujaron en una captura.
 - Los jugadores usan la tabla `+0x34` por personaje (Ryu usa la de 0x91790; la tabla de datos por personaje se elige con
   la lista de pares de 8 bytes de 0x887B4, y algunas se comparten entre entradas).
+
+## 8. Street Fighter Zero (CPS Changer, `sfzch`, D75)
+
+Mismo registro (centro + radios, `x_off` `y_off` `rx` `ry`), mismo solape (`|dx| <= rx_a + rx_b`, rutina 0xECC2) y mismo paso a pantalla
+que en SF2, con otra disposición de los datos. En `runtime/game.c` está en `TrainingRam` (`box_fmt = BOX_SFZ`).
+
+| | sfzch |
+|---|---|
+| Luchadores | 0xFF8400 (J1) y 0xFF8800 (J2); el objeto es la estructura misma (sin el +6 de SF2); vivo con `+0x00` distinto de 0 |
+| Campos del objeto | X `+0x10`, Y `+0x14` (hacia arriba; 0x28 = suelo), espejo `+0x0B`, pose (puntero largo a la ROM) `+0x20` |
+| Cajas del luchador | un puntero largo por tipo en el objeto: `+0x110`, `+0x114`, `+0x118` vulnerables (cabeza, cuerpo, pies), `+0x11C` ataque, `+0x120` empuje |
+| Índices en la pose | bytes `+8`, `+9`, `+0xA` vulnerables, `+0xB` ataque, `+0xC` empuje; 0 = sin caja. Registro = `tabla + índice × 4` (ataque: × 16) |
+| Proyectiles | reserva de 8 objetos de 0x80 bytes desde 0xFF9000 (creada en 0x138E4, tipo 8), vivos con `+0x00` = 1; tabla en `+0x50` con dos palabras de desplazamiento: `+0` empuje (índice en el byte 8 de la pose, registros de 4) y `+2` ataque (byte 0xB, registros de 16). La tabla puede estar en la RAM (la bola de Rose, 0xFF4360) |
+| Cámara | 0xFF8290 (X) y 0xFF8294 (Y): `pantalla_x = x - cámara_x`, `pantalla_y = 240 - (y - cámara_y)` |
+| Punto débil | no hay |
+
+Rutinas: 0xDACA (todas las colisiones del cuadro), 0xDB0A (empuje entre luchadores), 0xDCC6 (ataque de un luchador contra las tres cajas
+vulnerables del otro), 0xE744 (proyectil contra proyectil, empuje), 0xE990 (proyectil contra luchador), 0xECC2 (solape). Con 0xFF2E38
+distinto de 0 hay un tercer luchador en 0xFF8C00 (no se dibuja). El ataque tiene además un byte en `+0x13` (luchador) o `+0x0F`
+(proyectil) de la pose que se compara con `+0x56` del defensor; no se ha descifrado.
+
+Verificado con capturas de `sf2py` y de la aplicación (`--shot-png`): Ryu y Rose parados, patada de Ryu (caja de ataque sobre la
+pierna) con Rose en el aire, Ryu agachado, la bola de Rose (caja de RAM) y el kikoken de Chun-Li contra Ken. En saltos rápidos las cajas
+se separan unos píxeles del sprite, como en SF2.

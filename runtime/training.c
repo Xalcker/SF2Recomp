@@ -8,7 +8,6 @@
  * entrenamiento usa m->game->training (D74; en WW: modo 0xFF8001, fase 0xFF8005, subfase 0xFF8009, créditos 0xFF82DD, temporizador
  * 0xFF8ACE en BCD y su subcontador 0xFF8ACF de 30 a 1, jugadores 0xFF83C0 y 0xFF86C0); las cajas, m->game->mod_ram (D68: cámara
  * 0xFF8BD8/DC, proyectiles 0xFF938A) */
-#define RAM(m)        ((m)->game->mod_ram)
 #define TR(m)         ((m)->game->training)
 
 #define REL_FWD  0x1000u             /* en un paso del guion: dirección relativa al rival, se resuelve con la orientación */
@@ -306,20 +305,21 @@ void training_vblank(Training *t, Mem *m, const uint16_t host[3], uint16_t out[3
     }
 }
 
-/* ---- cajas de golpe y de daño (docs/HITBOXES.md) ------------------------------------------------------------------------ */
-#define PROJ_COUNT  8                  /* reserva «C» (RAM(m)->proj): 8 objetos de 0xC0 bytes */
-#define PROJ_SIZE   0xC0u
-
+/* ---- cajas de golpe y de daño (docs/HITBOXES.md; formato de sfzch, D75) ------------------------------------------------------- */
 static uint32_t rom8(const Mem *m, uint32_t a) { return a < m->rom_size ? m->rom[a] : 0; }
 static uint32_t rom16(const Mem *m, uint32_t a) { return (rom8(m, a) << 8) | rom8(m, a + 1); }
-static uint32_t rom32(const Mem *m, uint32_t a) { return (rom16(m, a) << 16) | rom16(m, a + 2); }
+/* las tablas de cajas están en la ROM o, en sfzch, también en la RAM de trabajo (proyectiles que cambian de tamaño) */
+static uint32_t box8(const Mem *m, uint32_t a) { return a >= 0xFF0000u ? rd8(m, a) : rom8(m, a); }
+static uint32_t box16(const Mem *m, uint32_t a) { return (box8(m, a) << 8) | box8(m, a + 1); }
+static uint32_t ram32(const Mem *m, uint32_t a) { return ((uint32_t)rd16(m, a) << 16) | rd16(m, a + 2); }
+static int box_ptr(const Mem *m, uint32_t a, uint32_t len) { return (a >= 0x400u && a + len <= m->rom_size) || a >= 0xFF0000u; }
 
 static int add_box(const Mem *m, Sf2Box *out, int n, int max, uint32_t rec, uint8_t kind, uint8_t owner, int x, int y, int mirror) {
-    if (n >= max || rec + 4 > m->rom_size)
+    if (n >= max || !box_ptr(m, rec, 4))
         return n;
-    const int xo = (int8_t)rom8(m, rec), yo = (int8_t)rom8(m, rec + 1), rx = (int)rom8(m, rec + 2), ry = (int)rom8(m, rec + 3);
+    const int xo = (int8_t)box8(m, rec), yo = (int8_t)box8(m, rec + 1), rx = (int)box8(m, rec + 2), ry = (int)box8(m, rec + 3);
     const int cx = x + (mirror ? -xo : xo), cy = y + yo;
-    const int cam_x = (int16_t)rd16(m, RAM(m)->cam_x), cam_y = (int16_t)rd16(m, RAM(m)->cam_y);
+    const int cam_x = (int16_t)rd16(m, TR(m)->cam_x), cam_y = (int16_t)rd16(m, TR(m)->cam_y);
     const int sx = cx - cam_x, sy = 240 - (cy - cam_y);
     out[n].x = (int16_t)(sx - rx);
     out[n].y = (int16_t)(sy - ry);
@@ -330,12 +330,12 @@ static int add_box(const Mem *m, Sf2Box *out, int n, int max, uint32_t rec, uint
     return n + 1;
 }
 
-/* un objeto (luchador o proyectil): `obj` es su dirección de RAM (la estructura de jugador + 6 en los luchadores) */
-static int object_boxes(const Mem *m, Sf2Box *out, int n, int max, uint32_t obj, uint8_t owner, int proj) {
+/* SF2: un objeto (luchador o proyectil); `obj` es su dirección de RAM (la estructura de jugador + 6 en los luchadores) */
+static int sf2_object_boxes(const Mem *m, Sf2Box *out, int n, int max, uint32_t obj, uint8_t owner, int proj) {
     if (!rd8(m, obj))
         return n;
     const int x = (int16_t)rd16(m, obj + 6), y = (int16_t)rd16(m, obj + 0xA), mirror = rd8(m, obj + 0x12) != 0;
-    const uint32_t pose = (rd16(m, obj + 0x1A) << 16) | rd16(m, obj + 0x1C), table = (rd16(m, obj + 0x34) << 16) | rd16(m, obj + 0x36);
+    const uint32_t pose = ram32(m, obj + 0x1A), table = ram32(m, obj + 0x34);
     if (pose < 0x400u || pose + 0x18 > m->rom_size || table < 0x400u || table + 0xC > m->rom_size)
         return n;
     static const uint8_t kinds[6] = { SF2_BOX_HEAD, SF2_BOX_BODY, SF2_BOX_FOOT, SF2_BOX_WEAK, SF2_BOX_ATTACK, SF2_BOX_PUSH };
@@ -353,12 +353,49 @@ static int object_boxes(const Mem *m, Sf2Box *out, int n, int max, uint32_t obj,
     return n;
 }
 
+/* sfzch (rutinas 0xDB0A, 0xDCC6, 0xE744, 0xE990 y 0xECC2): X en 0x10, Y en 0x14, espejo en 0xB y pose (puntero largo) en 0x20 del
+ * objeto.  Luchador: los bytes 8, 9 y 0xA de la pose son las cajas vulnerables (tablas en 0x110, 0x114 y 0x118 del luchador,
+ * registros de 4 bytes), 0xB el ataque (tabla en 0x11C, registros de 16) y 0xC el empuje (tabla en 0x120).  Proyectil (vivo con
+ * 0x0 = 1): tabla en 0x50 con dos palabras de desplazamiento, empuje (byte 8 de la pose, registros de 4) y ataque (byte 0xB,
+ * registros de 16).  Índice 0 = sin caja; el registro es el mismo centro + radios que en SF2. */
+static int sfz_object_boxes(const Mem *m, Sf2Box *out, int n, int max, uint32_t obj, uint8_t owner, int proj) {
+    if (proj ? rd8(m, obj) != 1 : !rd8(m, obj))
+        return n;
+    const int x = (int16_t)rd16(m, obj + 0x10), y = (int16_t)rd16(m, obj + 0x14), mirror = rd8(m, obj + 0xB) != 0;
+    const uint32_t pose = ram32(m, obj + 0x20);
+    if (pose < 0x400u || pose + 0x10 > m->rom_size)
+        return n;
+    if (proj) {
+        const uint32_t table = ram32(m, obj + 0x50);
+        if (!box_ptr(m, table, 4))
+            return n;
+        uint32_t idx = rom8(m, pose + 0xB);
+        if (idx)
+            n = add_box(m, out, n, max, table + box16(m, table + 2) + idx * 16u, SF2_BOX_PROJ_ATTACK, owner, x, y, mirror);
+        idx = rom8(m, pose + 8);
+        if (idx)
+            n = add_box(m, out, n, max, table + box16(m, table) + idx * 4u, SF2_BOX_PROJ_PUSH, owner, x, y, mirror);
+        return n;
+    }
+    static const uint8_t kinds[5] = { SF2_BOX_HEAD, SF2_BOX_BODY, SF2_BOX_FOOT, SF2_BOX_ATTACK, SF2_BOX_PUSH };
+    for (uint32_t c = 0; c < 5; c++) {
+        const uint32_t idx = rom8(m, pose + 8 + c);
+        if (idx)
+            n = add_box(m, out, n, max, ram32(m, obj + 0x110 + 4 * c) + idx * (c == 3 ? 16u : 4u), kinds[c], owner, x, y, mirror);
+    }
+    return n;
+}
+
 int training_boxes(const Mem *m, Sf2Box *out, int max) {
-    if (!RAM(m) || rd8(m, RAM(m)->mode) != 2 || rd8(m, RAM(m)->phase) != 4)
+    const TrainingRam *r = TR(m);
+    if (!r || r->box_fmt == BOX_NONE || rd8(m, r->mode) != r->mode_game || rd8(m, r->phase) != r->phase_fight)
         return 0;
-    int n = object_boxes(m, out, 0, max, RAM(m)->p1 + 6, 0, 0);
-    n = object_boxes(m, out, n, max, RAM(m)->p2 + 6, 1, 0);
-    for (int i = 0; i < PROJ_COUNT; i++)
-        n = object_boxes(m, out, n, max, RAM(m)->proj + (uint32_t)i * PROJ_SIZE, 2, 1);
+    const int sfz = r->box_fmt == BOX_SFZ;
+    const uint32_t off = sfz ? 0 : 6;                   /* SF2: el objeto es la estructura de jugador + 6 */
+    int (*boxes)(const Mem *, Sf2Box *, int, int, uint32_t, uint8_t, int) = sfz ? sfz_object_boxes : sf2_object_boxes;
+    int n = boxes(m, out, 0, max, r->p1 + off, 0, 0);
+    n = boxes(m, out, n, max, r->p2 + off, 1, 0);
+    for (int i = 0; i < r->proj_count; i++)
+        n = boxes(m, out, n, max, r->proj + (uint32_t)i * r->proj_size, 2, 1);
     return n;
 }

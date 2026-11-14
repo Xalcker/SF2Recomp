@@ -191,18 +191,23 @@ static const StereoRam stereo_sfzch = { 0xFF8400u, 0xFF8800u, 0xFF9000u, 0xFFA00
  * CPU guardando la RAM de cada cuadro): modo 0xFF8001 = 2 en la partida, fase 0xFF8005 = 2 en la selección y 4 en el combate, que es
  * 0xFF8009 = 4 con 0xFF800D = 0 presentación del asalto, 2 pelea, 4 KO; reloj 0xFFAE09 en binario (98 en pantalla = 98) con subcontador
  * 0xFFAE0A de 59 a 0; X en 0x10 y vida en 0x40 de cada luchador (0x90 llena, negativa en el KO; 0x42 y 0x14A son las barras que la
- * siguen bajando poco a poco y no suben solas: al recargar se escriben las tres); sin monedas. */
+ * siguen bajando poco a poco y no suben solas: al recargar se escriben las tres); sin monedas.
+ * Cajas (D75): en WW, CE y HF la cámara y la reserva de proyectiles de su ModRam (docs/HITBOXES.md); en sfzch, del código de colisión
+ * (0xDACA, 0xECC2): cámara 0xFF8290/0xFF8294 y proyectiles en la reserva de 8 objetos de 0x80 bytes en 0xFF9000 (0x138E4). */
 static const TrainingRam training_sf2 = {
     0xFF8001u, 0xFF8005u, 0xFF8009u, 0, 2, 0, 4, 0x0A, 0, 0xFF8ACEu, 0xFF8ACFu, 1, 0x99, 30,
     0xFF83C0u, 0xFF86C0u, 0x0C, 0x30, { 0, 0 }, 0x90, 0xFF82DDu,
+    BOX_SF2, 0xFF8BD8u, 0xFF8BDCu, 0xFF938Au, 0xC0, 8,
 };
 static const TrainingRam training_sf2ce = {
     0xFF8001u, 0xFF8005u, 0xFF8009u, 0, 2, 0, 4, 0x0A, 0, 0xFF8ABEu, 0xFF8ABFu, 1, 0x99, 30,
     0xFF83B8u, 0xFF86B8u, 0x0C, 0x30, { 0, 0 }, 0x90, 0xFF82D9u,
+    BOX_SF2, 0xFF8BC4u, 0xFF8BC8u, 0xFF9376u, 0xC0, 8,
 };
 static const TrainingRam training_sfzch = {
     0xFF8001u, 0xFF8005u, 0xFF8009u, 0xFF800Du, 2, 2, 4, 4, 2, 0xFFAE09u, 0xFFAE0Au, 0, 99, 59,
     0xFF8400u, 0xFF8800u, 0x10, 0x40, { 0x42, 0x14A }, 0x90, 0,
+    BOX_SFZ, 0xFF8290u, 0xFF8294u, 0xFF9000u, 0x80, 8,
 };
 
 const GameDef game_sf2 = {

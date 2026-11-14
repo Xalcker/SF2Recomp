@@ -838,3 +838,16 @@ con entrenamiento y lee el descriptor. sfzch (RAM medida con `sf2py` guardando c
 0xFF8005 = 4, 0xFF8009 = 4 y 0xFF800D = 2; selección fase 2; reloj 0xFFAE09 en binario con subcontador 0xFFAE0A de 59 a 0; vida en +0x40
 (barras en +0x42 y +0x14A, que solo bajan: al recargar se escriben las tres); X en +0x10; sin monedas (el versus automático pulsa Start 1
 y Start 2). WW, CE y HF: los mismos valores que antes. Bitácora `2026-11-13-sfzch-entrenamiento`.
+
+## D75 (2026-11-13): Las cajas de golpe leen el descriptor del entrenamiento, con un formato por juego; sfzch las tiene
+
+Las cajas leían `ModRam` (cámara, reserva de proyectiles) y el formato de SF2 (pose en +0x1A del objeto, una tabla con seis
+desplazamientos en +0x34), así que solo existían con `has_mods`. Decisión: `TrainingRam` gana `box_fmt` (`BOX_NONE`, `BOX_SF2`,
+`BOX_SFZ`), la cámara de los luchadores y la reserva de proyectiles (base, tamaño y cuántos); `training_boxes` elige el lector por el
+formato y `sf2_training_boxes` deja de mirar `has_mods`. Formato de sfzch, leído del código de colisión (0xDB0A empuje, 0xDCC6 golpe de
+luchador, 0xE744 y 0xE990 de proyectil, 0xECC2 solape): objeto con X en +0x10, Y en +0x14, espejo en +0xB y pose en +0x20; el luchador
+lleva un puntero por tipo de caja (+0x110, +0x114 y +0x118 vulnerables, +0x11C ataque con registros de 16 bytes, +0x120 empuje) y la pose
+los índices en los bytes 8 a 0xC; el proyectil (reserva de 8 objetos de 0x80 bytes en 0xFF9000, vivo con +0x0 = 1) lleva en +0x50 una
+tabla con dos desplazamientos (empuje y ataque), que puede estar en la RAM (la bola de Rose). Registro, solape y paso a pantalla como en
+SF2, con la cámara 0xFF8290/0xFF8294. No tiene punto débil. WW, CE y HF: los mismos valores que daba su `ModRam`. Bitácora
+`2026-11-13-sfzch-cajas`.

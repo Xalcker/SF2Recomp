@@ -38,9 +38,9 @@ La RAM que lee y escribe el entrenamiento está en un descriptor por variante (`
 de la pantalla ancha. Las direcciones de la tabla de arriba son las de WW; CE y HF tienen las suyas (reloj 0xFF8ABE, jugadores 0xFF83B8 y
 0xFF86B8, créditos 0xFF82D9).
 
-**Street Fighter Zero (CPS Changer, `sfzch`)**: sin límite de tiempo, barras que se recuperan, dummy con guion y versus automático; las
-**cajas de golpe no** (su formato en SFZ no se ha descifrado). El visor de entradas funciona en todas las variantes, porque solo mira las
-entradas.
+**Street Fighter Zero (CPS Changer, `sfzch`)**: sin límite de tiempo, barras que se recuperan, dummy con guion, versus automático y,
+desde D75, las **cajas de golpe** (formato en `docs/HITBOXES.md` §8: cabeza, cuerpo y pies en azul, ataque, empuje y proyectiles; SFZ no
+tiene punto débil). El visor de entradas funciona en todas las variantes, porque solo mira las entradas.
 
 | | WW | sfzch |
 |---|---|---|

@@ -68,8 +68,8 @@ double sf2_frame_hz(void);
 int sf2_has_mods(void);
 /* 1 si la variante tiene el mod estéreo (las tres de SF2 y sfzch, D73); en las demás sf2_set_stereo no hace nada */
 int sf2_has_stereo(void);
-/* 1 si la variante tiene el modo entrenamiento (las tres de SF2 y sfzch, D74; las cajas de golpe, solo con sf2_has_mods).  El visor
- * de entradas (track_inputs) vale en todas */
+/* 1 si la variante tiene el modo entrenamiento y las cajas de golpe (las tres de SF2 y sfzch, D74 y D75).  El visor de entradas
+ * (track_inputs) vale en todas */
 int sf2_has_training(void);
 
 /* opciones por omisión: vídeo y sonido activados, dipswitches de MAME */
