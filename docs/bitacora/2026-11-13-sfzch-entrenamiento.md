@@ -44,4 +44,5 @@ llevar el visor de entradas y el modo entrenamiento. Las cajas de golpe quedan f
 ## Pendiente
 
 - Cajas de golpe de SFZ (formato de las tablas por descifrar).
-- Probarlo jugando (menú ▸ Entrenamiento, teclas 7 y 8).
+
+Probado jugando (menú ▸ Entrenamiento, teclas 7 y 8): visto bueno del usuario.
