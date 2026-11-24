@@ -21,6 +21,8 @@ int video_set_width(Video *v, int w) {
 
 void video_set_hud_edges(Video *v, int on) { v->hud_edges = on != 0; }
 void video_set_xsigned(Video *v, int on) { v->xsigned = on != 0; }
+void video_set_xsigned_scene(Video *v, int on) { v->xsigned_scene = on != 0; }
+void video_set_scroll1_clip(Video *v, int on) { v->scroll1_clip = on != 0; }
 
 /* El marcador del combate son sprites en ranuras fijas de la tabla de objetos (D55): 0-13 puntuación del 1P y del 2P / INSERT
  * COIN, 14-25 tiempo y récord (centro), 26-36 nombre y marca de rondas del 1P, 37-43 nombre del 2P, 44-63 barras de vida y 72-75
@@ -44,6 +46,11 @@ int video_scene_wide(const Mem *m) {
     const uint8_t *ram = m->wram;
     const int mode = ram[r->mode & 0xffffu], phase = ram[r->phase & 0xffffu], sub = ram[r->subphase & 0xffffu];
     int fight;
+    if (r->scene_flag) {
+        /* sfzch (D76): los luchadores en juego, o el estado fijo del combate de la partida para los cuadros entre asaltos */
+        return ram[r->scene_flag & 0xffffu] == r->scene_val ||
+               (mode == r->scene_alt[0] && phase == r->scene_alt[1] && sub == r->scene_alt[2]);
+    }
     if (mode == 2 && phase == 4) {
         /* partida: subfase 0x08 presentación de la ronda, 0x0A pelea, 0x0C victoria, 0x0E paso de un cuadro hacia el recuento (con el
          * escenario en pantalla: sin ella las bandas parpadeaban, D62), 0x10 recuento de puntos; el resto de subfases son el VS, el mapa, el
@@ -344,6 +351,13 @@ static SF2_ALWAYS_INLINE void tilemap_impl(Video *v, const Mem *m, const int lay
             const int col = tx >> tshift, xin = tx & (ts - 1);
             int n = ts - xin;
             if (px + n > rw) n = rw - px;
+            if (layer == 1 && v->scroll1_clip && rw > VIDEO_W) {
+                /* el marcador de sfzch es SCROLL1: con la vista ancha su anillo de 512 px daría la vuelta dentro de ella; se queda en la ventana original */
+                const int raw = px + rx0;
+                if (raw < VIDEO_RAW_X0) { if (raw + n > VIDEO_RAW_X0) n = VIDEO_RAW_X0 - raw; px += n; continue; }
+                if (raw >= VIDEO_RAW_X0 + VIDEO_W) { px += n; continue; }
+                if (raw + n > VIDEO_RAW_X0 + VIDEO_W) n = VIDEO_RAW_X0 + VIDEO_W - raw;
+            }
             if (has_fill && fill[col] >= 0) {
                 /* columna rellenada: solo cuenta fuera de la ventana de la recreativa (coordenadas crudas 64-447), dentro
                  * es el hueco original y el cuadro de 384 queda idéntico */
@@ -629,13 +643,15 @@ void video_render_snap(Video *v, const VideoSnap *st) {
     memset(v->dk_key, 0, sizeof v->dk_key);              /* la paleta puede haber cambiado */
     /* personaje del oponente = escenario (0 Ryu, 1 Honda, 2 Blanka, 3 Guile, 4 Ken, 5 Chun-Li, 6 Zangief, 7 Dhalsim, 8 Bison, 9 Sagat, 10 Balrog,
      * 11 Vega); en WW 0xFF8668, en otra variante el de su mod_ram (D68); -1 si no la tiene */
-    v->stage_id = m->game->mod_ram ? m->wram[m->game->mod_ram->opponent & 0xffffu] : -1;
+    v->stage_id = m->game->mod_ram && m->game->mod_ram->opponent ? m->wram[m->game->mod_ram->opponent & 0xffffu] : -1;
     v->hide_far = v->w > VIDEO_W && video_scene_wide(m) && v->stage_id == STAGE_DHALSIM;
     for (int k = 0; k < 4; k++) v->order[k] = (lc >> (6 + 2 * k)) & 3;
 
     /* geometría de este cuadro: ensanchado solo si el anfitrión lo pidió y la pantalla lo admite */
     const int wide = v->w > VIDEO_W && video_scene_wide(m);
     v->rw = wide ? v->w : VIDEO_W;
+    if (v->xsigned_scene)
+        v->xsigned = v->rw > VIDEO_W;
     v->rx0 = VIDEO_RAW_X0 - (v->rw - VIDEO_W) / 2;
     const int npix = v->rw * VIDEO_H;
     for (int i = 0; i < npix; i++) v->pix[i] = VIDEO_BACKDROP_PEN;

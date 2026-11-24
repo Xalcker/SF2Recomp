@@ -251,6 +251,16 @@ int sf2_has_mods(void) {
     return g && g->has_mods;
 }
 
+int sf2_has_hud_edges(void) {
+    const GameDef *g = recomp_game();
+    return g && g->has_mods && g->mod_ram->hud;
+}
+
+int sf2_has_logic_mods(void) {
+    const GameDef *g = recomp_game();
+    return g && g->has_mods && g->mod_ram->logic;
+}
+
 int sf2_has_stereo(void) {
     const GameDef *g = recomp_game();
     return g && g->stereo;
@@ -439,7 +449,7 @@ void sf2_render_snapshot(Sf2 *s) {
 }
 
 void sf2_set_hud_edges(Sf2 *s, int on) {
-    video_set_hud_edges(&s->video, on);
+    video_set_hud_edges(&s->video, on && s->game->has_mods && s->game->mod_ram->hud);
     if (s->has_video)
         video_render(&s->video, &s->mc.mem);
 }
@@ -456,7 +466,9 @@ static void apply_wide_logic(Sf2 *s) {
     /* en la partida real solo con lógica ancha o stage completo (que ya cambian el juego); con la lógica original lo hace la máquina sombra */
     s->mc.cpu.mod_view = on ? (s->video.rw - SF2_SCREEN_W) / 2 : 0;
     s->mc.cpu.mod_bx = on ? sprite_margin(s->video.rw) : 0;
+    video_set_xsigned_scene(&s->video, s->game->mod_ram && s->game->mod_ram->signed_x);
     video_set_xsigned(&s->video, sprite_margin(s->video.w) > 0);
+    video_set_scroll1_clip(&s->video, s->game->mod_ram && !s->game->mod_ram->hud);
     if (s->has_sound)
         sound_set_pan_half(&s->snd, s->video.rw / 2);     /* mod estéreo: el borde de la vista es el extremo del paneo */
 }
@@ -478,12 +490,12 @@ void sf2_set_stereo_width(Sf2 *s, int percent) {
 unsigned sf2_audio_channels(const Sf2 *s) { return s->audio_channels ? s->audio_channels : 1; }
 
 void sf2_set_wide_logic(Sf2 *s, int on) {
-    s->wide_logic = on != 0 && s->game->has_mods;
+    s->wide_logic = on != 0 && s->game->has_mods && s->game->mod_ram->logic;
     apply_wide_logic(s);
 }
 
 void sf2_set_stage_full(Sf2 *s, int on) {
-    s->stage_full = on != 0 && s->game->has_mods;
+    s->stage_full = on != 0 && s->game->has_mods && s->game->mod_ram->logic;
     apply_wide_logic(s);
 }
 

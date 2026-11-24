@@ -1,5 +1,35 @@
 # recompiler/mod_patches_sfzch.txt - parches de los mods de Street Fighter Zero (CPS Changer).  Mismo formato que mod_patches.txt.
-# De los mods, sfzch solo tiene el sonido estéreo (D73): los demás necesitan rutinas y RAM de SFZ que no se han buscado (D71).
+# De los mods, sfzch tiene el sonido estéreo (D73), la pantalla ancha de presentación y la lógica ancha con el stage completo (D76).
+#
+# Lógica ancha y stage completo (D76).  Parches que dependen de c->mod_wide (píxeles extra por lado de la vista; 0 = juego original) y de
+# c->mod_fixcam (stage completo: cámara fija en el centro del recorrido).  El 68000 de la placa lleva la cámara en el objeto 0xFF8280
+# (a6): X de la vista (borde izquierdo de los 384 px originales) en 0x10(a6) = 0xFF8290, objetivo en 0x20(a6), topes en 0x44(a6) (izquierdo,
+# 0x100 en todos los escenarios) y 0x46(a6) (derecho, 0x280).  La vista ancha mide 384 + 2 * mod_wide: los luchadores llegan hasta sus bordes
+# y la cámara deja de acercarse al tope del arte lo que sobra de vista (topes + mod_wide y - mod_wide).
+#   0x1DBA0  paredes de un luchador contra la cámara (a6 = luchador, d2 = semiancho): izquierda 0x1DBA6, derecha 0x1DBF6 (ancho 0x180).  La
+#   derecha reutiliza d0 de la izquierda, que ya lleva + mod_wide: por eso su ancho crece 2 * mod_wide y no mod_wide
+0x1dba6 | uint32_t s = rd16(c, ea0); | uint32_t s = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+0x1dbf6 | uint32_t s = 0x180u; | uint32_t s = 0x180u + 2u * (uint32_t)c->mod_wide;
+#   0x1DC40  empuje entre los dos luchadores contra las paredes (mismas cuentas)
+0x1dc66 | uint32_t s = rd16(c, ea0); | uint32_t s = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+0x1dc8c | uint32_t s = 0x180u; | uint32_t s = 0x180u + (uint32_t)c->mod_wide;
+#   0x191FC  seguimiento de la cámara: con los luchadores a menos de 0xC0 px la cámara solo se mueve si salen de la franja [0x60, 0x120]
+#   de la vista; si no, se centra entre los dos.  La franja se ensancha con la vista (0x60 - e, 0x120 + e) y el umbral de separación con ella.
+0x19204 | uint32_t s = 0xc0u; | uint32_t s = 0xc0u + 2u * (uint32_t)c->mod_wide;
+0x19210 | uint32_t s = 0x120u; | uint32_t s = 0x120u + (uint32_t)c->mod_wide;
+0x1921c | uint32_t s = 0x60u; | uint32_t s = (0x60u - (uint32_t)c->mod_wide) & 0xffffu;
+#   0x19246 / 0x19264  topes de la cámara (0x46(a6) derecho, 0x44(a6) izquierdo).  Con c->mod_fixcam, o con una vista de 768 px o más, los dos
+#   son el centro del recorrido y la cámara queda fija.
+0x19246 | uint32_t v = rd16(c, ea0); | uint32_t v = (c->mod_fixcam + (c->mod_wide >= 192)) ? ((rd16(c, c->a[6] + 68u) + rd16(c, ea0)) >> 1) & 0xffffu : (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
+0x19264 | uint32_t v = rd16(c, ea0); | uint32_t v = (c->mod_fixcam + (c->mod_wide >= 192)) ? ((rd16(c, c->a[6] + 70u) + rd16(c, ea0)) >> 1) & 0xffffu : (rd16(c, ea0) + (uint32_t)c->mod_wide) & 0xffffu;
+#   Ventanas de actividad: el objeto sale de la lista (estado 6) al dejar la ventana x - cámara + 0x40 <= 0x200 (0x132A8), + 0x80 <= 0x280
+#   (0x132CE) o + 0x60 <= 0x240 (0x409DE, proyectil)
+0x132bc | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_wide;
+0x132c0 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_wide;
+0x132e2 | uint32_t s = 0x80u; | uint32_t s = 0x80u + (uint32_t)c->mod_wide;
+0x132e6 | uint32_t s = 0x280u; | uint32_t s = 0x280u + 2u * (uint32_t)c->mod_wide;
+0x409e6 | uint32_t s = 0x60u; | uint32_t s = 0x60u + (uint32_t)c->mod_wide;
+0x409ea | uint32_t s = 0x240u; | uint32_t s = 0x240u + 2u * (uint32_t)c->mod_wide;
 #
 # Sonido estéreo (docs/ESTEREO.md): no cambia la partida.  La rutina 0x11350 encola el comando d1 en la ranura d0 de la cola de 256
 # palabras -0x59E6(a5) = 0xFF261A (y detrás un 0xFF00, «sin comando»); quien llama deja en a6 el objeto que lo pide (medido con un tap
@@ -7,3 +37,38 @@
 # X en pantalla de ese objeto.  Solo lee la RAM y escribe en campos del anfitrión (snd_x/snd_ok).
 #   0x11364  move.w d1,0x0(a4,d0.w)
 0x11364 | { uint32_t v = (c->d[1] & 0xffffu); | { if (c->mod_stereo) mod_sound_tag(c); uint32_t v = (c->d[1] & 0xffffu);
+#
+# Pantalla ancha (D76, docs/WIDESCREEN.md): solo decide qué se dibuja y dónde, así que usa c->mod_view (píxeles extra por lado de la vista,
+# en toda escena ancha; 0 = juego original).  En la máquina sombra (D62) corre con la lógica original.
+#   0x13314/0x13318  ventana «¿está a la vista?» de los objetos (x - cámara + 0x40 <= 0x200): pone la bandera 0x1(a6) que decide si se dibujan
+0x13314 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+0x13318 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_view;
+#   Constructor de sprites (0x10776-0x10A06): no descarta los tiles fuera de la ventana, los aparca: recorta la X a [-0x40, 0x1c0] y la
+#   enmascara a 9 bits, de modo que un tile aparcado queda en la X 0x1c0 (448), justo fuera de los 384 px.  Con la vista ensanchada esa X
+#   se vería: el recorte pasa a [-0x40 - mod_view, 0x1c0 + mod_view] (justo fuera de la vista) y la X se guarda con signo, sin máscara
+#   (Video.xsigned; ModRam.signed_x).  Cinco puntos de recorte: comparación inferior, valor inferior, comparación superior, valor superior y máscara.
+0x107a4 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x107aa | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x107ac | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x107b2 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x107b6 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x10834 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x1083a | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x1083c | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x10842 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x10846 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x108d6 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x108dc | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x108de | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x108e4 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x108e8 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x10962 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x10968 | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x1096a | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x10970 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x10988 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x109dc | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x109e2 | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x109e4 | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x109ea | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x10a02 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;

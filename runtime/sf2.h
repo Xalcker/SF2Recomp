@@ -66,6 +66,8 @@ double sf2_frame_hz(void);
 /* 1 si los mods existen en esa variante (sf2, sf2ce, sf2hf): en las demás se rechazan la pantalla ancha, la lógica ancha, el stage
  * completo, el entrenamiento y sus cajas, y el juego queda original.  Las herramientas de desarrollo son solo de sf2 */
 int sf2_has_mods(void);
+int sf2_has_hud_edges(void);    /* 1 si el marcador se puede pegar a los bordes (sfzch lo dibuja con tiles: no) */
+int sf2_has_logic_mods(void);   /* 1 si la variante tiene lógica ancha y stage completo (D76: sfzch tiene solo pantalla ancha) */
 /* 1 si la variante tiene el mod estéreo (las tres de SF2 y sfzch, D73); en las demás sf2_set_stereo no hace nada */
 int sf2_has_stereo(void);
 /* 1 si la variante tiene el modo entrenamiento y las cajas de golpe (las tres de SF2 y sfzch, D74 y D75).  El visor de entradas
