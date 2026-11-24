@@ -6,9 +6,10 @@
 # (a6): X de la vista (borde izquierdo de los 384 px originales) en 0x10(a6) = 0xFF8290, objetivo en 0x20(a6), topes en 0x44(a6) (izquierdo,
 # 0x100 en todos los escenarios) y 0x46(a6) (derecho, 0x280).  La vista ancha mide 384 + 2 * mod_wide: los luchadores llegan hasta sus bordes
 # y la cámara deja de acercarse al tope del arte lo que sobra de vista (topes + mod_wide y - mod_wide).
-#   0x1DBA0  paredes de un luchador contra la cámara (a6 = luchador, d2 = semiancho): izquierda 0x1DBA6, derecha 0x1DBF6 (ancho 0x180)
+#   0x1DBA0  paredes de un luchador contra la cámara (a6 = luchador, d2 = semiancho): izquierda 0x1DBA6, derecha 0x1DBF6 (ancho 0x180).  La
+#   derecha reutiliza d0 de la izquierda, que ya lleva + mod_wide: por eso su ancho crece 2 * mod_wide y no mod_wide
 0x1dba6 | uint32_t s = rd16(c, ea0); | uint32_t s = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
-0x1dbf6 | uint32_t s = 0x180u; | uint32_t s = 0x180u + (uint32_t)c->mod_wide;
+0x1dbf6 | uint32_t s = 0x180u; | uint32_t s = 0x180u + 2u * (uint32_t)c->mod_wide;
 #   0x1DC40  empuje entre los dos luchadores contra las paredes (mismas cuentas)
 0x1dc66 | uint32_t s = rd16(c, ea0); | uint32_t s = (rd16(c, ea0) - (uint32_t)c->mod_wide) & 0xffffu;
 0x1dc8c | uint32_t s = 0x180u; | uint32_t s = 0x180u + (uint32_t)c->mod_wide;
