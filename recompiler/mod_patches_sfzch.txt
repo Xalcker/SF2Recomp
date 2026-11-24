@@ -1,5 +1,6 @@
 # recompiler/mod_patches_sfzch.txt - parches de los mods de Street Fighter Zero (CPS Changer).  Mismo formato que mod_patches.txt.
-# De los mods, sfzch solo tiene el sonido estéreo (D73): los demás necesitan rutinas y RAM de SFZ que no se han buscado (D71).
+# De los mods, sfzch tiene el sonido estéreo (D73) y la pantalla ancha de presentación (D76); la lógica ancha y el stage completo
+# necesitan las paredes y la cámara de SFZ, que no se han buscado.
 #
 # Sonido estéreo (docs/ESTEREO.md): no cambia la partida.  La rutina 0x11350 encola el comando d1 en la ranura d0 de la cola de 256
 # palabras -0x59E6(a5) = 0xFF261A (y detrás un 0xFF00, «sin comando»); quien llama deja en a6 el objeto que lo pide (medido con un tap
@@ -7,3 +8,38 @@
 # X en pantalla de ese objeto.  Solo lee la RAM y escribe en campos del anfitrión (snd_x/snd_ok).
 #   0x11364  move.w d1,0x0(a4,d0.w)
 0x11364 | { uint32_t v = (c->d[1] & 0xffffu); | { if (c->mod_stereo) mod_sound_tag(c); uint32_t v = (c->d[1] & 0xffffu);
+#
+# Pantalla ancha (D76, docs/WIDESCREEN.md): solo decide qué se dibuja y dónde, así que usa c->mod_view (píxeles extra por lado de la vista,
+# en toda escena ancha; 0 = juego original).  En la máquina sombra (D62) corre con la lógica original.
+#   0x13314/0x13318  ventana «¿está a la vista?» de los objetos (x - cámara + 0x40 <= 0x200): pone la bandera 0x1(a6) que decide si se dibujan
+0x13314 | uint32_t s = 0x40u; | uint32_t s = 0x40u + (uint32_t)c->mod_view;
+0x13318 | uint32_t s = 0x200u; | uint32_t s = 0x200u + 2u * (uint32_t)c->mod_view;
+#   Constructor de sprites (0x10776-0x10A06): no descarta los tiles fuera de la ventana, los aparca: recorta la X a [-0x40, 0x1c0] y la
+#   enmascara a 9 bits, de modo que un tile aparcado queda en la X 0x1c0 (448), justo fuera de los 384 px.  Con la vista ensanchada esa X
+#   se vería: el recorte pasa a [-0x40 - mod_view, 0x1c0 + mod_view] (justo fuera de la vista) y la X se guarda con signo, sin máscara
+#   (Video.xsigned; ModRam.signed_x).  Cinco puntos de recorte: comparación inferior, valor inferior, comparación superior, valor superior y máscara.
+0x107a4 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x107aa | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x107ac | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x107b2 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x107b6 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x10834 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x1083a | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x1083c | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x10842 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x10846 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x108d6 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x108dc | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x108de | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x108e4 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x108e8 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x10962 | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x10968 | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x1096a | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x10970 | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x10988 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;
+0x109dc | uint32_t s = 0xffc0u; | uint32_t s = (0xffc0u - (uint32_t)c->mod_view) & 0xffffu;
+0x109e2 | c->d[0] = 0xffffffc0u; op_logic32(c, 0xffffffc0u); | { uint32_t v_ = 0xffffffc0u - (uint32_t)c->mod_view; c->d[0] = v_; op_logic32(c, v_); }
+0x109e4 | uint32_t s = 0x1c0u; | uint32_t s = 0x1c0u + (uint32_t)c->mod_view;
+0x109ea | uint32_t v = 0x1c0u; | uint32_t v = 0x1c0u + (uint32_t)c->mod_view;
+0x10a02 | uint32_t s = 0x1ffu; | uint32_t s = c->mod_view ? 0xffffu : 0x1ffu;

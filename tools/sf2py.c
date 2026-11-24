@@ -80,6 +80,8 @@ SF2PY_API int sf2py_state_load(Sf2 *s, const uint8_t *buf, int len, char *err, i
 }
 SF2PY_API unsigned sf2py_state_crc(Sf2 *s) { return sf2_state_crc(s); }
 
+/* tabla de sprites latcheada (SF2_OBJ_WORDS palabras: X, Y, código, atributos de cada sprite), para sondear el marcador y los sprites */
+SF2PY_API void sf2py_obj(Sf2 *s, uint16_t *out) { sf2_video_snapshot(s, 1, out, NULL); }
 SF2PY_API int sf2py_png(Sf2 *s, const char *path) {
     return hostio_write_png(path, sf2_frame(s), sf2_frame_width(s), SF2_SCREEN_H);
 }

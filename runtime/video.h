@@ -65,6 +65,7 @@ typedef struct Video {
      * cuadro renderizado (ancho y coordenada cruda X de su columna 0): VIDEO_W y 64 en las escenas que no se ensanchan,
      * que se centran en el cuadro con barras negras */
     int w, rw, rx0;
+    int xsigned_scene;              /* sfzch (D76): la X con signo solo vale en las escenas anchas (el constructor de sprites aparca los tiles fuera de la ventana y en las estrechas el juego es el original) */
     int xsigned;                    /* vista de más de 480 px (D59, D69): la X de los sprites de la tabla es un entero con signo, sin envolver en 9 bits */
     int hud_edges;                  /* 1: el HUD de combate se pega a los bordes de la ventana ancha (video_hud_side) */
     VideoSnap prev, cur, mid;       /* mid: la instantánea interpolada que dibuja video_render_t */
@@ -101,6 +102,7 @@ void video_set_hud_edges(Video *v, int on);
 /* la X de los sprites de la tabla de objetos se interpreta con signo: la escribe así el constructor parcheado cuando tiene margen
  * (c->mod_bx > 0: stage completo, D59, y toda vista de más de 480 px, D69) */
 void video_set_xsigned(Video *v, int on);
+void video_set_xsigned_scene(Video *v, int on);
 /* 1 si la pantalla actual del juego se ensancha: combate (presentación de ronda, pelea, victoria y recuento) con
  * oponente; las demás (título, mapa, selección, VS, diálogo, bonus, final) se componen para 384 píxeles */
 int video_scene_wide(const Mem *mem);

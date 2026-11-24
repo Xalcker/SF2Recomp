@@ -167,10 +167,22 @@ static const RomInfo roms_sfzch[] = {
 static const ModRam mod_ram_sf2 = {
     0xFF8001u, 0xFF8005u, 0xFF8009u, 0xFF82DDu, 0xFF83C0u, 0xFF86C0u, 0xFF8ACEu, 0xFF8ACFu,
     0xFF8BD8u, 0xFF8BDCu, 0xFF89D0u, 0xFF89D2u, 0xFF8668u, 0xFF938Au, 0xFF81A2u, 0xFF8024u, 0xFF9000u, 0xFFE000u,
+    0, 1, 1,
 };
 static const ModRam mod_ram_sf2ce = {
     0xFF8001u, 0xFF8005u, 0xFF8009u, 0xFF82D9u, 0xFF83B8u, 0xFF86B8u, 0xFF8ABEu, 0xFF8ABFu,
     0xFF8BC4u, 0xFF8BC8u, 0xFF89C4u, 0xFF89C6u, 0xFF8660u, 0xFF9376u, 0xFF819Eu, 0xFF8024u, 0xFF9000u, 0xFFE000u,
+    0, 1, 1,
+};
+
+/* sfzch (D76, sf2py con tools/inputs_sf2.txt): modo/fase/subfase en 0xFF8001/05/09; el combate es modo 2 fase 4 subfase 4 (0xFF800D = 2
+ * pelea, 4 KO...) y en la demostración el byte 0x4 de cada luchador (0xFF8404, 0xFF8804) vale 2 mientras hay luchadores, también en el
+ * combate de la partida salvo 3 cuadros entre asaltos.  Cámara 0xFF8290/0xFF8294, luchadores 0xFF8400/0xFF8800 (X en 0x10).  Por ahora solo
+ * la pantalla ancha (sin lógica ancha ni stage completo: `logic` = 0; el marcador no son sprites: sin HUD en los bordes, `hud` = 0). */
+static const ModRam mod_ram_sfzch = {
+    0xFF8001u, 0xFF8005u, 0xFF8009u, 0, 0xFF8400u, 0xFF8800u, 0xFFAE09u, 0xFFAE0Au,
+    0xFF8290u, 0xFF8294u, 0, 0, 0, 0xFF9000u, 0xFF261Au, 0xFF361Cu, 0xFF9000u, 0xFFA000u,
+    1, 0, 0, 0xFF8404u, 2, { 2, 4, 4 },
 };
 
 /* estéreo (D73).  WW, CE y HF: a6 = luchador + 6 u objeto del combate, X en 0x6(a6), ranura en d1, cola de 64 palabras (la RAM de cada
@@ -245,7 +257,7 @@ const GameDef game_sfzch = {
     0x200000u, 0x800000u, &cpsb_21_sfz, &mapper_sfz63b, COUNT(roms_sfzch), roms_sfzch,
     /* manejador de la IRQ2 en 0x1068; primer acceso de E/S tras movem: escritura de 0x800100 en 0x1076; contador de cuadros
      * 0xFF8018 (`addq.b #$1,0x18(a5)` en 0x10DC); bandera de VBlank en 0xFF049E.  Sin bloqueo de monedas (CPS Changer); de los mods, el estéreo (D73) y el entrenamiento (D74). */
-    1, 0x001068u, 0x001076u, 0xFF8018u, 0, NULL, 0, 1, &stereo_sfzch, &training_sfzch,
+    1, 0x001068u, 0x001076u, 0xFF8018u, 1, &mod_ram_sfzch, 0, 1, &stereo_sfzch, &training_sfzch,
 };
 
 static const GameDef *const games[] = { &game_sf2, &game_sf2ce, &game_sf2hf, &game_sfzch };

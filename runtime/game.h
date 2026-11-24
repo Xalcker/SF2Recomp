@@ -84,6 +84,14 @@ typedef struct ModRam {
     uint32_t proj;                      /* reserva de proyectiles: 8 objetos de 0xC0 bytes */
     uint32_t snd_queue, snd_read;       /* cola de comandos de sonido (64 palabras) e índice de lectura */
     uint32_t obj_lo, obj_hi;            /* objetos del combate (proyectiles, chispas): [obj_lo, obj_hi) */
+    int signed_x;                       /* 1 si el constructor de sprites aparca los tiles fuera de la ventana (sfzch): con la vista ancha la X de la tabla lleva signo */
+    int logic;                          /* 1 si la variante tiene los parches de lógica ancha y stage completo (paredes, cámara) */
+    int hud;                            /* 1 si el marcador son sprites en las ranuras de SF2 y se puede pegar a los bordes (HUD en los bordes) */
+    /* escena de combate de otro tipo que la de SF2 (D76, sfzch): un byte que vale scene_val con los luchadores en juego (0: se usa el
+     * esquema de modo/fase/subfase de SF2) o el estado fijo scene_alt = {modo, fase, subfase} de la partida, que cubre los cuadros
+     * entre asaltos en que el byte baja a 0 */
+    uint32_t scene_flag;
+    uint8_t scene_val, scene_alt[3];
 } ModRam;
 
 /* Mod de sonido estéreo (docs/ESTEREO.md, D73): lo que necesita, aparte del resto de los mods para que una variante pueda tenerlo

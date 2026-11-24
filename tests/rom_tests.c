@@ -378,8 +378,12 @@ static void test_widescreen(const char *rom, const char *script) {
     if (strcmp(sf2_game()->id, "sf2") == 0) CHECK(bad_centre == 0);
     else CHECK(bad_centre_frames * 100 <= frames);
     CHECK(bad_state == 0);
-    CHECK(bad_hud == 0);                    /* el HUD en los bordes solo toca las 48 primeras filas */
-    CHECK(hud_moved > 100 && hud_edge_ink);  /* y las toca: el marcador llega al borde izquierdo */
+    if (sf2_has_hud_edges()) {
+        CHECK(bad_hud == 0);                    /* el HUD en los bordes solo toca las 48 primeras filas */
+        CHECK(hud_moved > 100 && hud_edge_ink);  /* y las toca: el marcador llega al borde izquierdo */
+    } else {
+        CHECK(hud_moved == 0 && bad_hud == 0);   /* sfzch: el HUD en los bordes no está y no cambia nada */
+    }
     CHECK(wide_frames > 100);               /* el combate de la secuencia se ve ancho */
     CHECK(narrow_frames > 100);             /* y las demas pantallas, centradas */
     fprintf(stderr, "pantalla ancha: %d cuadros anchos, %d centrados, %d lineas centrales distintas en %d cuadros, HUD en bordes: %d cuadros distintos arriba, %d abajo\n", wide_frames, narrow_frames, bad_centre, bad_centre_frames, hud_moved, bad_hud);
@@ -590,8 +594,10 @@ int main(int argc, char **argv) {
         test_training(argv[1], (const char *)script);
     if (sf2_has_mods()) {
         test_widescreen(argv[1], (const char *)script);
-        test_wide_logic(argv[1], (const char *)script);
-        test_stage_full(argv[1], (const char *)script);
+        if (sf2_has_logic_mods()) {
+            test_wide_logic(argv[1], (const char *)script);
+            test_stage_full(argv[1], (const char *)script);
+        }
     } else {
         test_no_mods(argv[1], (const char *)script);
     }
