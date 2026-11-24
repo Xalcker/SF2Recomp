@@ -91,7 +91,7 @@ teclado, el mando, `--inputs` y las secuencias usan los mismos nombres. La tecla
 escritura de 0x800100 en 0x1076, primer acceso de E/S tras el `movem` del manejador de la IRQ2 (0x1068); contador de cuadros 0xFF8018.
 De los mods tiene el **sonido estéreo** (D73, `recompiler/mod_patches_sfzch.txt`, bitácora `2026-11-13-sfzch-estereo`) y el **modo
 entrenamiento** con el visor de entradas (D74, `docs/ENTRENAMIENTO.md`, bitácora `2026-11-13-sfzch-entrenamiento`) y las
-**cajas de golpe** (D75, `docs/HITBOXES.md` §8, bitácora `2026-11-13-sfzch-cajas`); pantalla ancha, lógica ancha y stage completo se rechazan como en cualquier variante sin mods (D66).
+**cajas de golpe** (D75, `docs/HITBOXES.md` §8, bitácora `2026-11-13-sfzch-cajas`); y la **pantalla ancha**, la **lógica ancha** y el **stage completo** (D76, bitácora `2026-11-23-sfzch-pantalla-ancha`); no tiene el HUD en los bordes (el marcador es SCROLL1) y quedan artefactos en los bordes del arte de algunos escenarios.
 Pistas en `tools/hints_sfzch.txt`. Bitácora `2026-11-13-sfzch`.
 
 Probado en Windows (GCC 16.2): `ctest` 8/8, 40.000 cuadros de atracción sin fallos de despacho, una partida (start, selección, combate)

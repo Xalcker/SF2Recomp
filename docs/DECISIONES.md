@@ -851,3 +851,28 @@ los índices en los bytes 8 a 0xC; el proyectil (reserva de 8 objetos de 0x80 by
 tabla con dos desplazamientos (empuje y ataque), que puede estar en la RAM (la bola de Rose). Registro, solape y paso a pantalla como en
 SF2, con la cámara 0xFF8290/0xFF8294. No tiene punto débil. WW, CE y HF: los mismos valores que daba su `ModRam`. Bitácora
 `2026-11-13-sfzch-cajas`.
+
+## D76 (2026-11-23): sfzch tiene la pantalla ancha, la lógica ancha y el stage completo; la X con signo y SCROLL1 recortado según la escena
+
+SFZ no es un SF2: su constructor de sprites (0x10776-0x10A06) no descarta los tiles fuera de la ventana, los **aparca** (recorta la X a
+[-0x40, 0x1C0] y la enmascara a 9 bits, así que un tile aparcado queda en la X 448, justo fuera de 384 px), y el marcador no son sprites
+sino SCROLL1. Decisiones:
+
+- `ModRam` gana `signed_x` (el constructor aparca), `logic` (tiene lógica ancha y stage completo), `hud` (el marcador son sprites en las
+  ranuras de SF2) y la forma de reconocer el combate (`scene_flag`/`scene_val`/`scene_alt`: el byte +0x4 de los luchadores vale 2, o el
+  estado fijo modo 2, fase 4, subfase 4 en los cuadros entre asaltos). `sf2_has_logic_mods()` y `sf2_has_hud_edges()` en la fachada; las
+  pruebas de lógica ancha, stage completo y HUD en los bordes solo corren donde existen.
+- **Pantalla ancha** (`recompiler/mod_patches_sfzch.txt`): la ventana «¿está a la vista?» (0x13314/0x13318, bandera +0x1 del objeto) con
+  `mod_view` y los cinco puntos de recorte de cada uno de los cinco constructores: el recorte pasa a [-0x40 - mod_view, 0x1C0 + mod_view] y la
+  máscara de 9 bits se quita cuando `mod_view` != 0 (X con signo, `Video.xsigned`). Con `mod_view` = 0 valen lo mismo que el original.
+- **La X con signo solo en las escenas anchas** (`Video.xsigned_scene`): en las estrechas (la intro de Ryu y Ken, que dibuja bloques anclados
+  fuera de la ventana con la X aparcada) el renderizador debe envolver a 9 bits como la placa; con la X con signo se perdían piezas.
+- **SCROLL1 recortado** (`Video.scroll1_clip`): su anillo mide 512 px y en una vista de más de 512 daba la vuelta repitiendo el marcador; con
+  una vista ancha solo se dibuja dentro de la ventana original (el marcador queda centrado).
+- **Lógica ancha** (valen `mod_wide`, y `mod_fixcam` para el stage completo): paredes de los luchadores contra la cámara (0x1DBA6/0x1DBF6 y
+  su copia del empuje 0x1DC66/0x1DC8C), franja del seguimiento de cámara (0x19204, 0x19210, 0x1921C), topes de la cámara 0x44/0x46(a6) del
+  objeto de cámara 0xFF8280 (0x19246, 0x19264; con `mod_fixcam` o 768 px los dos son el centro del recorrido) y ventanas de actividad de los
+  objetos y proyectiles (0x132BC-0x132E6, 0x409E6/0x409EA).
+- Se descubrió con `tools/mame_write_tap.lua` (nuevo): taps de escritura sobre rangos de RAM que dicen qué PC escribe y cuántas veces.
+
+Bitácora `2026-11-23-sfzch-pantalla-ancha`.
