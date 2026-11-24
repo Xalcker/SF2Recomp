@@ -468,6 +468,7 @@ static void apply_wide_logic(Sf2 *s) {
     s->mc.cpu.mod_bx = on ? sprite_margin(s->video.rw) : 0;
     video_set_xsigned_scene(&s->video, s->game->mod_ram && s->game->mod_ram->signed_x);
     video_set_xsigned(&s->video, sprite_margin(s->video.w) > 0);
+    video_set_scroll1_clip(&s->video, s->game->mod_ram && !s->game->mod_ram->hud);
     if (s->has_sound)
         sound_set_pan_half(&s->snd, s->video.rw / 2);     /* mod estéreo: el borde de la vista es el extremo del paneo */
 }

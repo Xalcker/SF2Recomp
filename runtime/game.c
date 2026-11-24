@@ -181,8 +181,8 @@ static const ModRam mod_ram_sf2ce = {
  * la pantalla ancha (sin lógica ancha ni stage completo: `logic` = 0; el marcador no son sprites: sin HUD en los bordes, `hud` = 0). */
 static const ModRam mod_ram_sfzch = {
     0xFF8001u, 0xFF8005u, 0xFF8009u, 0, 0xFF8400u, 0xFF8800u, 0xFFAE09u, 0xFFAE0Au,
-    0xFF8290u, 0xFF8294u, 0, 0, 0, 0xFF9000u, 0xFF261Au, 0xFF361Cu, 0xFF9000u, 0xFFA000u,
-    1, 0, 0, 0xFF8404u, 2, { 2, 4, 4 },
+    0xFF8290u, 0xFF8294u, 0xFF82C4u, 0xFF82C6u, 0, 0xFF9000u, 0xFF261Au, 0xFF361Cu, 0xFF9000u, 0xFFA000u,
+    1, 1, 0, 0xFF8404u, 2, { 2, 4, 4 },
 };
 
 /* estéreo (D73).  WW, CE y HF: a6 = luchador + 6 u objeto del combate, X en 0x6(a6), ranura en d1, cola de 64 palabras (la RAM de cada
